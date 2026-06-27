@@ -29,3 +29,5 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings():
     return Settings()
+
+settings = get_settings()
