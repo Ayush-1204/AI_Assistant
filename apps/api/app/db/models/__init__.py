@@ -1,1 +1,7 @@
-from app.db.models.user import User
+from .conversation import Conversation
+from .user import User
+
+__all__ = [
+    "User",
+    "Conversation",
+]
