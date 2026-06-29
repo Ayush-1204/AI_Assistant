@@ -173,3 +173,214 @@ The backend remains simple and functional while being prepared for database inte
 
 -----------------------------------------------------------
 
+# Sprint 2 – Database Foundation
+
+## Objective
+
+Establish the database layer that all persistent application features will use.
+
+## Added Components
+
+- SQLAlchemy ORM
+- PostgreSQL configuration
+- Declarative base class
+- Database session factory
+
+## Directory Structure
+
+```text
+app/
+├── db/
+│   ├── base.py
+│   ├── session.py
+│   └── models/
+```
+
+## Responsibilities
+
+- `base.py` defines the base class for all database models.
+- `session.py` creates the SQLAlchemy engine and session factory.
+- Database configuration is loaded from environment variables.
+
+## Current Status
+
+The application now has the foundation required for persistent storage. Database models and migrations will be introduced in the following sprint.
+
+-------------------------------------------------------------------
+
+PostGRE setup done.
+
+# Environment Configuration
+
+## Purpose
+
+The application loads runtime configuration from a local `.env` file.
+
+### Files
+
+- `.env.example` — Template committed to Git.
+- `.env` — Local configuration file containing environment-specific values and secrets. This file is excluded from version control.
+
+## Database Configuration
+
+The `DATABASE_URL` environment variable defines the PostgreSQL connection string used by SQLAlchemy's asynchronous engine.
+
+-------------------------------------------------------------------
+
+# Sprint 2 – Alembic Configuration
+
+## Objective
+
+Configure Alembic to use the application's central configuration instead of a hardcoded database URL.
+
+## Architecture
+
+```text
+.env
+    ↓
+Application Configuration
+    ↓
+Alembic
+    ↓
+PostgreSQL
+```
+
+## Benefits
+
+- Single source of truth for database configuration.
+- No duplicated connection strings.
+- Consistent configuration across FastAPI, tests, and migrations.
+- Simplifies environment management for development and production.
+
+-------------------------------------------------------------------
+
+# Sprint 2 – First Database Model
+
+## Objective
+
+Create the first SQLAlchemy model and generate the initial database migration.
+
+## Added
+
+- `User` SQLAlchemy model
+- Model registration for Alembic discovery
+- Alembic metadata configuration
+
+## User Fields
+
+- `id`
+- `email`
+- `full_name`
+- `hashed_password`
+- `is_active`
+- `created_at`
+- `updated_at`
+
+## Migration Workflow
+
+```text
+Model
+    ↓
+Alembic Revision
+    ↓
+Migration File
+    ↓
+Database
+```
+
+## Result
+
+The project now manages its database schema through version-controlled migrations instead of manual SQL changes. This establishes the foundation for all future persistent entities.
+
+------------------------------------------------------------------
+
+# Sprint 3 – User Schemas
+
+## Objective
+
+Define the API data contracts for user-related operations.
+
+## Added
+
+- `UserBase`
+- `UserCreate`
+- `UserResponse`
+
+## Responsibilities
+
+- `UserCreate` validates incoming registration requests.
+- `UserResponse` defines the public representation of a user.
+- Database models remain internal and are never returned directly to API clients.
+
+## Architecture
+
+```text
+Client JSON
+      ↓
+Pydantic Schema
+      ↓
+Service
+      ↓
+Repository
+      ↓
+Database Model
+```
+
+Using dedicated schemas separates API contracts from database implementation and improves security by preventing sensitive fields (such as hashed passwords) from being exposed.
+
+------------------------------------------------------------------
+
+# Sprint 3 – User Repository
+
+## Objective
+
+Implement the data access layer for user-related database operations.
+
+## Added
+
+- `UserRepository`
+
+## Responsibilities
+
+- Retrieve users by email.
+- Persist new users.
+- Isolate SQLAlchemy operations from business logic.
+
+## Architecture
+
+```text
+Service
+    ↓
+Repository
+    ↓
+SQLAlchemy
+    ↓
+PostgreSQL
+```
+
+Repositories encapsulate database access, allowing services to focus on business rules while improving maintainability and testability.
+
+-------------------------------------------------------------------
+
+# Sprint 3 – Argon2 Password Hashing
+
+## Objective
+
+Enable the Argon2 password hashing backend used by `pwdlib`.
+
+## Changes
+
+- Installed `pwdlib` with the `argon2` extra.
+- Verified password hashing and verification.
+- Standardized on Argon2id as the application's password hashing algorithm.
+
+## Security Benefits
+
+- Memory-hard hashing algorithm.
+- Resistant to GPU and ASIC attacks.
+- Recommended by OWASP for modern web applications.
+- Password hashing remains centralized within the security utility layer.
+
+
+-------------------------------------------------------------------
+

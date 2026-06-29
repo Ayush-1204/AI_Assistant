@@ -12,4 +12,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+from app.routers import auth_router, health_router
+
 app.include_router(health_router)
+app.include_router(auth_router)
