@@ -6,6 +6,7 @@ from app.routers import (
     auth_router,
     health_router,
     users_router,
+    conversation_router,
 )
 
 settings = get_settings()
@@ -19,4 +20,4 @@ app = FastAPI(
 app.include_router(health_router)
 app.include_router(auth_router)
 app.include_router(users_router)
-
+app.include_router(conversation_router)
