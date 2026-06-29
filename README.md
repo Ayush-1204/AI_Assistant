@@ -669,3 +669,63 @@ PostgreSQL
 
 ------------------------------------------------------------------
 
+# Sprint 4 – Commit 4: Conversation Service
+
+## Objective
+
+Implement business logic for conversation management.
+
+## Added
+
+- ConversationService
+  - create()
+  - get_by_id()
+  - list_by_user()
+  - update()
+  - delete()
+
+## Business Rules
+
+- Verify conversation exists
+- Verify ownership before access
+- Handle conversation updates
+- Handle conversation deletion
+
+-------------------------------------------------------------------
+
+# Sprint 4 – Conversation API
+
+## Objective
+
+Expose REST endpoints for managing user conversations.
+
+## Changes
+
+- Added Conversation router.
+- Implemented CRUD endpoints for conversations.
+- Integrated ConversationService through dependency injection.
+- Protected all endpoints using JWT authentication.
+
+## Benefits
+
+- Users can create, retrieve, update, and delete conversations.
+- Conversation ownership is validated before every operation.
+- Conversation management is accessible through Swagger UI and frontend clients.
+- Establishes the API foundation for storing chat history.
+
+# Dependency Injection
+
+The Conversation module follows the application's dependency injection pattern.
+
+## Request Flow
+
+- `conversation.py` — Defines REST endpoints.
+- `dependencies.py` — Provides ConversationRepository and ConversationService.
+- `ConversationService` — Applies business rules and authorization.
+- `ConversationRepository` — Executes database operations.
+- `Conversation` model — Persists conversation data.
+
+This keeps routing, business logic, and persistence cleanly separated while ensuring consistent dependency management across the application.
+
+------------------------------------------------------------------
+
