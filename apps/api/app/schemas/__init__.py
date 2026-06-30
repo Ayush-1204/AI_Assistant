@@ -24,6 +24,8 @@ from .chat import (
     ChatResponse,
 )
 
+from .conversation_summary import ConversationSummary
+
 __all__ = [
     "UserBase",
     "UserCreate",
@@ -39,4 +41,5 @@ __all__ = [
     "MessageUpdate",
     "ChatRequest",
     "ChatResponse",
+    "ConversationSummary",
 ]

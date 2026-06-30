@@ -1046,3 +1046,32 @@ The backend now maintains a complete conversation history for every interaction.
 
 ------------------------------------------------------------------
 
+# Sprint 8 – Prompt Builder Refactoring
+
+## Objective
+
+Separate prompt construction from LLM provider implementations.
+
+## Changes
+
+- Introduced a dedicated `PromptBuilder` component.
+- Moved chat prompt generation into `PromptBuilder`.
+- Moved conversation title prompt generation into `PromptBuilder`.
+- Simplified `GeminiProvider` to focus on API communication.
+
+## Benefits
+
+- Establishes a single location for prompt templates.
+- Keeps provider implementations independent of prompt engineering.
+- Simplifies support for multiple LLM providers.
+- Prepares the architecture for memory, RAG, summarization, and tool calling.
+
+# AI Layer
+
+The AI layer is now organized into distinct responsibilities:
+
+- **PromptBuilder** – Builds prompts for AI tasks.
+- **LLM Provider** – Sends prompts to the model and returns responses.
+- **AIService** – Orchestrates the conversation workflow.
+
+This separation improves maintainability and makes future AI capabilities easier to extend.
