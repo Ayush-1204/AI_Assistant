@@ -5,6 +5,10 @@ from app.services.message_service import MessageService
 
 
 class AIService:
+    """
+    High-level AI orchestration service.
+    """
+
     def __init__(
         self,
         provider: BaseLLMProvider,
@@ -22,21 +26,16 @@ class AIService:
         prompt: str,
     ) -> str:
         """
-        AI Conversation Pipeline
-
-        Current Sprint
-        --------------
-        ✓ Validate conversation
-        ✓ Store user message
-        ✓ Load history
-        ✓ Generate AI response
+        Complete AI conversation pipeline.
         """
 
+        # Validate conversation ownership
         await self.conversation_service.get_by_id(
             conversation_id=conversation_id,
             user_id=user_id,
         )
 
+        # Store user message
         await self.message_service.create(
             conversation_id=conversation_id,
             data=MessageCreate(
@@ -45,12 +44,23 @@ class AIService:
             ),
         )
 
+        # Load conversation history
         history = await self.message_service.get_history(
             conversation_id,
         )
 
+        # Generate AI response
         response = await self.provider.generate(
             history,
+        )
+
+        # Store assistant response
+        await self.message_service.create(
+            conversation_id=conversation_id,
+            data=MessageCreate(
+                role=MessageRole.ASSISTANT,
+                content=response,
+            ),
         )
 
         return response

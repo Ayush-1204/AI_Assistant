@@ -1010,3 +1010,39 @@ Current implementation:
 4. Generate AI response.
 
 The generated response is returned to the client but is not yet persisted.
+
+-----------------------------------------------------------------
+
+# Sprint 7 – Persist Assistant Responses
+
+## Objective
+
+Complete the AI conversation pipeline by storing generated assistant responses.
+
+## Changes
+
+- Updated `AIService` to persist assistant messages after generation.
+- Completed the end-to-end AI workflow from user input to stored response.
+- Ensured both user and assistant messages are retained in PostgreSQL.
+
+## Benefits
+
+- Conversations become fully persistent.
+- Enables complete chat history retrieval.
+- Provides the foundation for memory, summarization, and retrieval-augmented generation (RAG).
+
+# AI Pipeline
+
+Current implementation:
+
+1. Validate conversation ownership.
+2. Store user message.
+3. Load conversation history.
+4. Generate AI response.
+5. Store assistant response.
+6. Return response.
+
+The backend now maintains a complete conversation history for every interaction.
+
+------------------------------------------------------------------
+
