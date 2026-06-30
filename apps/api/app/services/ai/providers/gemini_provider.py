@@ -1,6 +1,9 @@
+from collections.abc import AsyncGenerator
+
 from google import genai
 
 from app.config import get_settings
+from app.services.ai.prompts import PromptBuilder
 from app.services.ai.providers.base import BaseLLMProvider
 
 settings = get_settings()
@@ -14,15 +17,12 @@ class GeminiProvider(BaseLLMProvider):
 
         self.model = settings.GEMINI_MODEL
 
-    async def generate(
+    async def chat(
         self,
         messages: list[dict],
     ) -> str:
 
-        prompt = "\n".join(
-            f"{m['role']}: {m['content']}"
-            for m in messages
-        )
+        prompt = PromptBuilder.chat(messages)
 
         response = self.client.models.generate_content(
             model=self.model,
@@ -30,3 +30,25 @@ class GeminiProvider(BaseLLMProvider):
         )
 
         return response.text
+
+    async def generate_title(
+        self,
+        first_message: str,
+    ) -> str:
+
+        prompt = PromptBuilder.title(
+            first_message,
+        )
+
+        response = self.client.models.generate_content(
+            model=self.model,
+            contents=prompt,
+        )
+
+        return response.text.strip()
+
+    async def stream_chat(
+        self,
+        messages: list[dict],
+    ) -> AsyncGenerator[str, None]:
+        raise NotImplementedError

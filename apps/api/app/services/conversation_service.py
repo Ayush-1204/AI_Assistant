@@ -78,3 +78,21 @@ class ConversationService:
         )
 
         await self.repository.delete(conversation)
+
+    async def update_title(
+        self,
+        conversation_id: int,
+        user_id: int,
+        title: str,
+    ) -> Conversation:
+
+        conversation = await self.get_by_id(
+            conversation_id,
+            user_id,
+        )
+
+        conversation.title = title
+
+        return await self.repository.update(
+            conversation,
+        )

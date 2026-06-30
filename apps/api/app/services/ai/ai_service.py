@@ -50,7 +50,7 @@ class AIService:
         )
 
         # Generate AI response
-        response = await self.provider.generate(
+        response = await self.provider.chat(
             history,
         )
 
@@ -62,5 +62,21 @@ class AIService:
                 content=response,
             ),
         )
+
+        conversation = await self.conversation_service.get_by_id(
+            conversation_id,
+            user_id,
+        )
+
+        if conversation.title == "New Conversation":
+            title = await self.provider.generate_title(
+                prompt,
+            )
+
+            await self.conversation_service.update_title(
+                conversation_id=conversation_id,
+                user_id=user_id,
+                title=title,
+            )
 
         return response

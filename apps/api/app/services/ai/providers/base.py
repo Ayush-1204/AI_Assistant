@@ -1,23 +1,26 @@
 from abc import ABC, abstractmethod
+from collections.abc import AsyncGenerator
+
 
 
 class BaseLLMProvider(ABC):
     @abstractmethod
-    async def generate(
+    async def chat(
         self,
         messages: list[dict],
     ) -> str:
-        """
-        Generate a response from the language model.
+        raise NotImplementedError
 
-        Parameters
-        ----------
-        messages:
-            Conversation history in chat format.
-
-        Returns
-        -------
-        str
-            Assistant response.
-        """
+    @abstractmethod
+    async def generate_title(
+        self,
+        first_message: str,
+    ) -> str:
+        raise NotImplementedError
+    
+    @abstractmethod
+    async def stream_chat(
+        self,
+        messages: list[dict],
+    ) -> AsyncGenerator[str, None]:
         raise NotImplementedError
