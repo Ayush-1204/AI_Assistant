@@ -11,6 +11,14 @@ from app.schemas.conversation import (
     ConversationResponse,
     ConversationUpdate,
 )
+
+from .message import (
+    MessageCreate,
+    MessageResponse,
+    MessageRole,
+    MessageUpdate,
+)
+
 __all__ = [
     "UserBase",
     "UserCreate",
@@ -20,4 +28,8 @@ __all__ = [
     "ConversationCreate",
     "ConversationResponse",
     "ConversationUpdate",
+    "MessageCreate",
+    "MessageResponse",
+    "MessageRole",
+    "MessageUpdate",
 ]
