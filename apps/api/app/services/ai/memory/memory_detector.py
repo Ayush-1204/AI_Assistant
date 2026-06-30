@@ -1,50 +1,27 @@
 import re
 
+from .memory_patterns import PATTERNS
+
 
 class MemoryDetector:
     """
-    Detect whether a message contains
-    long-term memory worth storing.
+    Lightweight detector that determines whether
+    a message should be sent to the LLM for
+    structured memory extraction.
+
+    This class SHOULD NOT perform any AI.
     """
 
-    PATTERNS = [
-        # Personal
-        r"\bmy name is\b",
-        r"\bi am\b",
-        r"\bi'm\b",
-        r"\bmy birthday\b",
-
-        # Education / Work
-        r"\bi study\b",
-        r"\bi work\b",
-
-        # Preferences
-        r"\bi prefer\b",
-        r"\bmy favorite\b",
-        r"\bmy favourite\b",
-        r"\bi like\b",
-        r"\bi dislike\b",
-
-        # Goals
-        r"\bi want to\b",
-        r"\bi plan to\b",
-        r"\bmy goal\b",
-
-        # Explicit memory
-        r"\bremember\b",
-        r"\bdon't forget\b",
-    ]
-
-    @classmethod
+    @staticmethod
     def should_extract(
-        cls,
         message: str,
     ) -> bool:
 
-        message = message.lower()
+        text = message.lower().strip()
 
-        for pattern in cls.PATTERNS:
-            if re.search(pattern, message):
+        for pattern in PATTERNS:
+
+            if re.search(pattern, text):
                 return True
 
         return False
