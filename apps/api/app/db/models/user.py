@@ -2,7 +2,9 @@ from sqlalchemy import Boolean, DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
+
 from app.db.base import Base
+
 
 
 class User(Base):
@@ -50,6 +52,12 @@ class User(Base):
 
     memories = relationship(
         "Memory",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+
+    documents = relationship(
+        "Document",
         back_populates="user",
         cascade="all, delete-orphan",
     )

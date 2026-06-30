@@ -1303,3 +1303,34 @@ Messages that match predefined patterns (such as personal information, preferenc
 
 ----------------------------------------------------------
 
+# Sprint 10 – Document Foundation
+
+## Objective
+
+Introduce the persistence model for uploaded documents.
+
+## Changes
+
+- Added the `Document` database model.
+- Linked documents to users.
+- Introduced document lifecycle statuses.
+- Added metadata fields for storage and processing.
+
+## Benefits
+
+- Supports multiple document formats.
+- Separates document metadata from extracted content.
+- Provides the foundation for asynchronous processing and future RAG capabilities.
+
+# Document Lifecycle
+
+Documents progress through the following states:
+
+- UPLOADED
+- EXTRACTING
+- CHUNKING
+- EMBEDDING
+- READY
+- FAILED
+
+This lifecycle enables asynchronous processing while keeping upload requests responsive.
