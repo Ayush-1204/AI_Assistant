@@ -729,3 +729,142 @@ This keeps routing, business logic, and persistence cleanly separated while ensu
 
 ------------------------------------------------------------------
 
+# Sprint 5 – Message Model
+
+## Objective
+
+Introduce the Message entity to store individual chat messages within a conversation.
+
+## Changes
+
+- Added the `Message` database model.
+- Established a one-to-many relationship between `Conversation` and `Message`.
+- Added an Alembic migration for the `messages` table.
+- Configured cascading deletion of messages when a conversation is removed.
+
+## Benefits
+
+- Enables persistent chat history.
+- Supports multiple messages per conversation.
+- Provides the storage foundation for LLM interactions.
+- Prepares the backend for streaming responses, memory, and retrieval features.
+
+# Message Architecture
+
+Each conversation owns multiple messages.
+
+## Relationship
+
+- `Conversation` → One conversation.
+- `Message` → Individual user, assistant, or system message.
+
+This design mirrors modern AI chat systems and provides a scalable foundation for future enhancements such as tool calls, attachments, and reasoning traces.
+
+-------------------------------------------------------------------
+
+# Sprint 5 – Message Schemas
+
+## Objective
+
+Define the API schemas for message creation, updates, and responses.
+
+## Changes
+
+- Added `MessageCreate`, `MessageUpdate`, and `MessageResponse` schemas.
+- Introduced the `MessageRole` enum for message roles.
+- Registered message schemas in the schema package.
+
+## Benefits
+
+- Separates API contracts from database models.
+- Prevents invalid message roles through enum validation.
+- Provides consistent request and response formats.
+- Prepares the API for message CRUD operations.
+
+# Message Validation
+
+Message schemas are responsible for validating incoming and outgoing API data.
+
+## Components
+
+- `MessageCreate` — Validates new message requests.
+- `MessageUpdate` — Supports partial message updates.
+- `MessageResponse` — Defines the serialized API response.
+- `MessageRole` — Restricts roles to `user`, `assistant`, and `system`.
+
+This separation keeps validation logic independent from database models and aligns with the project's layered architecture.
+
+-------------------------------------------------------------------
+
+# Sprint 5 – Message Repository
+
+## Objective
+
+Implement the data access layer for message management.
+
+## Changes
+
+- Added `MessageRepository`.
+- Implemented create, retrieve, update, delete, and list operations.
+- Added chronological message retrieval for conversations.
+- Registered the repository for future dependency injection.
+
+## Benefits
+
+- Encapsulates all database operations for messages.
+- Keeps SQLAlchemy logic separate from business logic.
+- Provides ordered message history for future LLM requests.
+- Maintains consistency with the repository-service architecture.
+
+# Repository Responsibilities
+
+The Message repository is responsible only for persistence.
+
+## Methods
+
+- `create()` — Persist a new message.
+- `get_by_id()` — Retrieve a message by ID.
+- `list_by_conversation()` — Return conversation history in chronological order.
+- `update()` — Save message changes.
+- `delete()` — Remove a message.
+
+This separation ensures that business rules remain in the service layer while database operations remain isolated.
+
+-----------------------------------------------------------------
+
+# Sprint 5 – Message Service
+
+## Objective
+
+Implement the business logic layer for message management.
+
+## Changes
+
+- Added `MessageService`.
+- Validated conversation existence before creating messages.
+- Implemented message retrieval, update, deletion, and conversation history operations.
+- Integrated message and conversation repositories through dependency injection.
+
+## Benefits
+
+- Centralizes message-related business logic.
+- Prevents creating messages for non-existent conversations.
+- Keeps routing independent from persistence logic.
+- Prepares the service layer for LLM integration in the next sprint.
+
+# Message Service
+
+The Message service coordinates business rules between conversations and messages.
+
+## Responsibilities
+
+- Validate conversation existence.
+- Create messages.
+- Retrieve conversation history.
+- Update and delete messages.
+- Delegate persistence to repositories.
+
+This keeps the application's business logic centralized while maintaining a clean separation from routing and database operations.
+
+------------------------------------------------------------------
+
