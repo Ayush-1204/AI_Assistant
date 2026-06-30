@@ -12,6 +12,9 @@ from app.utils.jwt import create_access_token, decode_access_token
 from app.repositories.conversation_repository import ConversationRepository
 from app.services.conversation_service import ConversationService
 
+from app.repositories.message_repository import MessageRepository
+from app.services.message_service import MessageService
+
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/auth/login"
 )
@@ -69,3 +72,23 @@ def get_conversation_service(
     ),
 ) -> ConversationService:
     return ConversationService(repository)
+
+
+def get_message_repository(
+    db: AsyncSession = Depends(get_db),
+) -> MessageRepository:
+    return MessageRepository(db)
+
+
+def get_message_service(
+    message_repository: MessageRepository = Depends(
+        get_message_repository,
+    ),
+    conversation_repository: ConversationRepository = Depends(
+        get_conversation_repository,
+    ),
+) -> MessageService:
+    return MessageService(
+        message_repository=message_repository,
+        conversation_repository=conversation_repository,
+    )
