@@ -99,10 +99,15 @@ def get_message_service(
 def get_llm_provider():
     return GeminiProvider()
 
-
 def get_ai_service(
-    provider: GeminiProvider = Depends(
-        get_llm_provider,
+    provider: GeminiProvider = Depends(get_llm_provider),
+    message_service: MessageService = Depends(get_message_service),
+    conversation_service: ConversationService = Depends(
+        get_conversation_service,
     ),
 ) -> AIService:
-    return AIService(provider)
+    return AIService(
+        provider=provider,
+        message_service=message_service,
+        conversation_service=conversation_service,
+    )

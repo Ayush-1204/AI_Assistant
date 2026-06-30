@@ -900,3 +900,113 @@ This design keeps the application independent of any single AI provider and simp
 
 -------------------------------------------------------------------
 
+# Sprint 6 – Gemini Provider
+
+## Objective
+
+Integrate Google's Gemini API through the provider abstraction.
+
+## Changes
+
+- Added the official Google Gen AI SDK.
+- Added Gemini configuration to the application settings.
+- Implemented `GeminiProvider`.
+- Connected the provider to the shared `BaseLLMProvider` interface.
+
+## Benefits
+
+- Enables AI text generation.
+- Keeps the application independent of a specific provider.
+- Makes future support for OpenAI, Anthropic, and Ollama straightforward.
+- Establishes the foundation for AI-powered conversations.
+
+# LLM Provider
+
+The `GeminiProvider` implements the shared `BaseLLMProvider` interface.
+
+## Flow
+
+- `AIService` requests a response.
+- `GeminiProvider` formats the conversation.
+- Google Gemini generates the reply.
+- The response is returned to the application.
+
+This architecture isolates provider-specific code while keeping business logic provider-agnostic.
+
+-------------------------------------------------------------------
+
+# Sprint 6 – AI Chat Endpoint
+
+## Objective
+
+Expose the first AI-powered chat endpoint backed by Gemini.
+
+## Changes
+
+- Added chat request and response schemas.
+- Implemented `AIService` for AI orchestration.
+- Added dependency injection for the LLM provider.
+- Added `/chat` endpoint.
+
+## Benefits
+
+- End-to-end AI communication through FastAPI.
+- Provider-independent architecture.
+- Foundation for conversation persistence and memory.
+
+# Request Flow
+
+Client
+
+↓
+
+Chat Router
+
+↓
+
+AIService
+
+↓
+
+GeminiProvider
+
+↓
+
+Gemini API
+
+↓
+
+Response
+
+This milestone establishes the first functional AI interaction within the backend.
+
+-------------------------------------------------------------------
+
+# Sprint 7 – Conversation History
+
+## Objective
+
+Generate AI responses using the complete conversation history.
+
+## Changes
+
+- Added `get_history()` to `MessageService`.
+- Formatted conversation history for the LLM provider.
+- Updated `AIService` to generate responses from stored messages.
+
+## Benefits
+
+- Enables context-aware conversations.
+- Reuses persisted messages instead of relying on transient request data.
+- Prepares the backend for storing assistant responses and future memory features.
+
+# AI Pipeline
+
+Current implementation:
+
+1. Validate conversation ownership.
+2. Store user message.
+3. Load conversation history.
+4. Generate AI response.
+
+The generated response is returned to the client but is not yet persisted.

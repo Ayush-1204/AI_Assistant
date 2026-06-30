@@ -83,6 +83,27 @@ class MessageService:
             message.content = data.content
 
         return await self.message_repository.update(message)
+    
+    async def get_history(
+        self,
+        conversation_id: int,
+    ) -> list[dict]:
+        """
+        Return the conversation history formatted
+        for the LLM provider.
+        """
+
+        messages = await self.list_by_conversation(
+            conversation_id,
+        )
+
+        return [
+            {
+                "role": message.role,
+                "content": message.content,
+            }
+            for message in messages
+        ]
 
     async def delete(
         self,
