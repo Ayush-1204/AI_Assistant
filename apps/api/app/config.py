@@ -4,6 +4,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    # Application
     APP_NAME: str = "Second Brain API"
     APP_VERSION: str = "0.1.0"
 
@@ -12,26 +13,30 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     PORT: int = 8000
 
-    DATABASE_URL: str = ""
+    # Database
+    DATABASE_URL: str
 
-    JWT_SECRET: str = ""
-
+    # JWT
+    SECRET_KEY: str
+    JWT_SECRET: str
     JWT_ALGORITHM: str = "HS256"
-
+    ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
-    SECRET_KEY: str
-    ALGORITHM: str
-    ACCESS_TOKEN_EXPIRE_MINUTES: int
+    # Gemini
+    GEMINI_API_KEY: str
+    GEMINI_MODEL: str = "gemini-2.5-flash"
 
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=True,
+        extra="ignore",
     )
 
 
 @lru_cache
-def get_settings():
+def get_settings() -> Settings:
     return Settings()
+
 
 settings = get_settings()

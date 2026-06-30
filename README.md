@@ -868,3 +868,35 @@ This keeps the application's business logic centralized while maintaining a clea
 
 ------------------------------------------------------------------
 
+# Sprint 6 – LLM Provider Interface
+
+## Objective
+
+Introduce an abstraction layer for language model providers.
+
+## Changes
+
+- Added the `BaseLLMProvider` abstract interface.
+- Defined a common `generate()` method for all LLM providers.
+- Created the `services/llm` package.
+
+## Benefits
+
+- Decouples business logic from a specific LLM vendor.
+- Makes it easy to switch between OpenAI, Anthropic, Gemini, Ollama, or future providers.
+- Establishes a scalable architecture for AI integrations.
+
+# LLM Provider Architecture
+
+The application communicates with language models through a common interface.
+
+## Flow
+
+- `ChatService` — Requests text generation.
+- `BaseLLMProvider` — Defines the provider contract.
+- Provider implementation — Communicates with the selected LLM API.
+
+This design keeps the application independent of any single AI provider and simplifies future integrations.
+
+-------------------------------------------------------------------
+
