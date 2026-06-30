@@ -2,6 +2,7 @@ from app.schemas.message import MessageCreate, MessageRole
 from app.services.ai.providers.base import BaseLLMProvider
 from app.services.conversation_service import ConversationService
 from app.services.message_service import MessageService
+from app.services.ai.context import ContextBuilder
 
 
 class AIService:
@@ -14,10 +15,12 @@ class AIService:
         provider: BaseLLMProvider,
         message_service: MessageService,
         conversation_service: ConversationService,
+        context_builder: ContextBuilder,
     ):
         self.provider = provider
         self.message_service = message_service
         self.conversation_service = conversation_service
+        self.context_builder = context_builder
 
     async def chat(
         self,
@@ -45,7 +48,7 @@ class AIService:
         )
 
         # Load conversation history
-        history = await self.message_service.get_history(
+        history = await self.context_builder.build(
             conversation_id,
         )
 

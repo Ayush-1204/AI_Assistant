@@ -17,6 +17,8 @@ from app.services.message_service import MessageService
 
 from app.services.ai import AIService
 from app.services.ai.providers import GeminiProvider
+from app.services.ai.context import ContextBuilder
+from app.services.ai.context.context_builder import ContextBuilder
 
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/auth/login"
@@ -99,15 +101,33 @@ def get_message_service(
 def get_llm_provider():
     return GeminiProvider()
 
+def get_context_builder(
+    message_service: MessageService = Depends(
+        get_message_service,
+    ),
+) -> ContextBuilder:
+    return ContextBuilder(
+        message_service,
+    )
+
 def get_ai_service(
-    provider: GeminiProvider = Depends(get_llm_provider),
-    message_service: MessageService = Depends(get_message_service),
+    provider: GeminiProvider = Depends(
+        get_llm_provider,
+    ),
+    message_service: MessageService = Depends(
+        get_message_service,
+    ),
     conversation_service: ConversationService = Depends(
         get_conversation_service,
+    ),
+    context_builder: ContextBuilder = Depends(
+        get_context_builder,
     ),
 ) -> AIService:
     return AIService(
         provider=provider,
         message_service=message_service,
         conversation_service=conversation_service,
+        context_builder=context_builder,
     )
+

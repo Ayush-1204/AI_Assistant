@@ -1,0 +1,52 @@
+Every major architectural decision gets a dedicated ADR.
+
+Example:
+
+ADR-001
+
+Layered Architecture
+
+Decision
+
+Repository-Service pattern.
+
+Reason
+
+Keeps business logic independent of persistence.
+
+ADR-002
+
+Provider Abstraction
+
+Decision
+
+All LLMs implement BaseLLMProvider.
+
+Reason
+
+Supports multiple providers without changing AI orchestration.
+
+ADR-003
+
+Context Builder
+
+Decision
+
+A dedicated component assembles model context.
+
+Reason
+
+Keeps AIService focused on orchestration and provides a stable extension point for memory, RAG, and tool outputs.
+
+Project Principles (Frozen)
+
+These are the rules I propose we treat as non-negotiable unless we have a strong architectural reason to change them:
+
+Stable interfaces: Avoid renaming public classes (AIService, ContextBuilder, PromptBuilder, BaseLLMProvider) without a documented reason.
+Single responsibility: Each layer has one clear job.
+Incremental features: One complete, testable feature per sprint.
+Backward compatibility: Prefer adding endpoints or capabilities over breaking existing ones.
+Documentation first: Update the relevant document whenever architecture changes.
+Measure before adding infrastructure: Introduce components like Redis, background queues, or additional databases only when there's a demonstrated need.
+Provider neutrality: Keep AI orchestration independent of any specific LLM vendor.
+Database-first persistence: PostgreSQL remains the primary source of truth; additional storage (such as vector indexes) complements it rather than replacing it.

@@ -1075,3 +1075,136 @@ The AI layer is now organized into distinct responsibilities:
 - **AIService** – Orchestrates the conversation workflow.
 
 This separation improves maintainability and makes future AI capabilities easier to extend.
+
+----------------------------------------------------------
+
+# Sprint 8 – Conversation Summary Schema
+
+## Objective
+
+Introduce a dedicated schema for conversation list responses.
+
+## Changes
+
+- Added `ConversationSummary` schema.
+- Separated conversation detail responses from conversation list responses.
+
+## Benefits
+
+- Establishes a stable API contract for conversation lists.
+- Avoids overloading the existing conversation schema with UI-specific metadata.
+- Prepares the backend for efficient conversation sidebar queries.
+
+# Conversation List
+
+Each conversation summary will include:
+
+- Conversation identifier.
+- Title.
+- Last message preview.
+- Total message count.
+- Creation timestamp.
+- Last updated timestamp.
+
+This schema is designed specifically for list views and does not replace the detailed conversation response model.
+
+----------------------------------------------------------
+
+# Sprint 8 – Context Builder Foundation
+
+## Objective
+
+Introduce a dedicated `ContextBuilder` responsible for assembling the conversational context provided to the language model.
+
+## Changes
+
+- Added the `ContextBuilder` component.
+- Delegated conversation history retrieval to the context layer.
+- Established an extension point for future memory, retrieval, and tool integrations.
+
+## Benefits
+
+- Separates context construction from AI orchestration.
+- Provides a stable foundation for long-term memory, RAG, and tool calling.
+- Keeps `AIService` focused on workflow orchestration.
+
+# AI Pipeline
+
+Current:
+
+1. Validate conversation.
+2. Store user message.
+3. Build conversation context.
+4. Generate AI response.
+5. Store assistant response.
+6. Return response.
+
+The context currently consists of the complete conversation history and will evolve over future sprints without changing the AI orchestration layer.
+
+----------------------------------------------------------
+
+# Sprint 8 – Context Builder Integration
+
+## Objective
+
+Integrate the `ContextBuilder` into the AI workflow to centralize conversation context construction.
+
+## Changes
+
+- Injected `ContextBuilder` into `AIService`.
+- Delegated conversation history retrieval to the context layer.
+- Added dependency injection for `ContextBuilder`.
+
+## Benefits
+
+- Decouples AI orchestration from context construction.
+- Creates a stable extension point for memory, RAG, and tool outputs.
+- Keeps `AIService` focused on coordinating the AI workflow.
+
+# AI Pipeline
+
+Current flow:
+
+1. Validate conversation ownership.
+2. Store user message.
+3. Build context using `ContextBuilder`.
+4. Generate AI response.
+5. Store assistant response.
+6. Return the response.
+
+The context currently contains the full conversation history but can evolve independently of the orchestration layer.
+
+----------------------------------------------------------
+
+# Sprint 9 – Memory Model
+
+## Objective
+
+Introduce the persistence model for long-term user memory.
+
+## Changes
+
+- Added the `Memory` database model.
+- Established the relationship between users and memories.
+- Included confidence scoring for future memory management.
+
+## Benefits
+
+- Separates long-term memory from conversation history.
+- Provides a scalable foundation for personalized AI.
+- Supports future memory extraction and semantic retrieval.
+
+# Memory Structure
+
+Each memory stores:
+
+- User association
+- Category
+- Key
+- Value
+- Confidence score
+- Timestamps
+
+This model serves as the foundation for future memory detection, extraction, and retrieval.
+
+---------------------------------------
