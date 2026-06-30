@@ -1275,4 +1275,31 @@ Future iterations will extend this workflow with:
 - Memory updates
 - Deduplication
 
---------------------------------------
+----------------------------------------------------------
+
+# Sprint 9 – Memory Detector
+
+## Objective
+
+Introduce a lightweight rule-based detector to identify messages that may contain long-term memory.
+
+## Changes
+
+- Added `MemoryDetector`.
+- Implemented pattern-based detection using regular expressions.
+- Integrated the detector into the memory processing workflow.
+
+## Benefits
+
+- Avoids unnecessary LLM calls for messages without long-term value.
+- Provides deterministic and fast memory candidate detection.
+- Reduces latency and inference costs while preserving personalization.
+
+# Memory Detection
+
+The detector acts as the first stage of the memory pipeline.
+
+Messages that match predefined patterns (such as personal information, preferences, goals, or explicit memory requests) are forwarded for structured extraction. All other messages are ignored by the memory subsystem.
+
+----------------------------------------------------------
+

@@ -1,5 +1,5 @@
 from app.repositories.memory_repository import MemoryRepository
-
+from app.services.ai.memory.memory_detector import MemoryDetector
 
 class MemoryService:
     """
@@ -37,4 +37,10 @@ class MemoryService:
         3. Update/Create memory
         """
 
-        return
+        if not MemoryDetector.should_extract(
+            message,
+        ):
+            return
+
+        # Memory extraction will be added
+        # in the next commit.
