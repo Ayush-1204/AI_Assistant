@@ -21,7 +21,10 @@ from app.services.ai.context import ContextBuilder
 from app.services.ai.context.context_builder import ContextBuilder
 
 from app.repositories.memory_repository import MemoryRepository
-from app.services.ai.memory import MemoryService
+from app.services.ai.memory import (
+    MemoryExtractor,
+    MemoryService,
+)
 
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/auth/login"
@@ -68,6 +71,9 @@ async def get_current_user(
 
     return user
 
+def get_llm_provider():
+    return GeminiProvider()
+
 def get_conversation_repository(
     db: AsyncSession = Depends(get_db),
 ) -> ConversationRepository:
@@ -101,16 +107,55 @@ def get_message_service(
         conversation_repository=conversation_repository,
     )
 
-def get_llm_provider():
-    return GeminiProvider()
+
+def get_memory_repository(
+    db: AsyncSession = Depends(
+        get_db,
+    ),
+) -> MemoryRepository:
+    return MemoryRepository(db)
+
+def get_memory_extractor(
+    provider: GeminiProvider = Depends(
+        get_llm_provider,
+    ),
+) -> MemoryExtractor:
+
+    return MemoryExtractor(
+        provider,
+    )
+
+
+def get_memory_service(
+
+    repository: MemoryRepository = Depends(
+        get_memory_repository,
+    ),
+
+    extractor: MemoryExtractor = Depends(
+        get_memory_extractor,
+    ),
+
+) -> MemoryService:
+
+    return MemoryService(
+        repository,
+        extractor,
+    )
+
 
 def get_context_builder(
     message_service: MessageService = Depends(
         get_message_service,
     ),
+    memory_service: MemoryService = Depends(
+        get_memory_service,
+    ),
 ) -> ContextBuilder:
+
     return ContextBuilder(
-        message_service,
+        message_service=message_service,
+        memory_service=memory_service,
     )
 
 def get_ai_service(
@@ -126,27 +171,18 @@ def get_ai_service(
     context_builder: ContextBuilder = Depends(
         get_context_builder,
     ),
+    memory_service: MemoryService = Depends(
+        get_memory_service,
+    ),
 ) -> AIService:
+
     return AIService(
         provider=provider,
         message_service=message_service,
         conversation_service=conversation_service,
         context_builder=context_builder,
+        memory_service=memory_service,
     )
 
-def get_memory_repository(
-    db: AsyncSession = Depends(
-        get_db,
-    ),
-) -> MemoryRepository:
-    return MemoryRepository(db)
 
-def get_memory_service(
-    repository: MemoryRepository = Depends(
-        get_memory_repository,
-    ),
-) -> MemoryService:
-    return MemoryService(
-        repository,
-    )
 
