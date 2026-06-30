@@ -19,6 +19,11 @@ from .message import (
     MessageUpdate,
 )
 
+from .chat import (
+    ChatRequest,
+    ChatResponse,
+)
+
 __all__ = [
     "UserBase",
     "UserCreate",
@@ -32,4 +37,6 @@ __all__ = [
     "MessageResponse",
     "MessageRole",
     "MessageUpdate",
+    "ChatRequest",
+    "ChatResponse",
 ]

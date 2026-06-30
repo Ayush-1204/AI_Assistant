@@ -15,6 +15,9 @@ from app.services.conversation_service import ConversationService
 from app.repositories.message_repository import MessageRepository
 from app.services.message_service import MessageService
 
+from app.services.ai import AIService
+from app.services.ai.providers import GeminiProvider
+
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/auth/login"
 )
@@ -92,3 +95,14 @@ def get_message_service(
         message_repository=message_repository,
         conversation_repository=conversation_repository,
     )
+
+def get_llm_provider():
+    return GeminiProvider()
+
+
+def get_ai_service(
+    provider: GeminiProvider = Depends(
+        get_llm_provider,
+    ),
+) -> AIService:
+    return AIService(provider)

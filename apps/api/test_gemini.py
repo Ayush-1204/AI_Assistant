@@ -1,6 +1,6 @@
-from app.services.llm.gemini_provider import GeminiProvider
-
 import asyncio
+
+from app.services.ai.providers.gemini_provider import GeminiProvider
 
 
 async def main():

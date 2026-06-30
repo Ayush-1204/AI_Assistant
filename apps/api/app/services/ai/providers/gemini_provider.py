@@ -1,7 +1,7 @@
 from google import genai
 
 from app.config import get_settings
-from app.services.llm.base import BaseLLMProvider
+from app.services.ai.providers.base import BaseLLMProvider
 
 settings = get_settings()
 
@@ -18,18 +18,6 @@ class GeminiProvider(BaseLLMProvider):
         self,
         messages: list[dict],
     ) -> str:
-        """
-        Generate a response from Gemini.
-
-        Parameters
-        ----------
-        messages
-            Conversation history.
-
-        Returns
-        -------
-        str
-        """
 
         prompt = "\n".join(
             f"{m['role']}: {m['content']}"
