@@ -20,6 +20,9 @@ from app.services.ai.providers import GeminiProvider
 from app.services.ai.context import ContextBuilder
 from app.services.ai.context.context_builder import ContextBuilder
 
+from app.repositories.memory_repository import MemoryRepository
+from app.services.ai.memory import MemoryService
+
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/auth/login"
 )
@@ -129,5 +132,21 @@ def get_ai_service(
         message_service=message_service,
         conversation_service=conversation_service,
         context_builder=context_builder,
+    )
+
+def get_memory_repository(
+    db: AsyncSession = Depends(
+        get_db,
+    ),
+) -> MemoryRepository:
+    return MemoryRepository(db)
+
+def get_memory_service(
+    repository: MemoryRepository = Depends(
+        get_memory_repository,
+    ),
+) -> MemoryService:
+    return MemoryService(
+        repository,
     )
 

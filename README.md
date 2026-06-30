@@ -1207,4 +1207,72 @@ Each memory stores:
 
 This model serves as the foundation for future memory detection, extraction, and retrieval.
 
----------------------------------------
+---------------------------------------------------------
+
+# Sprint 9 – Memory Repository
+
+## Objective
+
+Implement the persistence layer for long-term user memories.
+
+## Changes
+
+- Added `MemoryRepository`.
+- Implemented CRUD operations for memories.
+- Added retrieval by user and structured memory key.
+
+## Benefits
+
+- Keeps database access isolated from business logic.
+- Supports efficient retrieval and updates of user memories.
+- Provides the persistence foundation for memory extraction and personalization.
+
+# Memory Repository
+
+The repository is responsible only for database operations.
+
+Supported operations:
+
+- Create memory
+- Retrieve memory by ID
+- List all memories for a user
+- Retrieve memory by category and key
+- Update memory
+- Delete memory
+
+Business rules such as memory detection, extraction, deduplication, and confidence handling remain the responsibility of the service layer.
+
+----------------------------------------------------------
+
+# Sprint 9 – Memory Service
+
+## Objective
+
+Introduce the orchestration layer for long-term memory.
+
+## Changes
+
+- Added `MemoryService`.
+- Defined a high-level `process_message()` workflow.
+- Registered memory dependencies for dependency injection.
+
+## Benefits
+
+- Hides memory implementation details behind a simple interface.
+- Keeps AI orchestration independent of memory internals.
+- Provides a stable entry point for future memory detection and extraction.
+
+# Memory Workflow
+
+The memory system is exposed through a single operation:
+
+- `process_message(user_id, message)`
+
+Future iterations will extend this workflow with:
+
+- Memory detection
+- Structured extraction
+- Memory updates
+- Deduplication
+
+--------------------------------------
