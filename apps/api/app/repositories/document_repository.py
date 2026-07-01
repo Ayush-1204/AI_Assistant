@@ -2,8 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Document
-from apps.api.app.db.models import document
-
+from app.db.models.document import DocumentStatus
 
 class DocumentRepository:
     def __init__(self, db: AsyncSession):
@@ -84,7 +83,7 @@ class DocumentRepository:
     async def update_status(
         self,
         document: Document,
-        status: document.DocumentStatus,
+        status: DocumentStatus,
     ):
         document.status = status
         await self.update(document)

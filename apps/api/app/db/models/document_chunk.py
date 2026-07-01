@@ -59,10 +59,7 @@ class DocumentChunk(Base):
     )
 
     # Placeholder until pgvector migration
-    embedding: Mapped[str | None] = mapped_column(
-        Text,
-        nullable=True,
-    )
+    
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

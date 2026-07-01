@@ -1,8 +1,11 @@
-from fastapi import HTTPException, UploadFile, status
+from fastapi import HTTPException, UploadFile, status, BackgroundTasks
 
 from app.db.models import Document, DocumentStatus
 from app.repositories.document_repository import DocumentRepository
 from app.services.storage_service import StorageService
+from app.services.documents.processor import DocumentProcessor
+
+
 
 
 class DocumentService:
@@ -10,16 +13,18 @@ class DocumentService:
         self,
         repository: DocumentRepository,
         storage_service: StorageService,
+        processor: DocumentProcessor,
     ):
         self.repository = repository
         self.storage_service = storage_service
-
+        self.processor = processor
     async def upload(
         self,
         *,
         user_id: int,
         title: str,
         file: UploadFile,
+        background_tasks: BackgroundTasks,
     ) -> Document:
 
         if file.filename is None:
@@ -64,9 +69,16 @@ class DocumentService:
             status=DocumentStatus.UPLOADED,
         )
 
-        return await self.repository.create(
+        document = await self.repository.create(
             document,
         )
+    
+        background_tasks.add_task(
+            self.processor.process,
+            document=document,
+        )   
+
+        return document
 
     async def get(
         self,

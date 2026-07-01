@@ -5,6 +5,7 @@ from fastapi import (
     Form,
     UploadFile,
     status,
+    BackgroundTasks,
 )
 
 from app.db.models import User
@@ -27,6 +28,7 @@ router = APIRouter(
     status_code=status.HTTP_201_CREATED,
 )
 async def upload_document(
+    background_tasks: BackgroundTasks,
     title: str = Form(...),
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
@@ -37,6 +39,7 @@ async def upload_document(
         user_id=current_user.id,
         title=title,
         file=file,
+        background_tasks=background_tasks,
     )
 
 
