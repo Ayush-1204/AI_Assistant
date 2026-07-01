@@ -2,6 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Document
+from apps.api.app.db.models import document
 
 
 class DocumentRepository:
@@ -79,3 +80,11 @@ class DocumentRepository:
         await self.db.delete(document)
 
         await self.db.commit()
+
+    async def update_status(
+        self,
+        document: Document,
+        status: document.DocumentStatus,
+    ):
+        document.status = status
+        await self.update(document)

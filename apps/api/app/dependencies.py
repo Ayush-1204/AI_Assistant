@@ -27,9 +27,11 @@ from app.services.ai.memory import (
 )
 
 from app.repositories.document_repository import DocumentRepository
+from app.services.documents.processor import DocumentProcessor
 
 from app.services.document_service import DocumentService
 from app.services.storage_service import StorageService
+from apps.api.app.repositories.document_chunk_repository import DocumentChunkRepository
 
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/auth/login"
@@ -185,6 +187,43 @@ def get_context_builder(
     return ContextBuilder(
         message_service=message_service,
         memory_service=memory_service,
+    )
+
+def get_document_chunk_repository(
+    db=Depends(get_db),
+):
+    return DocumentChunkRepository(db)
+
+def get_document_processor(
+
+    document_repository: DocumentRepository = Depends(
+        get_document_repository,
+    ),
+
+    chunk_repository: DocumentChunkRepository = Depends(
+        get_document_chunk_repository,
+    ),
+
+    extractor_registry: ExtractorRegistry = Depends(
+        get_extractor_registry,
+    ),
+
+    chunker: TextChunker = Depends(
+        get_text_chunker,
+    ),
+
+):
+
+    return DocumentProcessor(
+
+        document_repository,
+
+        chunk_repository,
+
+        extractor_registry,
+
+        chunker,
+
     )
 
 def get_ai_service(
