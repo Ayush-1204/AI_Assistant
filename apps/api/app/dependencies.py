@@ -26,6 +26,11 @@ from app.services.ai.memory import (
     MemoryService,
 )
 
+from app.repositories.document_repository import DocumentRepository
+
+from app.services.document_service import DocumentService
+from app.services.storage_service import StorageService
+
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/auth/login"
 )
@@ -92,6 +97,30 @@ def get_message_repository(
     db: AsyncSession = Depends(get_db),
 ) -> MessageRepository:
     return MessageRepository(db)
+
+def get_document_repository(
+    db=Depends(get_db),
+) -> DocumentRepository:
+    return DocumentRepository(db)
+
+
+def get_storage_service() -> StorageService:
+    return StorageService()
+
+
+def get_document_service(
+    repository: DocumentRepository = Depends(
+        get_document_repository,
+    ),
+    storage_service: StorageService = Depends(
+        get_storage_service,
+    ),
+) -> DocumentService:
+
+    return DocumentService(
+        repository=repository,
+        storage_service=storage_service,
+    )
 
 
 def get_message_service(

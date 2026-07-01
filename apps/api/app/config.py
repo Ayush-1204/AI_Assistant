@@ -16,6 +16,20 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str
 
+    # File Storage
+    UPLOAD_DIR: str = "storage/uploads"
+
+    # 50 MB
+    MAX_UPLOAD_SIZE: int = 50 * 1024 * 1024
+
+    ALLOWED_DOCUMENT_TYPES: list[str] = [
+        "application/pdf",
+        "text/plain",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "text/markdown",
+    ]
+
     # JWT
     SECRET_KEY: str
     JWT_SECRET: str
