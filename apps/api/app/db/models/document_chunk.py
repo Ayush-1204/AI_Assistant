@@ -3,10 +3,10 @@ from __future__ import annotations
 from datetime import datetime
 
 from sqlalchemy import (
+    JSON,
     DateTime,
     ForeignKey,
     Integer,
-    JSON,
     Text,
 )
 from sqlalchemy.orm import (
@@ -53,8 +53,14 @@ class DocumentChunk(Base):
     )
 
     chunk_metadata: Mapped[dict | None] = mapped_column(
-        "chunk_metadata",
+        "metadata",
         JSON,
+        nullable=True,
+    )
+
+    # Placeholder until pgvector migration
+    embedding: Mapped[str | None] = mapped_column(
+        Text,
         nullable=True,
     )
 

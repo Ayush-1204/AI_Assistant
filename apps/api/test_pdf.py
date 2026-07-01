@@ -8,17 +8,21 @@ from app.services.documents.extractors.registry import (
 
 async def main():
 
-    registry = ExtractorRegistry()
-
-    extractor = registry.get(
-        Path("sample.pdf"),
+    pdf = Path(
+        r"C:\Users\AYUSH VERMA\Documents\AI_Assistant\apps\api\sample.pdf"
     )
 
-    text = await extractor.extract(
-        Path("sample.pdf"),
-    )
+    extractor = ExtractorRegistry().get(pdf)
 
-    print(text[:1000])
+    doc = await extractor.extract(pdf)
+
+    print("=" * 80)
+
+    print(doc.page_count)
+
+    print(doc.metadata)
+
+    print(doc.text[:1000])
 
 
 asyncio.run(main())

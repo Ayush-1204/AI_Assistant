@@ -1,18 +1,16 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
 
+from app.services.documents.models import (
+    ExtractedDocument,
+)
+
 
 class BaseExtractor(ABC):
-    """
-    Base class for all document extractors.
-    """
 
     @abstractmethod
     async def extract(
         self,
         file_path: Path,
-    ) -> str:
-        """
-        Extract plain text from a document.
-        """
-        raise NotImplementedError
+    ) -> ExtractedDocument:
+        pass

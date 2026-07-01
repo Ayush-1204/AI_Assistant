@@ -1,6 +1,10 @@
 from pathlib import Path
 
-import fitz
+import pymupdf
+
+from app.services.documents.models import (
+    ExtractedDocument,
+)
 
 from .base import BaseExtractor
 
@@ -10,24 +14,30 @@ class PDFExtractor(BaseExtractor):
     async def extract(
         self,
         file_path: Path,
-    ) -> str:
+    ) -> ExtractedDocument:
 
-        document = fitz.open(file_path)
+        document = pymupdf.open(file_path)
 
-        pages: list[str] = []
+        pages = []
 
         try:
 
             for page in document:
 
-                text = page.get_text(
-                    "text",
-                )
+                text = page.get_text()
 
                 if text.strip():
                     pages.append(text)
 
+            metadata = document.metadata or {}
+
+            page_count = len(document)
+
         finally:
             document.close()
 
-        return "\n\n".join(pages)
+        return ExtractedDocument(
+            text="\n\n".join(pages),
+            page_count=page_count,
+            metadata=metadata,
+        )
