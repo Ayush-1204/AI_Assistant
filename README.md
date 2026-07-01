@@ -1368,3 +1368,60 @@ The application depends on a vector store abstraction rather than a specific dat
 
 --------------------------------------------------------------------
 
+## Architecture Decision – AI Stack (v1)
+
+### Design Goals
+
+- Free-first architecture
+- Offline-capable
+- Provider-agnostic
+- Production-ready
+- Self-hostable
+
+### LLM Providers
+
+- Cloud: Google Gemini
+- Local: Ollama (Qwen3 8B)
+
+### Embeddings
+
+- Primary: nomic-embed-text (Ollama)
+- Storage: PostgreSQL + pgvector
+
+### Structured Outputs
+
+- instructor + Pydantic models
+
+### Text Processing
+
+- langchain-text-splitters
+- tiktoken
+
+### Future Expansion
+
+The provider layer is abstracted to support additional providers without changing the application services.
+
+--------------------------------------------------------------------
+
+## Sprint 12.1 – Ollama Integration
+
+### Added
+
+- Ollama provider
+- Provider router
+- Local model support (Qwen3 8B)
+
+### Models
+
+| Purpose | Model |
+|----------|-------|
+| Chat | qwen3:8b |
+| Embeddings | nomic-embed-text |
+| Coding | qwen2.5-coder:14b (planned) |
+
+### Design
+
+The AI layer now supports both cloud (Gemini) and local (Ollama) providers through a common interface.
+
+---------------------------------------------------------------------
+
