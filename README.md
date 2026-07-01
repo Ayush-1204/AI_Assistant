@@ -1334,3 +1334,37 @@ Documents progress through the following states:
 - FAILED
 
 This lifecycle enables asynchronous processing while keeping upload requests responsive.
+
+---------------------------------------------
+
+# RAG Document Ingestion and Chunking Done
+
+## Sprint 11B – Vector Search Foundation
+
+### Added
+- Embedding abstraction
+- IndexingService
+- Embedding provider
+- Vector architecture design
+
+### Upcoming
+- pgvector integration
+- Semantic retrieval
+- RAG ContextBuilder
+
+-------------------------------------------------------------
+
+## Sprint 11C – Vector Store Abstraction
+
+### Added
+
+- BaseVectorStore interface
+- RetrievalService
+- Vector store abstraction layer
+
+### Design
+
+The application depends on a vector store abstraction rather than a specific database implementation. This allows switching between Qdrant, pgvector, Pinecone, Weaviate, or Milvus without changing the retrieval pipeline.
+
+--------------------------------------------------------------------
+

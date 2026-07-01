@@ -28,6 +28,22 @@ from app.services.ai import AIService
 from app.services.ai.providers import GeminiProvider
 from app.services.ai.context import ContextBuilder
 
+# Embeddings
+from app.services.ai.embeddings import (
+    EmbeddingService,
+)
+
+from app.services.ai.embeddings.providers import (
+    GeminiEmbeddingProvider,
+)
+
+from app.services.ai.embeddings.providers.base import (
+    BaseEmbeddingProvider,
+)
+
+#  Indexing
+from app.services.indexing import IndexingService
+
 # Memory
 from app.services.ai.memory import (
     MemoryExtractor,
@@ -45,6 +61,7 @@ from app.services.documents.chunking.text_chunker import (
 
 # Utils
 from app.utils.jwt import decode_access_token
+
 
 
 oauth2_scheme = OAuth2PasswordBearer(
@@ -247,6 +264,46 @@ def get_document_service(
         processor=processor,
     )
 
+# ==========================================================
+# Embeddings
+# ==========================================================
+
+def get_embedding_provider() -> BaseEmbeddingProvider:
+    return GeminiEmbeddingProvider()
+
+
+def get_embedding_service(
+    provider: BaseEmbeddingProvider = Depends(
+        get_embedding_provider,
+    ),
+) -> EmbeddingService:
+
+    return EmbeddingService(
+        provider,
+    )
+
+
+# ==========================================================
+# Indexing
+# ==========================================================
+
+def get_indexing_service(
+    chunk_repository: DocumentChunkRepository = Depends(
+        get_document_chunk_repository,
+    ),
+    document_repository: DocumentRepository = Depends(
+        get_document_repository,
+    ),
+    embedding_service: EmbeddingService = Depends(
+        get_embedding_service,
+    ),
+) -> IndexingService:
+
+    return IndexingService(
+        chunk_repository=chunk_repository,
+        document_repository=document_repository,
+        embedding_service=embedding_service,
+    )
 
 # ==========================================================
 # AI Service
