@@ -1,6 +1,12 @@
+import logging
+
+from app.config import settings
+from app.schemas.chat import Citation
 from app.services.ai.memory.memory_service import MemoryService
 from app.services.message_service import MessageService
 from app.services.retrieval.retrieval_service import RetrievalService
+
+logger = logging.getLogger(__name__)
 
 
 class ContextBuilder:
@@ -36,12 +42,24 @@ class ContextBuilder:
         user_id: int,
         conversation_id: int,
         query: str,
-    ) -> list[dict]:
+    ) -> tuple[list[dict], list[Citation]]:
 
         context: list[dict] = []
+        citations: list[Citation] = []
 
         # -----------------------------
-        # Long-term memory
+        # 1. System Prompt
+        # -----------------------------
+        
+        context.append(
+            {
+                "role": "system",
+                "content": "You are a helpful AI assistant. Use the following context to answer the user's query.",
+            }
+        )
+
+        # -----------------------------
+        # 2. Long-term memory
         # -----------------------------
 
         memories = await self.memory_service.retrieve_memories(
@@ -49,9 +67,10 @@ class ContextBuilder:
         )
 
         if memories:
+            memories = memories[:settings.context_max_memories]
 
-            memory_text = "\n".join(
-                f"- {memory.key}: {memory.value}"
+            memory_items = "\n\n".join(
+                f"• {memory.value}"
                 for memory in memories
             )
 
@@ -59,14 +78,14 @@ class ContextBuilder:
                 {
                     "role": "system",
                     "content": (
-                        "Long-term user memories:\n\n"
-                        f"{memory_text}"
+                        "=== RELEVANT MEMORIES ===\n\n"
+                        f"{memory_items}"
                     ),
                 }
             )
 
         # -----------------------------
-        # RAG
+        # 3. RAG (Relevant Documents)
         # -----------------------------
 
         retrieval_results = (
@@ -77,27 +96,38 @@ class ContextBuilder:
         )
 
         if retrieval_results:
+            retrieval_results = retrieval_results[:settings.rag_max_context_chunks]
 
             rag_sections: list[str] = []
 
             for result in retrieval_results:
 
                 chunk = result.chunk
-
                 document = chunk.document
+                
+                print(f"\n[DEBUG] Retrieved Chunk Content (First 300 chars): {chunk.content[:300]}\n")
 
                 document_name = (
                     getattr(document, "title", None)
                     or getattr(document, "original_filename", None)
+                    or getattr(document, "filename", None)
                     or "Untitled Document"
                 )
 
                 rag_sections.append(
                     (
-                        f"Document: {document_name}\n"
-                        f"Chunk: {chunk.chunk_index}\n"
-                        f"Similarity: {result.similarity:.3f}\n\n"
+                        f"Document: {document_name}\n\n"
+                        f"Chunk: {chunk.chunk_index}\n\n"
+                        f"Similarity: {result.distance:.3f}\n\n"
                         f"{chunk.content}"
+                    )
+                )
+
+                citations.append(
+                    Citation(
+                        document_title=document_name,
+                        chunk_index=chunk.chunk_index,
+                        similarity=round(result.distance, 3)
                     )
                 )
 
@@ -105,14 +135,15 @@ class ContextBuilder:
                 {
                     "role": "system",
                     "content": (
-                        "Relevant document context:\n\n"
-                        + "\n\n---\n\n".join(rag_sections)
+                        "=== RELEVANT DOCUMENTS ===\n\n"
+                        + "\n\n-------------------------------------\n\n".join(rag_sections)
+                        + "\n\n-------------------------------------"
                     ),
                 }
             )
 
         # -----------------------------
-        # Conversation history
+        # 4. Conversation history (and current User message)
         # -----------------------------
 
         history = (
@@ -120,6 +151,11 @@ class ContextBuilder:
                 conversation_id,
             )
         )
+
+        if history and settings.context_max_history > 0:
+            history = history[-settings.context_max_history:]
+        elif not history or settings.context_max_history <= 0:
+            history = []
 
         for message in history:
 
@@ -130,4 +166,10 @@ class ContextBuilder:
                 }
             )
 
-        return context
+        logger.debug(
+            f"Context built: memories={len(memories) if memories else 0}, "
+            f"documents={len(retrieval_results) if retrieval_results else 0}, "
+            f"history={len(history) if history else 0}"
+        )
+
+        return context, citations

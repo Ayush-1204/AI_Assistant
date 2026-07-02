@@ -1372,6 +1372,21 @@ This lifecycle enables asynchronous processing while keeping upload requests res
 - The debug retrieval endpoint now resolves document titles with the priority `document.title`, then `original_filename`, then filename-style fallbacks.
 - Debug results include the chunk distance, chunk index, token count, and full chunk content for inspection.
 
+### Retrieval Evaluation
+
+- The evaluation workflow lives in `apps/api/app/services/retrieval/evaluation.py`.
+- The dataset lives in `apps/api/app/evaluation/retrieval_dataset.json` and uses objects with `query`, `expected_document`, and optional `expected_chunk` fields.
+- Supported metrics include top-1/top-3/top-5 accuracy, first-hit distance, expected-hit distance, returned document and chunk, ranking position, and average retrieval latency.
+- Top_k and threshold tuning can be run against the current index with:
+
+```bash
+cd apps/api
+python -m app.evaluation.runner --user-id <USER_ID> --top-k-values 5,8,10 --threshold-values 0.25,0.30,0.35,0.40
+```
+
+- Chunk size and overlap are now configurable through `rag_chunk_size` and `rag_chunk_overlap` in `app/config.py`. Reindex the corpus after changing them, then rerun evaluation to compare runs.
+- The evaluation module also exposes `evaluate_grid(...)` for parameter sweeps when you want to compare multiple retrieval configurations programmatically.
+
 ### Design
 
 The application depends on a vector store abstraction rather than a specific database implementation. This allows switching between Qdrant, pgvector, Pinecone, Weaviate, or Milvus without changing the retrieval pipeline.
@@ -1510,4 +1525,64 @@ Ollama (nomic-embed-text)
 pgvector
 
 ------------------------------------------------------------------------------------------------------------
+
+# Sprint 15 – Configurable Context Budgeting
+
+## Objective
+
+Implement configurable context budgeting limits to avoid injecting massive unconstrained amounts of metadata and history into the AI service.
+
+## Changes
+
+- Added `context_max_memories` and `context_max_history` constants to backend app configurations.
+- Handled array slicing within `ContextBuilder` relying on global configurable settings.
+- Added native debug logging for the sizes in ContextBuilder ensuring zero architecture disruption.
+
+## Benefits
+
+- Prevents context-window overflow.
+- Extraneous text is dropped dynamically before interacting with Provider tools.
+- Strictly honors the single responsibility bounds of `config.py` and ContextBuilder integration.
+
+----------------------------------------------------------------
+
+# Sprint 15.1 – Streaming and Citations
+
+## Objective
+
+Support responsive LLM generation through Server-Sent Events (SSE) streaming and grounded citation tracking.
+
+## Changes
+
+- Added a SSE `/chat/stream` API endpoint returning tokens chronologically.
+- Defined a Python validation `Citation` schema and appended citations lists to UI schemas.
+- Extended `AIService` and `GeminiProvider` to loop generations and persist completed responses.
+
+----------------------------------------------------------------
+
+# Sprint 15.2 – Middleware & Helper Adaptations
+
+## Objective
+
+Align dependency injections and resolve query embedding requirements.
+
+## Changes
+
+- Updated FastAPI `dependencies.py` injecting `retrieval_service` to resolve ContextBuilder wiring.
+- Added `embed_query()` to `EmbeddingService` providing clean query vectorization wrappers.
+
+----------------------------------------------------------------
+
+# Sprint 15.3 – Hybrid Search & Best-Match Fallback
+
+## Objective
+
+Resolve literal search failures (e.g., missing code names like "BluePhoenix-2026") and rigid threshold dropouts.
+
+## Changes
+
+- Replaced pure pgvector searching with case-boosted `.ilike()` keyword filtering inside the database search query.
+- Introduced `retrieval_allow_best_match_fallback` to global application settings.
+- Programmed `RetrievalService` fallback logic returning the single best available match when similar hits are rejected by strict thresholds.
+
 

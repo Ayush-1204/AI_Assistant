@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from time import perf_counter
 
 from app.config import settings
 from app.repositories.document_chunk_repository import (
@@ -8,6 +9,7 @@ from app.repositories.document_chunk_repository import (
 )
 from app.services.ai.embeddings.embedding_service import EmbeddingService
 from app.services.retrieval.models import RetrievalResult
+from app.services.retrieval.ranking import document_title
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +36,9 @@ class RetrievalService:
         self.default_similarity_threshold = (
             settings.rag_similarity_threshold
         )
+        self.allow_best_match_fallback = (
+            settings.retrieval_allow_best_match_fallback
+        )
 
     async def retrieve(
         self,
@@ -41,7 +46,6 @@ class RetrievalService:
         query: str,
         user_id: int,
         top_k: int | None = None,
-        similarity_threshold: float | None = None,
     ) -> list[RetrievalResult]:
         """
         Retrieve the most relevant document chunks.
@@ -57,9 +61,6 @@ class RetrievalService:
         top_k
             Number of chunks to retrieve before filtering.
 
-        similarity_threshold
-            Maximum cosine distance allowed.
-
         Returns
         -------
         list[RetrievalResult]
@@ -69,45 +70,75 @@ class RetrievalService:
             self.default_top_k if top_k is None else top_k
         )
 
-        resolved_similarity_threshold = (
-            self.default_similarity_threshold
-            if similarity_threshold is None
-            else similarity_threshold
-        )
-
+        query_embedding_started_at = perf_counter()
         embedding = await self.embedding_service.embed_query(
             query,
         )
+        query_embedding_latency_ms = (
+            perf_counter() - query_embedding_started_at
+        ) * 1000.0
 
+        retrieval_started_at = perf_counter()
         rows = await self.chunk_repository.semantic_search(
+            query=query,
             embedding=embedding,
             user_id=user_id,
             top_k=resolved_top_k,
         )
+        retrieval_latency_ms = (
+            perf_counter() - retrieval_started_at
+        ) * 1000.0
 
-        retrieval_results: list[RetrievalResult] = []
-
-        for result in rows:
-
-            if result.distance > resolved_similarity_threshold:
-                continue
-
-            retrieval_results.append(
+        all_parsed_results: list[RetrievalResult] = []
+        for chunk, distance in rows:
+            all_parsed_results.append(
                 RetrievalResult(
-                    chunk=result.chunk,
-                    distance=float(result.distance),
+                    chunk=chunk,
+                    distance=float(distance),
                 )
             )
 
-        retrieval_results.sort(key=lambda result: result.distance)
+        # Sort all results by distance ascending so the best matches are first
+        all_parsed_results.sort(key=lambda result: result.distance)
+
+        # Apply strict similarity threshold filtering
+        retrieval_results = [
+            result for result in all_parsed_results
+            if result.distance <= self.default_similarity_threshold
+        ]
+
+        fallback_triggered = False
+
+        # Apply best match fallback if active, search found rows, and zero survived threshold filtering
+        if not retrieval_results and all_parsed_results and self.allow_best_match_fallback:
+            retrieval_results = [all_parsed_results[0]]
+            fallback_triggered = True
+            logger.info("Threshold filtering returned 0 results. Fallback strategy triggered returning best match.")
 
         logger.info(
             "Semantic retrieval complete.",
             extra={
                 "query": query,
-                "retrieved": len(rows),
-                "accepted": len(retrieval_results),
-                "threshold": resolved_similarity_threshold,
+                "top_k_requested": resolved_top_k,
+                "results_after_filtering": len(retrieval_results),
+                "threshold": self.default_similarity_threshold,
+                "fallback_triggered": fallback_triggered,
+                "query_embedding_latency_ms": round(
+                    query_embedding_latency_ms,
+                    2,
+                ),
+                "retrieval_latency_ms": round(
+                    retrieval_latency_ms,
+                    2,
+                ),
+                "distances": [
+                    round(result.distance, 6)
+                    for result in retrieval_results
+                ],
+                "documents_returned": [
+                    document_title(result.chunk.document)
+                    for result in retrieval_results
+                ],
                 "best_distance": (
                     retrieval_results[0].distance
                     if retrieval_results

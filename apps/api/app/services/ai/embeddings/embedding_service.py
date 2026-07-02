@@ -20,6 +20,13 @@ class EmbeddingService:
             text,
         )
 
+    async def embed_query(
+        self,
+        query: str,
+    ) -> list[float]:
+
+        return await self.embed(query)
+
     async def embed_many(
         self,
         texts: list[str],

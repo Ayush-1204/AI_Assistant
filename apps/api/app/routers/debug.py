@@ -13,7 +13,6 @@ def _document_title(document) -> str:
         getattr(document, "title", None)
         or getattr(document, "original_filename", None)
         or getattr(document, "filename", None)
-        or getattr(document, "stored_filename", None)
         or "Untitled Document"
     )
 
@@ -43,13 +42,20 @@ async def debug_search(
         user_id=current_user.id,
     )
 
-    return [
-        {
-            "document_title": _document_title(c.chunk.document),
-            "chunk_index": c.chunk.chunk_index,
-            "token_count": c.chunk.token_count,
-            "distance": c.distance,
-            "content": c.chunk.content,
-        }
-        for c in chunks
-    ]
+    return {
+        "query": query,
+        "embedding_dimension": 768,
+        "threshold": retrieval.default_similarity_threshold,
+        "retrieved": len(chunks),
+        "results": [
+            {
+                "document_title": _document_title(c.chunk.document),
+                "chunk_id": c.chunk.id,
+                "chunk_index": c.chunk.chunk_index,
+                "token_count": c.chunk.token_count,
+                "distance": c.distance,
+                "content": c.chunk.content,
+            }
+            for c in chunks
+        ],
+    }

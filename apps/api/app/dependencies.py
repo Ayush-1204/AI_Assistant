@@ -5,6 +5,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import AsyncSessionLocal
+from app.config import settings
 
 # Repositories
 from app.repositories.user_repository import UserRepository
@@ -22,11 +23,11 @@ from app.services.conversation_service import ConversationService
 from app.services.message_service import MessageService
 from app.services.document_service import DocumentService
 from app.services.storage_service import StorageService
-from app.services.retrieval import RetrievalService
+from app.services.retrieval.retrieval_service import RetrievalService
 
 
 # AI
-from app.services.ai import AIService
+from app.services.ai.ai_service import AIService
 from app.services.ai.providers import GeminiProvider
 from app.services.ai.context import ContextBuilder
 from app.services.ai.providers import OllamaProvider
@@ -36,9 +37,12 @@ from app.services.ai.embeddings import (
     EmbeddingService,
 )
 
-from app.services.ai.embeddings.providers import (
+from app.services.ai.embeddings.providers.gemini import (
+    GeminiEmbeddingProvider,
+)
+
+from app.services.ai.embeddings.providers.ollama import (
     OllamaEmbeddingProvider,
-    GeminiEmbeddingProvider, 
 )
 
 from app.services.ai.embeddings.providers.base import (
@@ -193,25 +197,6 @@ def get_memory_service(
 
 
 # ==========================================================
-# Context Builder
-# ==========================================================
-
-def get_context_builder(
-    message_service: MessageService = Depends(
-        get_message_service,
-    ),
-    memory_service: MemoryService = Depends(
-        get_memory_service,
-    ),
-) -> ContextBuilder:
-
-    return ContextBuilder(
-        message_service=message_service,
-        memory_service=memory_service,
-    )
-
-
-# ==========================================================
 # Document Components
 # ==========================================================
 
@@ -224,7 +209,10 @@ def get_extractor_registry() -> ExtractorRegistry:
 
 
 def get_text_chunker() -> TextChunker:
-    return TextChunker()
+    return TextChunker(
+        chunk_size=settings.rag_chunk_size,
+        overlap=settings.rag_chunk_overlap,
+    )
 
 
 def get_embedding_provider() -> BaseEmbeddingProvider:
@@ -260,6 +248,29 @@ def get_retrieval_service(
     return RetrievalService(
         chunk_repository=chunk_repository,
         embedding_service=embedding_service,
+    )
+
+
+# ==========================================================
+# Context Builder
+# ==========================================================
+
+def get_context_builder(
+    message_service: MessageService = Depends(
+        get_message_service,
+    ),
+    memory_service: MemoryService = Depends(
+        get_memory_service,
+    ),
+    retrieval_service: RetrievalService = Depends(
+        get_retrieval_service,
+    ),
+) -> ContextBuilder:
+
+    return ContextBuilder(
+        message_service=message_service,
+        memory_service=memory_service,
+        retrieval_service=retrieval_service,
     )
 
 

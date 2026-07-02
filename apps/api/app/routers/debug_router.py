@@ -21,7 +21,6 @@ def _document_title(document) -> str:
         getattr(document, "title", None)
         or getattr(document, "original_filename", None)
         or getattr(document, "filename", None)
-        or getattr(document, "stored_filename", None)
         or "Untitled Document"
     )
 
@@ -39,11 +38,6 @@ async def retrieval_debug(
         ge=1,
         le=20,
     ),
-    threshold: float | None = Query(
-        None,
-        ge=0,
-        le=1,
-    ),
     current_user=Depends(
         get_current_user,
     ),
@@ -56,17 +50,12 @@ async def retrieval_debug(
         query=query,
         user_id=current_user.id,
         top_k=top_k,
-        similarity_threshold=threshold,
     )
 
     return RetrievalDebugResponse(
         query=query,
         embedding_dimension=768,
-        threshold=(
-            threshold
-            if threshold is not None
-            else retrieval_service.default_similarity_threshold
-        ),
+        threshold=retrieval_service.default_similarity_threshold,
         retrieved=len(results),
         results=[
             RetrievalDebugResult(

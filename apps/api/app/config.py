@@ -34,9 +34,14 @@ class Settings(BaseSettings):
     # RAG Configuration
     # -------------------------
 
+    rag_chunk_size: int = 512
+    rag_chunk_overlap: int = 64
     rag_top_k: int = 5
     rag_similarity_threshold: float = 0.35
     rag_max_context_chunks: int = 5
+    context_max_memories: int = 10
+    context_max_history: int = 20
+    retrieval_allow_best_match_fallback: bool = True
 
     # JWT
     SECRET_KEY: str

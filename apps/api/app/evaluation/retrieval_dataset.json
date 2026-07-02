@@ -1,0 +1,122 @@
+[
+  {
+    "query": "What is dependency injection?",
+    "expected_document": "FastAPI Guide.pdf",
+    "expected_chunk": 8
+  },
+  {
+    "query": "How does OAuth work?",
+    "expected_document": "Authentication.pdf",
+    "expected_chunk": 4
+  },
+  {
+    "query": "How do I keep conversation history?",
+    "expected_document": "Conversation History.pdf",
+    "expected_chunk": 2
+  },
+  {
+    "query": "How is long term memory stored?",
+    "expected_document": "Memory Model.pdf",
+    "expected_chunk": 3
+  },
+  {
+    "query": "What is semantic search in the app?",
+    "expected_document": "Retrieval Guide.pdf",
+    "expected_chunk": 1
+  },
+  {
+    "query": "How are embeddings generated?",
+    "expected_document": "Embedding Pipeline.pdf",
+    "expected_chunk": 5
+  },
+  {
+    "query": "How does chunking work?",
+    "expected_document": "Chunking Guide.pdf",
+    "expected_chunk": 6
+  },
+  {
+    "query": "How is indexing performed after upload?",
+    "expected_document": "Indexing Guide.pdf",
+    "expected_chunk": 2
+  },
+  {
+    "query": "What happens during document upload?",
+    "expected_document": "Upload Pipeline.pdf",
+    "expected_chunk": 7
+  },
+  {
+    "query": "How are documents stored on disk?",
+    "expected_document": "Storage Guide.pdf",
+    "expected_chunk": 2
+  },
+  {
+    "query": "What are the document lifecycle states?",
+    "expected_document": "Document Lifecycle.pdf",
+    "expected_chunk": 1
+  },
+  {
+    "query": "How does the system handle JWT auth?",
+    "expected_document": "Security Notes.pdf",
+    "expected_chunk": 5
+  },
+  {
+    "query": "How does the API boot and register routers?",
+    "expected_document": "FastAPI Guide.pdf",
+    "expected_chunk": 10
+  },
+  {
+    "query": "How does the app connect services through dependencies?",
+    "expected_document": "Dependency Injection.pdf",
+    "expected_chunk": 1
+  },
+  {
+    "query": "How do conversations link messages?",
+    "expected_document": "Conversation Model.pdf",
+    "expected_chunk": 3
+  },
+  {
+    "query": "What is the chunk overlap strategy?",
+    "expected_document": "Chunking Guide.pdf",
+    "expected_chunk": 9
+  },
+  {
+    "query": "How does retrieval thresholding work?",
+    "expected_document": "Retrieval Guide.pdf",
+    "expected_chunk": 4
+  },
+  {
+    "query": "What documents are available to the retriever?",
+    "expected_document": "Database Schema.pdf",
+    "expected_chunk": 2
+  },
+  {
+    "query": "How does the message service persist chat history?",
+    "expected_document": "Message Service.pdf",
+    "expected_chunk": 4
+  },
+  {
+    "query": "What does the context builder currently include?",
+    "expected_document": "Context Builder.pdf",
+    "expected_chunk": 2
+  },
+  {
+    "query": "How does the document processor chain extraction and indexing?",
+    "expected_document": "Document Processor.pdf",
+    "expected_chunk": 3
+  },
+  {
+    "query": "How are memory items retrieved by user?",
+    "expected_document": "Memory Repository.pdf",
+    "expected_chunk": 1
+  },
+  {
+    "query": "How is the retrieval service configured?",
+    "expected_document": "Retrieval Service.pdf",
+    "expected_chunk": 2
+  },
+  {
+    "query": "What is the API response model for retrieval debug output?",
+    "expected_document": "Retrieval Debug.pdf",
+    "expected_chunk": 1
+  }
+]

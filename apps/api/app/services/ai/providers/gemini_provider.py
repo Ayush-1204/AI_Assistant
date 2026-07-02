@@ -25,13 +25,17 @@ class GeminiProvider(BaseLLMProvider):
     ) -> str:
 
         prompt = PromptBuilder.chat(messages)
+        
+        print("\n\n=== [DEBUG] EXACT CONTEXT SENT TO GEMINI (CHAT) ===")
+        print(prompt)
+        print("===================================================\n\n")
 
         response = self.client.models.generate_content(
             model=self.model,
             contents=prompt,
         )
 
-        return response.text
+        return response.text or ""
 
     async def generate_title(
         self,
@@ -47,13 +51,27 @@ class GeminiProvider(BaseLLMProvider):
             contents=prompt,
         )
 
-        return response.text.strip()
+        return (response.text or "").strip()
 
     async def stream_chat(
         self,
         messages: list[dict],
     ) -> AsyncGenerator[str, None]:
-        raise NotImplementedError
+        prompt = PromptBuilder.chat(messages)
+        
+        print("\n\n=== [DEBUG] EXACT CONTEXT SENT TO GEMINI (STREAM_CHAT) ===")
+        print(prompt)
+        print("==========================================================\n\n")
+
+        # Utilize Google SDK's native async client
+        response = await self.client.aio.models.generate_content_stream(
+            model=self.model,
+            contents=prompt,
+        )
+
+        async for chunk in response:
+            if chunk.text:
+                yield chunk.text
     
     async def extract_memory(
         self,
@@ -89,7 +107,7 @@ class GeminiProvider(BaseLLMProvider):
             contents=prompt,
         )
 
-        text = response.text.strip()
+        text = (response.text or "").strip()
 
         # Remove markdown code fences if present
         if text.startswith("```json"):

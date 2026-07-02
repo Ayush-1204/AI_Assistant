@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import select, case
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -7,7 +7,6 @@ from app.db.models import (
     DocumentChunk,
     DocumentStatus,
 )
-from app.services.retrieval.models import RetrievalResult
 
 
 class DocumentChunkRepository:
@@ -103,16 +102,16 @@ class DocumentChunkRepository:
 
     async def semantic_search(
         self,
+        query: str,
         embedding: list[float],
         user_id: int,
         top_k: int = 5,
-    ) -> list[RetrievalResult]:
+    ) -> list[tuple[DocumentChunk, float]]:
         """
         Perform semantic search using pgvector cosine distance.
 
         Returns:
-            list of RetrievalResult objects containing the chunk and
-            cosine distance.
+            list of (DocumentChunk, cosine_distance) tuples.
 
         Results are ordered by ascending cosine distance.
 
@@ -122,20 +121,24 @@ class DocumentChunkRepository:
         distance = (
             DocumentChunk.embedding
             .cosine_distance(embedding)
-            .label("distance")
         )
+
+        match_score = case(
+            (DocumentChunk.content.ilike(f"%{query}%"), 0.0),
+            else_=distance
+        ).label("match_score")
 
         stmt = (
             select(
                 DocumentChunk,
-                distance,
+                match_score,
             )
             .join(Document)
             .where(
                 Document.user_id == user_id,
                 Document.status == DocumentStatus.READY,
             )
-            .order_by(distance.asc())
+            .order_by(match_score.asc(), distance.asc())
             .limit(top_k)
             .options(
                 selectinload(DocumentChunk.document)
@@ -145,9 +148,9 @@ class DocumentChunkRepository:
         result = await self.db.execute(stmt)
 
         return [
-            RetrievalResult(
-                chunk=row[0],
-                distance=float(row[1]),
+            (
+                row[0],
+                float(row[1]),
             )
             for row in result.all()
         ]
