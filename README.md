@@ -1425,3 +1425,79 @@ The AI layer now supports both cloud (Gemini) and local (Ollama) providers throu
 
 ---------------------------------------------------------------------
 
+## Sprint 13.3 – Automatic Document Indexing
+
+### Pipeline
+
+Upload
+→ Extract
+→ Chunk
+→ Store Chunks
+→ Generate Embeddings
+→ Persist Embeddings
+→ Ready
+
+### Embeddings
+
+- Provider: Ollama
+- Model: nomic-embed-text
+- Dimension: 768
+
+Every uploaded document is automatically indexed after processing and is ready for semantic retrieval.
+
+--------------------------------------------------------------------
+
+## Sprint 14 – Local Embedding Provider
+
+### Added
+
+- BaseEmbeddingProvider abstraction
+- OllamaEmbeddingProvider
+- Local embedding generation using `nomic-embed-text`
+- EmbeddingService provider injection
+
+### Architecture
+
+Document
+    ↓
+Chunk
+    ↓
+EmbeddingService
+    ↓
+OllamaEmbeddingProvider
+    ↓
+Ollama (nomic-embed-text)
+    ↓
+768-dimensional vector
+    ↓
+pgvector
+
+------------------------------------------------------------------------------------------------------------
+
+## Sprint 14 – Local Embedding Provider
+
+### Added
+
+- BaseEmbeddingProvider abstraction
+- OllamaEmbeddingProvider
+- Local embedding generation using `nomic-embed-text`
+- EmbeddingService provider injection
+
+### Architecture
+
+Document
+    ↓
+Chunk
+    ↓
+EmbeddingService
+    ↓
+OllamaEmbeddingProvider
+    ↓
+Ollama (nomic-embed-text)
+    ↓
+768-dimensional vector
+    ↓
+pgvector
+
+------------------------------------------------------------------------------------------------------------
+

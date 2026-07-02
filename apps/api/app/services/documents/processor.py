@@ -18,6 +18,7 @@ from app.services.documents.extractors.registry import (
     ExtractorRegistry,
 )
 from app.services.documents.mappers.chunk_mapper import ChunkMapper
+from app.services.indexing.indexing_service import IndexingService
 
 
 class DocumentProcessor:
@@ -28,11 +29,13 @@ class DocumentProcessor:
         chunk_repository: DocumentChunkRepository,
         extractor_registry: ExtractorRegistry,
         chunker: TextChunker,
+        indexing_service: "IndexingService",
     ):
         self.document_repository = document_repository
         self.chunk_repository = chunk_repository
         self.registry = extractor_registry
         self.chunker = chunker
+        self.indexing_service = indexing_service
 
     async def process(
         self,
@@ -77,13 +80,22 @@ class DocumentProcessor:
                 chunks=chunks,
             )
 
-            await self.chunk_repository.create_many(
-                models,
+            await self.chunk_repository.create_many(models)
+
+            document.status = DocumentStatus.EMBEDDING
+
+            await self.document_repository.update(
+                document,
             )
 
-            await self.document_repository.update_status(
+            await self.indexing_service.index_document(
+                document.id,
+            )
+
+            document.status = DocumentStatus.READY
+
+            await self.document_repository.update(
                 document,
-                DocumentStatus.READY,
             )
 
         except Exception:

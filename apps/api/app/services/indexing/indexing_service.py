@@ -36,7 +36,7 @@ class IndexingService:
 
         await self.document_repository.update_status(
             document,
-            DocumentStatus.INDEXING,
+            DocumentStatus.EMBEDDING,
         )
 
         chunks = await self.chunk_repository.list_by_document(
@@ -50,10 +50,14 @@ class IndexingService:
             )
 
             #
-            # Save later (pgvector)
+            chunk.embedding = embedding
             #
+        
+        await self.chunk_repository.update_many(
+            chunks,
+        )
 
         await self.document_repository.update_status(
             document,
-            DocumentStatus.SEARCHABLE,
+            DocumentStatus.READY,
         )

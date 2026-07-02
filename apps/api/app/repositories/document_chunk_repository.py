@@ -64,3 +64,25 @@ class DocumentChunkRepository:
             await self.db.delete(chunk)
 
         await self.db.commit()
+
+    async def update(
+        self,
+        chunk: DocumentChunk,
+    ) -> DocumentChunk:
+
+        self.db.add(chunk)
+
+        await self.db.commit()
+
+        await self.db.refresh(chunk)
+
+        return chunk
+    
+    async def update_many(
+        self,
+        chunks: list[DocumentChunk],
+    ) -> None:
+
+        self.db.add_all(chunks)
+
+        await self.db.commit()

@@ -23,10 +23,12 @@ from app.services.message_service import MessageService
 from app.services.document_service import DocumentService
 from app.services.storage_service import StorageService
 
+
 # AI
 from app.services.ai import AIService
 from app.services.ai.providers import GeminiProvider
 from app.services.ai.context import ContextBuilder
+from app.services.ai.providers import OllamaProvider
 
 # Embeddings
 from app.services.ai.embeddings import (
@@ -34,7 +36,8 @@ from app.services.ai.embeddings import (
 )
 
 from app.services.ai.embeddings.providers import (
-    GeminiEmbeddingProvider,
+    OllamaEmbeddingProvider,
+    GeminiEmbeddingProvider, 
 )
 
 from app.services.ai.embeddings.providers.base import (
@@ -223,6 +226,40 @@ def get_text_chunker() -> TextChunker:
     return TextChunker()
 
 
+def get_embedding_provider() -> BaseEmbeddingProvider:
+    return OllamaEmbeddingProvider()
+
+
+def get_embedding_service(
+    provider: BaseEmbeddingProvider = Depends(
+        get_embedding_provider,
+    ),
+) -> EmbeddingService:
+
+    return EmbeddingService(
+        provider,
+    )
+
+
+def get_indexing_service(
+    chunk_repository: DocumentChunkRepository = Depends(
+        get_document_chunk_repository,
+    ),
+    document_repository: DocumentRepository = Depends(
+        get_document_repository,
+    ),
+    embedding_service: EmbeddingService = Depends(
+        get_embedding_service,
+    ),
+) -> IndexingService:
+
+    return IndexingService(
+        chunk_repository=chunk_repository,
+        document_repository=document_repository,
+        embedding_service=embedding_service,
+    )
+
+
 def get_document_processor(
     document_repository: DocumentRepository = Depends(
         get_document_repository,
@@ -236,6 +273,9 @@ def get_document_processor(
     chunker: TextChunker = Depends(
         get_text_chunker,
     ),
+    indexing_service: IndexingService = Depends(
+        get_indexing_service,
+    ),
 ) -> DocumentProcessor:
 
     return DocumentProcessor(
@@ -243,6 +283,7 @@ def get_document_processor(
         chunk_repository=chunk_repository,
         extractor_registry=extractor_registry,
         chunker=chunker,
+        indexing_service=indexing_service,
     )
 
 
@@ -262,47 +303,6 @@ def get_document_service(
         repository=repository,
         storage_service=storage_service,
         processor=processor,
-    )
-
-# ==========================================================
-# Embeddings
-# ==========================================================
-
-def get_embedding_provider() -> BaseEmbeddingProvider:
-    return GeminiEmbeddingProvider()
-
-
-def get_embedding_service(
-    provider: BaseEmbeddingProvider = Depends(
-        get_embedding_provider,
-    ),
-) -> EmbeddingService:
-
-    return EmbeddingService(
-        provider,
-    )
-
-
-# ==========================================================
-# Indexing
-# ==========================================================
-
-def get_indexing_service(
-    chunk_repository: DocumentChunkRepository = Depends(
-        get_document_chunk_repository,
-    ),
-    document_repository: DocumentRepository = Depends(
-        get_document_repository,
-    ),
-    embedding_service: EmbeddingService = Depends(
-        get_embedding_service,
-    ),
-) -> IndexingService:
-
-    return IndexingService(
-        chunk_repository=chunk_repository,
-        document_repository=document_repository,
-        embedding_service=embedding_service,
     )
 
 # ==========================================================

@@ -15,6 +15,7 @@ from sqlalchemy.orm import (
     relationship,
 )
 from sqlalchemy.sql import func
+from pgvector.sqlalchemy import Vector
 
 from app.db.base import Base
 
@@ -70,4 +71,9 @@ class DocumentChunk(Base):
     document = relationship(
         "Document",
         back_populates="chunks",
+    )
+
+    embedding = mapped_column(
+        Vector(768),
+        nullable=True,
     )
