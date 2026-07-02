@@ -1,0 +1,57 @@
+{
+    "Threshold": 0.35,
+    "dlcv": [
+        {
+            "chunk_index": 0,
+            "distance": 0.0,
+            "filtered": false
+        },
+        {
+            "chunk_index": 0,
+            "distance": 0.0,
+            "filtered": false
+        },
+        {
+            "chunk_index": 0,
+            "distance": 0.5501726090290721,
+            "filtered": true
+        },
+        {
+            "chunk_index": 0,
+            "distance": 0.5764316067952266,
+            "filtered": true
+        },
+        {
+            "chunk_index": 1,
+            "distance": 0.7011031535946597,
+            "filtered": true
+        }
+    ],
+    "what is dlcv": [
+        {
+            "chunk_index": 0,
+            "distance": 0.5045486379745729,
+            "filtered": true
+        },
+        {
+            "chunk_index": 0,
+            "distance": 0.5266558746528923,
+            "filtered": true
+        },
+        {
+            "chunk_index": 0,
+            "distance": 0.5631654632691842,
+            "filtered": true
+        },
+        {
+            "chunk_index": 0,
+            "distance": 0.5876834146787178,
+            "filtered": true
+        },
+        {
+            "chunk_index": 1,
+            "distance": 0.7051766533781013,
+            "filtered": true
+        }
+    ]
+}

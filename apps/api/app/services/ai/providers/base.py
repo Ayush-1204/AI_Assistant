@@ -16,7 +16,7 @@ class BaseLLMProvider(ABC):
         self,
         messages: list[dict],
     ) -> AsyncGenerator[str, None]:
-        pass
+        yield ""
 
     @abstractmethod
     async def generate_title(

@@ -6,5 +6,12 @@ class ChatRequest(BaseModel):
     message: str
 
 
+class Citation(BaseModel):
+    document_title: str
+    chunk_index: int
+    similarity: float
+
+
 class ChatResponse(BaseModel):
     response: str
+    citations: list[Citation] = []
