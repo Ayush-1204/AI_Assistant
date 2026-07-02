@@ -10,6 +10,8 @@ from app.routers import (
 )
 from app.routers.chat import router as chat_router
 from app.routers.document import router as document_router
+from app.routers.debug import router as debug_router
+from app.routers.debug_router import router as debug_router2
 
 settings = get_settings()
 
@@ -25,3 +27,5 @@ app.include_router(users_router)
 app.include_router(conversation_router)
 app.include_router(chat_router)
 app.include_router(document_router)
+app.include_router(debug_router)
+app.include_router(debug_router2)

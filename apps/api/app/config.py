@@ -30,6 +30,14 @@ class Settings(BaseSettings):
         "text/markdown",
     ]
 
+    # -------------------------
+    # RAG Configuration
+    # -------------------------
+
+    rag_top_k: int = 5
+    rag_similarity_threshold: float = 0.35
+    rag_max_context_chunks: int = 5
+
     # JWT
     SECRET_KEY: str
     JWT_SECRET: str

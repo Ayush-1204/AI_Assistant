@@ -22,6 +22,7 @@ from app.services.conversation_service import ConversationService
 from app.services.message_service import MessageService
 from app.services.document_service import DocumentService
 from app.services.storage_service import StorageService
+from app.services.retrieval import RetrievalService
 
 
 # AI
@@ -238,6 +239,27 @@ def get_embedding_service(
 
     return EmbeddingService(
         provider,
+    )
+
+#
+#
+#
+
+def get_retrieval_service(
+
+    chunk_repository: DocumentChunkRepository = Depends(
+        get_document_chunk_repository,
+    ),
+
+    embedding_service: EmbeddingService = Depends(
+        get_embedding_service,
+    ),
+
+) -> RetrievalService:
+
+    return RetrievalService(
+        chunk_repository=chunk_repository,
+        embedding_service=embedding_service,
     )
 
 

@@ -1361,6 +1361,16 @@ This lifecycle enables asynchronous processing while keeping upload requests res
 - BaseVectorStore interface
 - RetrievalService
 - Vector store abstraction layer
+- RetrievalResult domain model for semantic search responses
+- Distance-threshold filtering in RetrievalService
+- Configurable retrieval defaults via existing RAG settings
+
+### Retrieval Notes
+
+- The repository returns raw semantic matches as chunk-plus-distance results.
+- RetrievalService applies the configured distance threshold before results are returned to callers.
+- The debug retrieval endpoint now resolves document titles with the priority `document.title`, then `original_filename`, then filename-style fallbacks.
+- Debug results include the chunk distance, chunk index, token count, and full chunk content for inspection.
 
 ### Design
 
