@@ -12,6 +12,11 @@ from app.schemas.user import (
     UserResponse,
 )
 from app.services.auth_service import AuthService
+from fastapi.responses import RedirectResponse
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.dependencies import get_db, get_current_user
+from app.integrations.google.auth import GoogleAuthService
+from app.repositories.oauth_repository import OAuthRepository
 
 
 router = APIRouter(
@@ -60,5 +65,38 @@ async def login(
     except InvalidCredentialsException as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
+        )
+
+@router.get("/google/login")
+async def google_login(
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    try:
+        repo = OAuthRepository(db)
+        auth_svc = GoogleAuthService(repo)
+        url = auth_svc.get_authorization_url()
+        return {"authorization_url": url}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+
+@router.post("/google/callback")
+async def google_callback(
+    code: str,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    try:
+        repo = OAuthRepository(db)
+        auth_svc = GoogleAuthService(repo)
+        await auth_svc.exchange_code(code, user.id)
+        return {"message": "Google account linked successfully."}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         )

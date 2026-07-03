@@ -69,6 +69,14 @@ from app.services.ai.tools.document_search import DocumentSearchTool
 from app.services.ai.tools.memory_search import MemorySearchTool
 from app.services.ai.tools.web_search import WebSearchTool
 from app.integrations.search.tavily import TavilySearchProvider
+from app.services.ai.tools.google_calendar import CalendarTool
+from app.services.ai.tools.google_gmail import GmailTool
+from app.services.ai.tools.google_drive import DriveTool
+from app.integrations.google.auth import GoogleAuthService
+from app.integrations.google.calendar import GoogleCalendarService
+from app.integrations.google.gmail import GoogleGmailService
+from app.integrations.google.drive import GoogleDriveService
+from app.repositories.oauth_repository import OAuthRepository
 
 # Documents
 from app.services.documents.processor import DocumentProcessor
@@ -391,6 +399,7 @@ def get_document_service(
 def get_tool_orchestrator(
     retrieval_service: RetrievalService = Depends(get_retrieval_service),
     memory_service: MemoryService = Depends(get_memory_service),
+    db: AsyncSession = Depends(get_db),
 ) -> ToolOrchestrator:
 
     registry = ToolRegistry()
@@ -398,6 +407,14 @@ def get_tool_orchestrator(
     registry.register(CalculatorTool())
     registry.register(DocumentSearchTool(retrieval_service))
     registry.register(MemorySearchTool(memory_service))
+    
+    if settings.GOOGLE_CLIENT_ID:
+        oauth_repo = OAuthRepository(db)
+        auth_service = GoogleAuthService(oauth_repo)
+        
+        registry.register(CalendarTool(GoogleCalendarService(auth_service)))
+        registry.register(GmailTool(GoogleGmailService(auth_service)))
+        registry.register(DriveTool(GoogleDriveService(auth_service)))
     
     if settings.enable_web_search:
         search_provider = None
