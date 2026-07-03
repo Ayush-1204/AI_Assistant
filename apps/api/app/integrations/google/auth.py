@@ -43,16 +43,22 @@ class GoogleAuthService:
         else:
             self.flow = None
 
-    def get_authorization_url(self) -> str:
-        if not self.flow:
+    def get_authorization_url(self, state: str) -> str:
+        if not settings.GOOGLE_CLIENT_ID:
             raise ValueError("Google OAuth is not configured properly in settings")
-        
-        auth_url, _ = self.flow.authorization_url(
-            access_type='offline',
-            include_granted_scopes='true',
-            prompt='consent'
-        )
-        return auth_url
+            
+        import urllib.parse
+        params = {
+            "client_id": settings.GOOGLE_CLIENT_ID,
+            "redirect_uri": settings.GOOGLE_REDIRECT_URI if settings.GOOGLE_REDIRECT_URI else "",
+            "response_type": "code",
+            "scope": " ".join(self.scopes),
+            "access_type": "offline",
+            "include_granted_scopes": "true",
+            "prompt": "consent",
+            "state": state
+        }
+        return "https://accounts.google.com/o/oauth2/auth?" + urllib.parse.urlencode(params)
 
     async def exchange_code(self, code: str, user_id: int):
         if not self.flow:

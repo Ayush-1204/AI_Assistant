@@ -19,8 +19,8 @@ class GoogleCalendarService:
         service = await self._get_client(user_id)
         
         now = datetime.datetime.now(datetime.timezone.utc)
-        start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat() + 'Z'
-        end_of_day = now.replace(hour=23, minute=59, second=59, microsecond=999999).isoformat() + 'Z'
+        start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat().replace('+00:00', 'Z')
+        end_of_day = now.replace(hour=23, minute=59, second=59, microsecond=999999).isoformat().replace('+00:00', 'Z')
         
         events_result = service.events().list(
             calendarId='primary', 
@@ -33,7 +33,7 @@ class GoogleCalendarService:
 
     async def get_upcoming_events(self, user_id: int, max_results: int = 10):
         service = await self._get_client(user_id)
-        now = datetime.datetime.now(datetime.timezone.utc).isoformat() + 'Z'
+        now = datetime.datetime.now(datetime.timezone.utc).isoformat().replace('+00:00', 'Z')
         events_result = service.events().list(
             calendarId='primary', 
             timeMin=now,

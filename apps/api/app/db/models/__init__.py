@@ -5,6 +5,7 @@ from .memory import Memory
 from .document import Document, DocumentStatus
 from .document_chunk import DocumentChunk
 from .oauth_credential import OAuthCredential
+from .oauth_state import OAuthState
 
 __all__ = [
     "User",
@@ -15,4 +16,5 @@ __all__ = [
     "DocumentStatus",
     "DocumentChunk",
     "OAuthCredential",
+    "OAuthState",
 ]

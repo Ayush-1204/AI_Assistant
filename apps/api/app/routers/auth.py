@@ -74,9 +74,13 @@ async def google_login(
     user=Depends(get_current_user),
 ):
     try:
+        from app.repositories.oauth_state_repository import OAuthStateRepository
+        state_repo = OAuthStateRepository(db)
+        state_token = await state_repo.create_state(user.id)
+        
         repo = OAuthRepository(db)
         auth_svc = GoogleAuthService(repo)
-        url = auth_svc.get_authorization_url()
+        url = auth_svc.get_authorization_url(state=state_token)
         return {"authorization_url": url}
     except Exception as e:
         raise HTTPException(
@@ -84,17 +88,29 @@ async def google_login(
             detail=str(e),
         )
 
-@router.post("/google/callback")
+@router.get("/google/callback")
 async def google_callback(
     code: str,
+    state: str,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
 ):
     try:
+        from app.repositories.oauth_state_repository import OAuthStateRepository
+        state_repo = OAuthStateRepository(db)
+        user_id = await state_repo.consume_state(state)
+        
+        if not user_id:
+            raise ValueError("Invalid or expired OAuth state token.")
+            
         repo = OAuthRepository(db)
         auth_svc = GoogleAuthService(repo)
-        await auth_svc.exchange_code(code, user.id)
+        await auth_svc.exchange_code(code, user_id)
         return {"message": "Google account linked successfully."}
+    except ValueError as val_e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(val_e),
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
