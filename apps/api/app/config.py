@@ -66,6 +66,12 @@ class Settings(BaseSettings):
     routing_strategy: str = "priority"
     load_balancing_strategy: str | None = None
 
+    # Agent Planning
+    MAX_AGENT_STEPS: int = 10
+    ENABLE_MULTI_STEP_AGENT: bool = True
+    ENABLE_TOOL_RESULT_CACHE: bool = True
+    MAX_TOOL_RETRIES_PER_STEP: int = 3
+
     # Web Search
     enable_web_search: bool = True
     default_search_provider: str = "tavily"

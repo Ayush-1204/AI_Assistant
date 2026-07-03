@@ -10,6 +10,8 @@ from app.services.ai.providers.base import BaseLLMProvider
 from app.services.conversation_service import ConversationService
 from app.services.message_service import MessageService
 from app.services.ai.tools.orchestrator import ToolOrchestrator
+from app.services.ai.planner.planner import Planner
+from app.services.ai.planner.executor import AgentExecutor
 
 class AIService:
 
@@ -56,23 +58,13 @@ class AIService:
         if tool_extension and messages and messages[0].get("role") == "system":
             messages[0]["content"] += tool_extension
 
-        max_loops = 5
-        final_response = ""
         context = {"user_id": user_id, "conversation_id": conversation_id}
         tools_payload = strategy.get_tools_for_provider()
 
-        for _ in range(max_loops):
-            response_obj = await self.provider.chat(messages, tools=tools_payload)
-            
-            has_tool, tool_requests = strategy.extract_requests(response_obj)
-            if has_tool:
-                messages.extend(strategy.format_assistant_message(response_obj))
-                tool_responses = await self.tool_orchestrator.execute_all(tool_requests, context)
-                messages.extend(strategy.format_responses_to_messages(tool_responses, raw_tool_call=response_obj))
-                continue
-                
-            final_response = strategy.get_text_from_response(response_obj)
-            break
+        planner = Planner(self.provider, strategy)
+        agent = AgentExecutor(planner, self.tool_orchestrator, strategy)
+        
+        final_response = await agent.run(prompt, context, messages, tools_payload)
 
         await self.message_service.create(conversation_id, MessageCreate(role=MessageRole.ASSISTANT, content=final_response))
         return final_response, citations
@@ -98,47 +90,22 @@ class AIService:
 
         yield f"data: {json.dumps({'type': 'citations', 'citations': [c.model_dump() for c in citations]})}\n\n"
 
-        max_loops = 5
-        final_response = ""
         context = {"user_id": user_id, "conversation_id": conversation_id}
         tools_payload = strategy.get_tools_for_provider()
         
-        for loop in range(max_loops):
-            collected_response_obj = None
-            full_text = ""
-            is_tool_call_predicted = False
-            
-            async for chunk in self.provider.stream_chat(messages, tools=tools_payload):
-                if not isinstance(chunk, str):
-                    # Native object chunks from SDK supporting function_calls
-                    is_tool_call_predicted = True
-                    collected_response_obj = chunk
-                    continue
-                    
-                full_text += chunk
-                
-                if "<tool_call" in full_text:
-                    is_tool_call_predicted = True
-                    continue
-                    
-                yield f"data: {json.dumps({'type': 'content', 'delta': chunk})}\n\n"
-
-            if is_tool_call_predicted:
-                 has_tool, tool_requests = False, []
-                 
-                 source_payload = collected_response_obj if collected_response_obj else full_text
-                 has_tool, tool_requests = strategy.extract_requests(source_payload)
-                 
-                 if has_tool:
-                     yield f"data: {json.dumps({'type': 'tool', 'name': 'Executing tools natively...'})}\n\n"
-                     
-                     messages.extend(strategy.format_assistant_message(source_payload))
-                     tool_responses = await self.tool_orchestrator.execute_all(tool_requests, context)
-                     messages.extend(strategy.format_responses_to_messages(tool_responses, raw_tool_call=source_payload))
-                     continue
-            
-            final_response = full_text
-            break
+        planner = Planner(self.provider, strategy)
+        agent = AgentExecutor(planner, self.tool_orchestrator, strategy)
+        
+        final_response = ""
+        async for chunk in agent.stream_run(prompt, context, messages, tools_payload):
+            if chunk.startswith("data: ") and '"delta"' in chunk:
+                # Accumulate the final answer transparently for storage
+                try:
+                    delta = json.loads(chunk[6:])['delta']
+                    final_response += delta
+                except:
+                    pass
+            yield chunk
 
         await self.message_service.create(conversation_id, MessageCreate(role=MessageRole.ASSISTANT, content=final_response))
         yield "data: [DONE]\n\n"
