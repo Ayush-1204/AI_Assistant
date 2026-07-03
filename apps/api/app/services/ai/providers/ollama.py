@@ -1,6 +1,6 @@
-from collections.abc import AsyncGenerator
-
 import ollama
+from typing import Any
+from collections.abc import AsyncGenerator
 
 import httpx
 from app.services.ai.prompts import PromptBuilder
@@ -26,7 +26,9 @@ class OllamaProvider(BaseLLMProvider):
             context_window=8192,
             supports_streaming=True,
             supports_vision=False,
-            supports_function_calling=False,
+            supports_native_tools=False,
+            supports_parallel_tools=False,
+            supports_tool_streaming=False,
             estimated_cost_tier=1,
             is_local=True,
         )
@@ -42,6 +44,7 @@ class OllamaProvider(BaseLLMProvider):
     async def chat(
         self,
         messages: list[dict],
+        tools: list[dict] | None = None,
     ) -> str:
 
         try:
@@ -56,7 +59,8 @@ class OllamaProvider(BaseLLMProvider):
     async def stream_chat(
         self,
         messages: list[dict],
-    ) -> AsyncGenerator[str, None]:
+        tools: list[dict] | None = None,
+    ) -> AsyncGenerator[Any, None]:
 
         try:
             stream = ollama.chat(

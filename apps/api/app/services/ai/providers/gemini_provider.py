@@ -1,8 +1,7 @@
-from collections.abc import AsyncGenerator
-from email.mime import text
-
 from google import genai
 import json
+from typing import Any
+from collections.abc import AsyncGenerator
 
 from app.config import get_settings
 from app.services.ai.prompts import PromptBuilder
@@ -32,7 +31,9 @@ class GeminiProvider(BaseLLMProvider):
             context_window=1000000,
             supports_streaming=True,
             supports_vision=True,
-            supports_function_calling=True,
+            supports_native_tools=True,
+            supports_parallel_tools=True,
+            supports_tool_streaming=False,
             estimated_cost_tier=3,
             is_local=False,
         )
@@ -50,7 +51,8 @@ class GeminiProvider(BaseLLMProvider):
     async def chat(
         self,
         messages: list[dict],
-    ) -> str:
+        tools: list[dict] | None = None,
+    ):
 
         prompt = PromptBuilder.chat(messages)
         
@@ -58,12 +60,19 @@ class GeminiProvider(BaseLLMProvider):
         print(prompt)
         print("===================================================\n\n")
 
+        config = None
+        if tools:
+            import google.genai.types as gt
+            config = gt.GenerateContentConfig(tools=tools)
+
         try:
             response = self.client.models.generate_content(
                 model=self.model,
                 contents=prompt,
+                config=config,
             )
-            return response.text or ""
+            # We return the response object rather than just string for tools strategy to inspect
+            return response
         except Exception as e:
             raise ProviderTransientError(f"Gemini API failure: {str(e)}")
 
@@ -86,7 +95,8 @@ class GeminiProvider(BaseLLMProvider):
     async def stream_chat(
         self,
         messages: list[dict],
-    ) -> AsyncGenerator[str, None]:
+        tools: list[dict] | None = None,
+    ) -> AsyncGenerator[Any, None]:
         prompt = PromptBuilder.chat(messages)
         
         print("\n\n=== [DEBUG] EXACT CONTEXT SENT TO GEMINI (STREAM_CHAT) ===")
@@ -101,7 +111,9 @@ class GeminiProvider(BaseLLMProvider):
             )
 
             async for chunk in response:
-                if chunk.text:
+                if chunk.function_calls:
+                    yield chunk
+                elif chunk.text:
                     yield chunk.text
         except Exception as e:
             raise ProviderTransientError(f"Gemini stream failure: {str(e)}")

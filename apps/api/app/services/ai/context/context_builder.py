@@ -153,7 +153,7 @@ class ContextBuilder:
                     Citation(
                         document_title=doc_name,
                         chunk_index=chunk.chunk_index,
-                        similarity=round(result.distance, 3)
+                        similarity=round(result.distance, 3) if result.distance is not None else 0.0
                     )
                 )
 

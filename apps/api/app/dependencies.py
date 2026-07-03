@@ -24,6 +24,8 @@ from app.services.message_service import MessageService
 from app.services.document_service import DocumentService
 from app.services.storage_service import StorageService
 from app.services.retrieval.retrieval_service import RetrievalService
+from app.services.retrieval.fusion import ResultFusion
+from app.services.retrieval.reranking import Reranker, CrossEncoderReranker
 
 
 # AI
@@ -65,6 +67,8 @@ from app.services.ai.tools.datetime_tool import CurrentTimeTool
 from app.services.ai.tools.calculator import CalculatorTool
 from app.services.ai.tools.document_search import DocumentSearchTool
 from app.services.ai.tools.memory_search import MemorySearchTool
+from app.services.ai.tools.web_search import WebSearchTool
+from app.integrations.search.tavily import TavilySearchProvider
 
 # Documents
 from app.services.documents.processor import DocumentProcessor
@@ -249,6 +253,22 @@ def get_embedding_service(
 #
 #
 
+_fusion_instance = None
+_reranker_instance = None
+
+def get_result_fusion() -> ResultFusion:
+    global _fusion_instance
+    if _fusion_instance is None:
+        _fusion_instance = ResultFusion()
+    return _fusion_instance
+
+def get_reranker() -> Reranker:
+    global _reranker_instance
+    if _reranker_instance is None:
+        _reranker_instance = CrossEncoderReranker()
+    return _reranker_instance
+
+
 def get_retrieval_service(
 
     chunk_repository: DocumentChunkRepository = Depends(
@@ -258,12 +278,22 @@ def get_retrieval_service(
     embedding_service: EmbeddingService = Depends(
         get_embedding_service,
     ),
+    
+    result_fusion: ResultFusion = Depends(
+        get_result_fusion,
+    ),
+    
+    reranker: Reranker = Depends(
+        get_reranker,
+    ),
 
 ) -> RetrievalService:
 
     return RetrievalService(
         chunk_repository=chunk_repository,
         embedding_service=embedding_service,
+        result_fusion=result_fusion,
+        reranker=reranker,
     )
 
 
@@ -368,6 +398,15 @@ def get_tool_orchestrator(
     registry.register(CalculatorTool())
     registry.register(DocumentSearchTool(retrieval_service))
     registry.register(MemorySearchTool(memory_service))
+    
+    if settings.enable_web_search:
+        search_provider = None
+        if settings.default_search_provider == "tavily":
+            search_provider = TavilySearchProvider()
+        
+        if search_provider:
+            registry.register(WebSearchTool(search_provider))
+            
     return ToolOrchestrator(registry)
 
 # ==========================================================

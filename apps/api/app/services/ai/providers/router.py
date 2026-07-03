@@ -2,6 +2,7 @@ import time
 import asyncio
 import logging
 from collections.abc import AsyncGenerator
+from typing import Any
 
 from app.config import get_settings
 from app.services.ai.providers.base import BaseLLMProvider
@@ -9,7 +10,8 @@ from app.services.ai.providers.exceptions import (
     ProviderTransientError, AllProvidersFailedError, ProviderError
 )
 from app.services.ai.providers.strategies import (
-    FixedProviderStrategy, PriorityStrategy, RoundRobinStrategy, LeastRecentlyUsedStrategy
+    FixedProviderStrategy, PriorityStrategy, RoundRobinStrategy, LeastRecentlyUsedStrategy,
+    RoutingStrategy, LoadBalancingStrategy
 )
 from app.services.ai.providers.metadata import ProviderMetadata
 
@@ -24,13 +26,14 @@ class ProviderRouter(BaseLLMProvider):
         self._health_cache: dict[str, dict] = {}
         
         self.strategy_type = self.settings.routing_strategy
+        self.strategy: RoutingStrategy
         if self.strategy_type == "priority":
             self.strategy = PriorityStrategy(self.settings.fallback_provider_chain)
         else:
             self.strategy = FixedProviderStrategy(self.settings.default_provider)
             
         self.lb_type = self.settings.load_balancing_strategy
-        self.lb_strategy = None
+        self.lb_strategy: LoadBalancingStrategy | None = None
         if self.lb_type == "round_robin":
             self.lb_strategy = RoundRobinStrategy()
         elif self.lb_type == "lru":
@@ -48,8 +51,9 @@ class ProviderRouter(BaseLLMProvider):
     async def get_metadata(self) -> ProviderMetadata:
         # Dummy structural schema since router itself technically supports anything mapped downwards
         return ProviderMetadata(
-            name="router", supported_models=[], context_window=0, supports_streaming=True, 
-            supports_vision=False, supports_function_calling=False, estimated_cost_tier=0, is_local=False
+            name="router", supported_models=[], context_window=0, supports_streaming=True,
+            supports_vision=False, supports_native_tools=False, supports_parallel_tools=False,
+            supports_tool_streaming=False, estimated_cost_tier=0, is_local=False
         )
 
     async def check_health(self) -> bool:
@@ -132,8 +136,8 @@ class ProviderRouter(BaseLLMProvider):
                     
         raise AllProvidersFailedError("All providers fallback chain entirely failed.")
 
-    async def chat(self, messages: list[dict]) -> str:
-        return await self._execute_with_router("chat", messages)
+    async def chat(self, messages: list[dict], tools: list[dict] | None = None) -> str:
+        return await self._execute_with_router("chat", messages, tools=tools)
 
     async def generate_title(self, first_message: str) -> str:
         return await self._execute_with_router("generate_title", first_message)
@@ -141,7 +145,7 @@ class ProviderRouter(BaseLLMProvider):
     async def extract_memory(self, message: str) -> dict | None:
         return await self._execute_with_router("extract_memory", message)
 
-    async def stream_chat(self, messages: list[dict]) -> AsyncGenerator[str, None]:
+    async def stream_chat(self, messages: list[dict], tools: list[dict] | None = None) -> AsyncGenerator[Any, None]:
         available_at_start = await self._get_available_providers()
         tried_providers = set()
         
@@ -156,7 +160,7 @@ class ProviderRouter(BaseLLMProvider):
             for attempt in range(self.settings.retry_count):
                 try:
                     start_time = time.perf_counter()
-                    stream = provider.stream_chat(messages)
+                    stream = provider.stream_chat(messages, tools=tools)
                     
                     found_first_chunk = False
                     async for chunk in stream:

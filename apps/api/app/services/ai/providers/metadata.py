@@ -6,6 +6,8 @@ class ProviderMetadata(BaseModel):
     context_window: int
     supports_streaming: bool
     supports_vision: bool
-    supports_function_calling: bool
+    supports_native_tools: bool
+    supports_parallel_tools: bool
+    supports_tool_streaming: bool
     estimated_cost_tier: int
     is_local: bool

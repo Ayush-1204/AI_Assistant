@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
 from app.services.ai.providers.metadata import ProviderMetadata
+from typing import Any
 
 
 class BaseLLMProvider(ABC):
@@ -25,6 +26,7 @@ class BaseLLMProvider(ABC):
     async def chat(
         self,
         messages: list[dict],
+        tools: list[dict] | None = None,
     ) -> str:
         pass
 
@@ -32,7 +34,8 @@ class BaseLLMProvider(ABC):
     async def stream_chat(
         self,
         messages: list[dict],
-    ) -> AsyncGenerator[str, None]:
+        tools: list[dict] | None = None,
+    ) -> AsyncGenerator[Any, None]:
         yield ""
 
     @abstractmethod

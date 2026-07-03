@@ -48,6 +48,14 @@ class Settings(BaseSettings):
     max_tool_output_length: int = 2000
     reserved_response_tokens: int = 2000
 
+    # Hybrid Retrieval
+    enable_hybrid_retrieval: bool = True
+    enable_reranking: bool = False
+    dense_top_k: int = 5
+    keyword_top_k: int = 5
+    reranker_candidate_count: int = 10
+    reranker_output_count: int = 5
+
     # Routing
     default_provider: str = "gemini"
     default_model: str = "gemini-2.5-flash"
@@ -57,6 +65,13 @@ class Settings(BaseSettings):
     health_check_interval: int = 60
     routing_strategy: str = "priority"
     load_balancing_strategy: str | None = None
+
+    # Web Search
+    enable_web_search: bool = True
+    default_search_provider: str = "tavily"
+    default_max_results: int = 5
+    search_timeout: int = 15
+    TAVILY_API_KEY: str | None = None
 
     # JWT
     SECRET_KEY: str

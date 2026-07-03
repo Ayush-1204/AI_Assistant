@@ -1,50 +1,38 @@
-import json
-import re
+import time
+import logging
+
+from app.schemas.tool import ToolRequest, ToolResponse
 from app.services.ai.tools.registry import ToolRegistry
+
+logger = logging.getLogger(__name__)
 
 class ToolOrchestrator:
     def __init__(self, registry: ToolRegistry):
         self.registry = registry
 
-    def get_system_prompt_extension(self) -> str:
-        schemas = self.registry.get_all_schemas()
-        if not schemas:
-            return ""
+    async def execute_tool(self, request: ToolRequest, context: dict) -> ToolResponse:
+        tool = self.registry.get_tool(request.name)
+        if not tool:
+            msg = f"Error: Tool '{request.name}' not found natively."
+            logger.warning(msg)
+            return ToolResponse(id=request.id, name=request.name, content=msg, is_error=True)
             
-        prompt = "\n\n=== TOOL USAGE ===\n"
-        prompt += "You have access to the following action tools:\n"
-        for s in schemas:
-            prompt += f"- {s['name']}: {s['description']}\n  Arguments: {json.dumps(s['parameters'])}\n"
-            
-        prompt += """\nTo execute a tool, YOU MUST output EXACTLY the following XML block containing JSON:
-<tool_call>
-{"name": "tool_name", "args": {"arg1": "value1"}}
-</tool_call>
-You will receive the tool output in a <tool_response> block. You can only call ONE tool at a time!"""
-        return prompt
-
-    async def extract_and_execute(self, response_text: str, context: dict) -> tuple[bool, str, str]:
-        """
-        Extracts tool call, executes it, and returns (has_tool_call, raw_tool_call_text, tool_result)
-        """
-        match = re.search(r'<tool_call>\s*(.*?)\s*</tool_call>', response_text, re.DOTALL)
-        if not match:
-            return False, "", ""
-            
-        raw_json = match.group(1)
         try:
-            call_data = json.loads(raw_json)
-            name = call_data.get("name")
-            args = call_data.get("args", {})
+            start_time = time.perf_counter()
+            result = await tool.execute(execution_context=context, **request.arguments)
+            latency = (time.perf_counter() - start_time) * 1000.0
             
-            tool = self.registry.get_tool(name)
-            if not tool:
-                return True, match.group(0), f"Error: Tool '{name}' not found natively."
-                
-            result = await tool.execute(execution_context=context, **args)
-            return True, match.group(0), str(result)
+            logger.info("Tool executed successfully", extra={"tool": request.name, "latency_ms": latency})
+            return ToolResponse(id=request.id, name=request.name, content=str(result), is_error=False)
             
-        except json.JSONDecodeError:
-            return True, match.group(0), "Error: Invalid JSON object payload."
         except Exception as e:
-            return True, match.group(0), f"Error executing internal tool: {str(e)}"
+            msg = f"Error executing internal tool: {str(e)}"
+            logger.error(msg, exc_info=True)
+            return ToolResponse(id=request.id, name=request.name, content=msg, is_error=True)
+            
+    async def execute_all(self, requests: list[ToolRequest], context: dict) -> list[ToolResponse]:
+        responses = []
+        for req in requests:
+            res = await self.execute_tool(req, context)
+            responses.append(res)
+        return responses
