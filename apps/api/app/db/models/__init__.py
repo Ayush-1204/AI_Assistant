@@ -6,6 +6,9 @@ from .document import Document, DocumentStatus
 from .document_chunk import DocumentChunk
 from .oauth_credential import OAuthCredential
 from .oauth_state import OAuthState
+from .note import Note
+from .task import Task
+from .reminder import Reminder
 
 __all__ = [
     "User",
@@ -17,4 +20,7 @@ __all__ = [
     "DocumentChunk",
     "OAuthCredential",
     "OAuthState",
+    "Note",
+    "Task",
+    "Reminder",
 ]

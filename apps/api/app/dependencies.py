@@ -16,6 +16,9 @@ from app.repositories.document_repository import DocumentRepository
 from app.repositories.document_chunk_repository import (
     DocumentChunkRepository,
 )
+from app.repositories.note_repository import NoteRepository
+from app.repositories.task_repository import TaskRepository
+from app.repositories.reminder_repository import ReminderRepository
 
 # Services
 from app.services.auth_service import AuthService
@@ -23,6 +26,9 @@ from app.services.conversation_service import ConversationService
 from app.services.message_service import MessageService
 from app.services.document_service import DocumentService
 from app.services.storage_service import StorageService
+from app.services.notes.note_service import NoteService
+from app.services.tasks.task_service import TaskService
+from app.services.reminders.reminder_service import ReminderService
 from app.services.retrieval.retrieval_service import RetrievalService
 from app.services.retrieval.fusion import ResultFusion
 from app.services.retrieval.reranking import Reranker, CrossEncoderReranker
@@ -68,6 +74,9 @@ from app.services.ai.tools.calculator import CalculatorTool
 from app.services.ai.tools.document_search import DocumentSearchTool
 from app.services.ai.tools.memory_search import MemorySearchTool
 from app.services.ai.tools.web_search import WebSearchTool
+from app.services.ai.tools.notes_tool import NotesTool
+from app.services.ai.tools.tasks_tool import TasksTool
+from app.services.ai.tools.reminders_tool import RemindersTool
 from app.integrations.search.tavily import TavilySearchProvider
 from app.services.ai.tools.google_calendar import CalendarTool
 from app.services.ai.tools.google_gmail import GmailTool
@@ -146,6 +155,16 @@ def get_document_chunk_repository(
     return DocumentChunkRepository(db)
 
 
+def get_note_repository(db: AsyncSession = Depends(get_db)) -> NoteRepository:
+    return NoteRepository(db)
+
+def get_task_repository(db: AsyncSession = Depends(get_db)) -> TaskRepository:
+    return TaskRepository(db)
+
+def get_reminder_repository(db: AsyncSession = Depends(get_db)) -> ReminderRepository:
+    return ReminderRepository(db)
+
+
 # ==========================================================
 # Core Services
 # ==========================================================
@@ -178,6 +197,20 @@ def get_message_service(
         message_repository=message_repository,
         conversation_repository=conversation_repository,
     )
+
+
+def get_note_service(
+    note_repository: NoteRepository = Depends(get_note_repository),
+    document_repository: DocumentRepository = Depends(get_document_repository),
+    document_processor: DocumentProcessor = Depends(get_document_processor),
+) -> NoteService:
+    return NoteService(note_repository, document_repository, document_processor)
+
+def get_task_service(repo: TaskRepository = Depends(get_task_repository)) -> TaskService:
+    return TaskService(repo)
+
+def get_reminder_service(repo: ReminderRepository = Depends(get_reminder_repository)) -> ReminderService:
+    return ReminderService(repo)
 
 
 # ==========================================================
@@ -399,6 +432,9 @@ def get_document_service(
 def get_tool_orchestrator(
     retrieval_service: RetrievalService = Depends(get_retrieval_service),
     memory_service: MemoryService = Depends(get_memory_service),
+    note_service: NoteService = Depends(get_note_service),
+    task_service: TaskService = Depends(get_task_service),
+    reminder_service: ReminderService = Depends(get_reminder_service),
     db: AsyncSession = Depends(get_db),
 ) -> ToolOrchestrator:
 
@@ -407,6 +443,10 @@ def get_tool_orchestrator(
     registry.register(CalculatorTool())
     registry.register(DocumentSearchTool(retrieval_service))
     registry.register(MemorySearchTool(memory_service))
+    
+    registry.register(NotesTool(note_service))
+    registry.register(TasksTool(task_service))
+    registry.register(RemindersTool(reminder_service))
     
     if settings.GOOGLE_CLIENT_ID:
         oauth_repo = OAuthRepository(db)
