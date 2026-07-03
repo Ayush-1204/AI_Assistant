@@ -15,6 +15,7 @@ from app.routers.debug_router import router as debug_router2
 from app.routers.notes import router as notes_router
 from app.routers.tasks import router as tasks_router
 from app.routers.reminders import router as reminders_router
+from app.routers.devices import router as devices_router
 
 settings = get_settings()
 
@@ -35,3 +36,4 @@ app.include_router(debug_router2)
 app.include_router(notes_router)
 app.include_router(tasks_router)
 app.include_router(reminders_router)
+app.include_router(devices_router)

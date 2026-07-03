@@ -199,18 +199,7 @@ def get_message_service(
     )
 
 
-def get_note_service(
-    note_repository: NoteRepository = Depends(get_note_repository),
-    document_repository: DocumentRepository = Depends(get_document_repository),
-    document_processor: DocumentProcessor = Depends(get_document_processor),
-) -> NoteService:
-    return NoteService(note_repository, document_repository, document_processor)
 
-def get_task_service(repo: TaskRepository = Depends(get_task_repository)) -> TaskService:
-    return TaskService(repo)
-
-def get_reminder_service(repo: ReminderRepository = Depends(get_reminder_repository)) -> ReminderService:
-    return ReminderService(repo)
 
 
 # ==========================================================
@@ -425,6 +414,22 @@ def get_document_service(
         processor=processor,
     )
 
+def get_note_service(
+    note_repository: NoteRepository = Depends(get_note_repository),
+    document_repository: DocumentRepository = Depends(get_document_repository),
+    document_processor: DocumentProcessor = Depends(get_document_processor),
+) -> NoteService:
+    return NoteService(note_repository, document_repository, document_processor)
+
+
+def get_task_service(repo: TaskRepository = Depends(get_task_repository)) -> TaskService:
+    return TaskService(repo)
+
+
+def get_reminder_service(repo: ReminderRepository = Depends(get_reminder_repository)) -> ReminderService:
+    return ReminderService(repo)
+
+
 # ==========================================================
 # Tool Orchestrator
 # ==========================================================
@@ -532,3 +537,32 @@ async def get_current_user(
         )
 
     return user
+
+def boot_scheduler():
+    from app.services.scheduler.scheduler import BackgroundScheduler
+    from app.services.scheduler.worker import SchedulerWorker
+    from app.services.scheduler.dispatcher import AgentDispatcher
+    from app.services.notifications.notification_service import NotificationService
+    from app.services.notifications.providers.database_provider import DatabaseNotificationProvider
+    from app.services.notifications.providers.email_provider import EmailNotificationProvider
+    from app.services.notifications.providers.push_provider import PushNotificationProvider
+    from app.db.session import AsyncSessionLocal
+
+    async def worker_factory():
+        db = AsyncSessionLocal()
+        notification_service = NotificationService([
+            DatabaseNotificationProvider(db),
+            EmailNotificationProvider(),
+            PushNotificationProvider(db)
+        ])
+        dispatcher = AgentDispatcher(
+            planner=None, 
+            executor=None, 
+            notification_service=notification_service, 
+            db=db
+        )
+        return SchedulerWorker(db, dispatcher)
+
+    scheduler = BackgroundScheduler(worker_factory)
+    scheduler.start()
+    return scheduler

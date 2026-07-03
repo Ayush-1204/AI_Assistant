@@ -95,6 +95,15 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_SECRET: str | None = None
     GOOGLE_REDIRECT_URI: str | None = None
 
+    # Scheduler & Notifications
+    ENABLE_SCHEDULER: bool = True
+    ENABLE_EMAIL_NOTIFICATIONS: bool = False
+    ENABLE_PUSH_NOTIFICATIONS: bool = False
+    SCHEDULER_INTERVAL_SECONDS: int = 10
+    MAX_JOB_RETRIES: int = 3
+    JOB_TIMEOUT_SECONDS: int = 600
+    FIREBASE_CREDENTIALS_PATH: str = ""
+
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=True,
