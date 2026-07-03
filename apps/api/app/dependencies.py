@@ -58,6 +58,14 @@ from app.services.ai.memory import (
     MemoryService,
 )
 
+# Tools
+from app.services.ai.tools.registry import ToolRegistry
+from app.services.ai.tools.orchestrator import ToolOrchestrator
+from app.services.ai.tools.datetime_tool import CurrentTimeTool
+from app.services.ai.tools.calculator import CalculatorTool
+from app.services.ai.tools.document_search import DocumentSearchTool
+from app.services.ai.tools.memory_search import MemorySearchTool
+
 # Documents
 from app.services.documents.processor import DocumentProcessor
 from app.services.documents.extractors.registry import (
@@ -163,9 +171,17 @@ def get_message_service(
 # ==========================================================
 # AI Provider
 # ==========================================================
+from app.services.ai.providers.router import ProviderRouter
 
-def get_llm_provider() -> GeminiProvider:
-    return GeminiProvider()
+_router_instance = None
+
+def get_provider_router() -> ProviderRouter:
+    global _router_instance
+    if _router_instance is None:
+        _router_instance = ProviderRouter()
+        _router_instance.register_provider(GeminiProvider())
+        _router_instance.register_provider(OllamaProvider())
+    return _router_instance
 
 
 # ==========================================================
@@ -173,8 +189,8 @@ def get_llm_provider() -> GeminiProvider:
 # ==========================================================
 
 def get_memory_extractor(
-    provider: GeminiProvider = Depends(
-        get_llm_provider,
+    provider: ProviderRouter = Depends(
+        get_provider_router,
     ),
 ) -> MemoryExtractor:
 
@@ -339,12 +355,28 @@ def get_document_service(
     )
 
 # ==========================================================
+# Tool Orchestrator
+# ==========================================================
+
+def get_tool_orchestrator(
+    retrieval_service: RetrievalService = Depends(get_retrieval_service),
+    memory_service: MemoryService = Depends(get_memory_service),
+) -> ToolOrchestrator:
+
+    registry = ToolRegistry()
+    registry.register(CurrentTimeTool())
+    registry.register(CalculatorTool())
+    registry.register(DocumentSearchTool(retrieval_service))
+    registry.register(MemorySearchTool(memory_service))
+    return ToolOrchestrator(registry)
+
+# ==========================================================
 # AI Service
 # ==========================================================
 
 def get_ai_service(
-    provider: GeminiProvider = Depends(
-        get_llm_provider,
+    provider: ProviderRouter = Depends(
+        get_provider_router,
     ),
     message_service: MessageService = Depends(
         get_message_service,
@@ -358,6 +390,9 @@ def get_ai_service(
     memory_service: MemoryService = Depends(
         get_memory_service,
     ),
+    tool_orchestrator: ToolOrchestrator = Depends(
+        get_tool_orchestrator,
+    ),
 ) -> AIService:
 
     return AIService(
@@ -366,6 +401,7 @@ def get_ai_service(
         conversation_service=conversation_service,
         context_builder=context_builder,
         memory_service=memory_service,
+        tool_orchestrator=tool_orchestrator,
     )
 
 

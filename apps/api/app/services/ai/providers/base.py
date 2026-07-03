@@ -1,8 +1,25 @@
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
+from app.services.ai.providers.metadata import ProviderMetadata
 
 
 class BaseLLMProvider(ABC):
+
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        """Unique identifier representing this provider."""
+        pass
+
+    @abstractmethod
+    async def get_metadata(self) -> ProviderMetadata:
+        """Returns capabilities regarding this provider."""
+        pass
+
+    @abstractmethod
+    async def check_health(self) -> bool:
+        """Ping tests resolving API up status natively."""
+        pass
 
     @abstractmethod
     async def chat(

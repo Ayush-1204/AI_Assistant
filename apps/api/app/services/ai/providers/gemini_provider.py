@@ -7,6 +7,8 @@ import json
 from app.config import get_settings
 from app.services.ai.prompts import PromptBuilder
 from app.services.ai.providers.base import BaseLLMProvider
+from app.services.ai.providers.metadata import ProviderMetadata
+from app.services.ai.providers.exceptions import ProviderTransientError
 
 settings = get_settings()
 
@@ -19,6 +21,32 @@ class GeminiProvider(BaseLLMProvider):
 
         self.model = settings.GEMINI_MODEL
 
+    @property
+    def name(self) -> str:
+        return "gemini"
+
+    async def get_metadata(self) -> ProviderMetadata:
+        return ProviderMetadata(
+            name=self.name,
+            supported_models=[self.model],
+            context_window=1000000,
+            supports_streaming=True,
+            supports_vision=True,
+            supports_function_calling=True,
+            estimated_cost_tier=3,
+            is_local=False,
+        )
+
+    async def check_health(self) -> bool:
+        try:
+            self.client.models.generate_content(
+                model=self.model,
+                contents="ping",
+            )
+            return True
+        except Exception:
+            return False
+
     async def chat(
         self,
         messages: list[dict],
@@ -30,12 +58,14 @@ class GeminiProvider(BaseLLMProvider):
         print(prompt)
         print("===================================================\n\n")
 
-        response = self.client.models.generate_content(
-            model=self.model,
-            contents=prompt,
-        )
-
-        return response.text or ""
+        try:
+            response = self.client.models.generate_content(
+                model=self.model,
+                contents=prompt,
+            )
+            return response.text or ""
+        except Exception as e:
+            raise ProviderTransientError(f"Gemini API failure: {str(e)}")
 
     async def generate_title(
         self,
@@ -64,14 +94,17 @@ class GeminiProvider(BaseLLMProvider):
         print("==========================================================\n\n")
 
         # Utilize Google SDK's native async client
-        response = await self.client.aio.models.generate_content_stream(
-            model=self.model,
-            contents=prompt,
-        )
+        try:
+            response = await self.client.aio.models.generate_content_stream(
+                model=self.model,
+                contents=prompt,
+            )
 
-        async for chunk in response:
-            if chunk.text:
-                yield chunk.text
+            async for chunk in response:
+                if chunk.text:
+                    yield chunk.text
+        except Exception as e:
+            raise ProviderTransientError(f"Gemini stream failure: {str(e)}")
     
     async def extract_memory(
         self,

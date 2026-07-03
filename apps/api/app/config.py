@@ -38,10 +38,25 @@ class Settings(BaseSettings):
     rag_chunk_overlap: int = 64
     rag_top_k: int = 5
     rag_similarity_threshold: float = 0.35
-    rag_max_context_chunks: int = 5
-    context_max_memories: int = 10
-    context_max_history: int = 20
+    max_document_chunks: int = 5
+    max_memory_items: int = 10
+    max_history_messages: int = 20
     retrieval_allow_best_match_fallback: bool = True
+
+    max_context_tokens: int = 16000
+    max_tool_results: int = 5
+    max_tool_output_length: int = 2000
+    reserved_response_tokens: int = 2000
+
+    # Routing
+    default_provider: str = "gemini"
+    default_model: str = "gemini-2.5-flash"
+    fallback_provider_chain: list[str] = ["gemini", "ollama"]
+    retry_count: int = 3
+    retry_backoff: float = 2.0
+    health_check_interval: int = 60
+    routing_strategy: str = "priority"
+    load_balancing_strategy: str | None = None
 
     # JWT
     SECRET_KEY: str
