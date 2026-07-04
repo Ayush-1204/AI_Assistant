@@ -1,3 +1,4 @@
+from typing import Optional
 from sqlalchemy import Integer, String, DateTime, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
@@ -7,6 +8,6 @@ class OAuthState(Base):
     __tablename__ = "oauth_states"
 
     state: Mapped[str] = mapped_column(String(64), primary_key=True, index=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     expires_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), nullable=False)
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())

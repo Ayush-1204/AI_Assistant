@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Aura AI - Notes</title>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-family: 'Material Symbols Outlined';
+            font-weight: normal;
+            font-style: normal;
+            font-size: 24px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            -webkit-font-feature-settings: 'liga';
+            -webkit-font-smoothing: antialiased;
+        }
+    </style>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries,typography"></script>
+<!-- Tailwind Config -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface": "#131313",
+                    "surface-dim": "#131313",
+                    "surface-bright": "#393939",
+                    "surface-container-lowest": "#0e0e0e",
+                    "surface-container-low": "#1b1b1b",
+                    "surface-container": "#1f1f1f",
+                    "surface-container-high": "#2a2a2a",
+                    "surface-container-highest": "#353535",
+                    "surface-variant": "#43474e",
+                    "on-surface": "#e2e2e2",
+                    "on-surface-variant": "#c3c6cf",
+                    "inverse-surface": "#e2e2e2",
+                    "inverse-on-surface": "#303030",
+                    "background": "#131313",
+                    "on-background": "#e2e2e2",
+                    "primary": "#ffffff",
+                    "on-primary": "#000000",
+                    "primary-container": "#d4d4d4",
+                    "on-primary-container": "#1e1e1e",
+                    "secondary": "#cccccc",
+                    "on-secondary": "#111111",
+                    "secondary-container": "#4a4a4a",
+                    "on-secondary-container": "#e0e0e0",
+                    "tertiary": "#b3b3b3",
+                    "on-tertiary": "#1a1a1a",
+                    "tertiary-container": "#333333",
+                    "on-tertiary-container": "#c9c9c9",
+                    "error": "#ffb4ab",
+                    "on-error": "#690005",
+                    "error-container": "#93000a",
+                    "on-error-container": "#ffdad6",
+                    "outline": "#8d9199",
+                    "outline-variant": "#43474e"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.5rem",
+                    "lg": "0.5rem",
+                    "xl": "0.5rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "sidebar-width": "280px",
+                    "container-margin": "24px",
+                    "radius-inner": "16px",
+                    "radius-main": "24px",
+                    "gutter": "16px",
+                    "inspector-width": "320px"
+            },
+            "fontFamily": {
+                    "label-md": [
+                            "Geist"
+                    ],
+                    "display-lg": [
+                            "Geist"
+                    ],
+                    "headline-md": [
+                            "Geist"
+                    ],
+                    "body-md": [
+                            "Geist"
+                    ],
+                    "body-lg": [
+                            "Geist"
+                    ],
+                    "headline-lg": [
+                            "Geist"
+                    ],
+                    "headline-lg-mobile": [
+                            "Geist"
+                    ],
+                    "code-sm": [
+                            "jetbrainsMono", "monospace"
+                    ]
+            },
+            "fontSize": {
+                    "label-md": [
+                            "14px",
+                            {
+                                    "lineHeight": "20px",
+                                    "letterSpacing": "0.01em",
+                                    "fontWeight": "500"
+                            }
+                    ],
+                    "display-lg": [
+                            "48px",
+                            {
+                                    "lineHeight": "56px",
+                                    "letterSpacing": "-0.02em",
+                                    "fontWeight": "700"
+                            }
+                    ],
+                    "headline-md": [
+                            "24px",
+                            {
+                                    "lineHeight": "32px",
+                                    "fontWeight": "600"
+                            }
+                    ],
+                    "body-md": [
+                            "16px",
+                            {
+                                    "lineHeight": "24px",
+                                    "fontWeight": "400"
+                            }
+                    ],
+                    "body-lg": [
+                            "18px",
+                            {
+                                    "lineHeight": "28px",
+                                    "fontWeight": "400"
+                            }
+                    ],
+                    "headline-lg": [
+                            "32px",
+                            {
+                                    "lineHeight": "40px",
+                                    "letterSpacing": "-0.01em",
+                                    "fontWeight": "600"
+                            }
+                    ],
+                    "headline-lg-mobile": [
+                            "24px",
+                            {
+                                    "lineHeight": "32px",
+                                    "fontWeight": "600"
+                            }
+                    ],
+                    "code-sm": [
+                            "13px",
+                            {
+                                    "lineHeight": "20px",
+                                    "fontWeight": "400"
+                            }
+                    ]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        /* Syntax highlighting mock */
+        .token.keyword { color: #cccccc; }
+        .token.string { color: #999999; }
+        .token.function { color: #ffffff; }
+        .token.comment { color: #666666; }
+        .token.operator { color: #aaaaaa; }
+        .token.punctuation { color: #f8f8f2; }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1); 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2); 
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body-md overflow-hidden selection:bg-primary-container/30">
+<!-- Subtle atmospheric glow -->
+<div class="fixed top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-white/5 blur-[120px] pointer-events-none"></div>
+<div class="fixed bottom-[-20%] right-[-10%] w-[40%] h-[40%] rounded-full bg-white/5 blur-[100px] pointer-events-none"></div>
+<div class="flex h-screen w-full relative z-10">
+<!-- 1. Navigation Sidebar (Left) -->
+<nav class="hidden md:flex flex-col h-full py-6 fixed left-0 top-0 w-sidebar-width bg-surface/50 backdrop-blur-xl border-r border-white/10 z-40">
+<!-- Header -->
+<div class="px-6 mb-8 flex items-center gap-4 cursor-pointer group">
+<img alt="User Profile Avatar" class="w-10 h-10 rounded-full border border-white/20 group-hover:border-primary/80 transition-colors" data-alt="A sleek, modern, abstract digital profile avatar in deep indigo and neon blue tones, featuring a subtle geometric design that suggests artificial intelligence and high tech, set against a dark premium background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAYDrVnX-ZBVk24zFW8pRUZ9N72LLFnd_LpU_PQJntfLgcCAP8UP0c-JhMbIvVg9RMitH9nIs7PU_3spZ08hLkXI5DHNVtJORdWBIQMJn2yqUBU1irZoqBxoC0S7b177D36LmIeS8p179w0M2NYZnJcPae7OYwc-FkDwuzlrA1mQ5j8__jms9bWGbSxgG-FmdVCJr5X_2LI9lO_-ynl66mpeo9QMFcm08uHF6JGKIdXhK4NOltEAxZB"/>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary tracking-tight">Aura AI</h1>
+<p class="font-label-md text-label-md text-on-surface-variant">Pro Workspace</p>
+</div>
+</div>
+<!-- Tabs -->
+<div class="flex-1 px-4 space-y-1 overflow-y-auto">
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-white/10 hover:text-on-surface transition-colors scale-95 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="chat">chat</span>
+<span class="font-label-md text-label-md">Chats</span>
+</a>
+<!-- Active Tab: Notes -->
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-primary font-bold border-r-2 border-primary bg-white/10" href="#">
+<span class="material-symbols-outlined" data-icon="description" style="font-variation-settings: 'FILL' 1;">description</span>
+<span class="font-label-md text-label-md">Notes</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-white/10 hover:text-on-surface transition-colors scale-95 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="check_circle">check_circle</span>
+<span class="font-label-md text-label-md">Tasks</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-white/10 hover:text-on-surface transition-colors scale-95 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="folder">folder</span>
+<span class="font-label-md text-label-md">Documents</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-white/10 hover:text-on-surface transition-colors scale-95 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="calendar_today">calendar_today</span>
+<span class="font-label-md text-label-md">Calendar</span>
+</a>
+<div class="my-4 border-t border-white/10 mx-4"></div>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-white/10 hover:text-on-surface transition-colors scale-95 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="mail">mail</span>
+<span class="font-label-md text-label-md">Gmail</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-white/10 hover:text-on-surface transition-colors scale-95 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="cloud">cloud</span>
+<span class="font-label-md text-label-md">Drive</span>
+</a>
+</div>
+<!-- Bottom Actions -->
+<div class="px-4 mt-auto space-y-1">
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-white/10 hover:text-on-surface transition-colors scale-95 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="font-label-md text-label-md">Notifications</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-white/10 hover:text-on-surface transition-colors scale-95 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-label-md text-label-md">Settings</span>
+</a>
+</div>
+</nav>
+<!-- 2. Main Workspace (Center) -->
+<main class="flex-1 flex flex-col md:ml-[280px] xl:mr-[320px] h-full relative">
+<!-- TopNavBar (Contextual to Notes) -->
+<header class="fixed top-0 right-0 w-full md:w-[calc(100%-280px)] xl:w-[calc(100%-280px-320px)] h-16 bg-surface/80 backdrop-blur-md border-b border-white/10 z-30 flex justify-between items-center px-6">
+<!-- Breadcrumbs/Title -->
+<div class="flex items-center gap-2 text-on-surface-variant">
+<span class="material-symbols-outlined text-xl cursor-pointer hover:text-primary transition-colors" data-icon="folder">folder</span>
+<span class="font-label-md text-label-md opacity-50">/</span>
+<span class="font-label-md text-label-md cursor-pointer hover:text-primary transition-colors">AI Research</span>
+<span class="font-label-md text-label-md opacity-50">/</span>
+<span class="font-label-md text-label-md text-on-surface font-semibold">Neural Network Architecture.md</span>
+</div>
+<!-- Actions -->
+<div class="flex items-center gap-4">
+<button class="text-on-surface-variant hover:text-primary transition-colors opacity-80 hover:opacity-100">
+<span class="material-symbols-outlined" data-icon="search">search</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors opacity-80 hover:opacity-100">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+<!-- Mobile Inspector Toggle -->
+<button class="xl:hidden text-on-surface-variant hover:text-primary transition-colors opacity-80 hover:opacity-100">
+<span class="material-symbols-outlined" data-icon="menu_open">menu_open</span>
+</button>
+</div>
+</header>
+<!-- Editor Container -->
+<div class="flex-1 pt-16 overflow-hidden flex flex-col">
+<!-- Formatting Toolbar (Glass) -->
+<div class="mx-6 mt-6 mb-4 px-4 py-2 rounded-xl bg-white/[0.05] backdrop-blur-[16px] border border-white/10 flex items-center justify-between shadow-lg">
+<div class="flex items-center gap-2">
+<div class="flex items-center bg-black/40 rounded-lg p-1 border border-white/10">
+<span class="font-label-md text-label-md px-2 text-on-surface-variant cursor-pointer hover:text-on-surface">Paragraph</span>
+<span class="material-symbols-outlined text-sm text-on-surface-variant" data-icon="arrow_drop_down">arrow_drop_down</span>
+</div>
+<div class="w-px h-6 bg-white/20 mx-2"></div>
+<button class="w-8 h-8 flex items-center justify-center rounded hover:bg-white/20 text-on-surface transition-colors" title="Bold">
+<span class="material-symbols-outlined" data-icon="format_bold">format_bold</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center rounded hover:bg-white/20 text-on-surface transition-colors" title="Italic">
+<span class="material-symbols-outlined" data-icon="format_italic">format_italic</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center rounded hover:bg-white/20 text-on-surface transition-colors" title="Strikethrough">
+<span class="material-symbols-outlined" data-icon="strikethrough_s">strikethrough_s</span>
+</button>
+<div class="w-px h-6 bg-white/20 mx-2"></div>
+<button class="w-8 h-8 flex items-center justify-center rounded bg-white/20 text-primary border border-white/30 transition-colors" title="Code">
+<span class="material-symbols-outlined text-sm" data-icon="code">code</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center rounded hover:bg-white/20 text-on-surface transition-colors" title="Link">
+<span class="material-symbols-outlined text-sm" data-icon="link">link</span>
+</button>
+<div class="w-px h-6 bg-white/20 mx-2"></div>
+<button class="w-8 h-8 flex items-center justify-center rounded hover:bg-white/20 text-on-surface transition-colors" title="Bullet List">
+<span class="material-symbols-outlined" data-icon="format_list_bulleted">format_list_bulleted</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center rounded hover:bg-white/20 text-on-surface transition-colors" title="Numbered List">
+<span class="material-symbols-outlined" data-icon="format_list_numbered">format_list_numbered</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center rounded hover:bg-white/20 text-on-surface transition-colors" title="Table">
+<span class="material-symbols-outlined" data-icon="table_chart">table_chart</span>
+</button>
+</div>
+<div class="flex items-center gap-3">
+<span class="font-code-sm text-code-sm text-on-surface-variant/70">Words: 1,402</span>
+<button class="flex items-center gap-2 px-3 py-1.5 rounded bg-white/20 hover:bg-white/30 text-primary border border-white/30 transition-colors text-sm font-medium">
+<span class="material-symbols-outlined text-sm" data-icon="smart_toy">smart_toy</span>
+                            AI Assist
+                        </button>
+</div>
+</div>
+<!-- Scrollable Editor Area -->
+<div class="flex-1 overflow-y-auto px-6 pb-24">
+<div class="max-w-4xl mx-auto w-full">
+<!-- Document Title -->
+<h1 class="font-display-lg text-display-lg mb-8 text-on-surface border-b border-white/10 pb-4 outline-none" contenteditable="true">Neural Network Architecture</h1>
+<!-- Markdown Content -->
+<div class="prose prose-invert prose-lg max-w-none text-on-surface font-body-lg leading-relaxed">
+<p class="mb-6">
+                                The architecture of a Deep Neural Network (DNN) dictates how it processes information. In this document, we outline the foundational layers proposed for the <span class="bg-white/20 text-primary px-1 rounded">Sprint Alpha</span> model, focusing on optimizing gradient flow during backpropagation.
+                            </p>
+<h2 class="font-headline-lg text-headline-lg text-on-surface mt-10 mb-4 flex items-center gap-2 group">
+<span class="text-white/50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">#</span>
+                                1. Forward Propagation Setup
+                            </h2>
+<p class="mb-6">
+                                The input matrix $X$ is fed through a series of hidden layers. Each layer applies a linear transformation followed by a non-linear activation function. We are currently evaluating <strong>GeLU</strong> over standard ReLU for the intermediate layers to mitigate the dying ReLU problem.
+                            </p>
+<!-- Code Block -->
+<div class="my-8 rounded-xl bg-black border border-white/20 overflow-hidden relative group">
+<div class="absolute top-0 left-0 w-full h-8 bg-white/10 border-b border-white/20 flex items-center px-4 justify-between">
+<span class="font-code-sm text-code-sm text-on-surface-variant">python</span>
+<button class="text-on-surface-variant hover:text-white transition-colors opacity-0 group-hover:opacity-100">
+<span class="material-symbols-outlined text-sm" data-icon="content_copy">content_copy</span>
+</button>
+</div>
+<pre class="p-4 pt-12 font-code-sm text-code-sm overflow-x-auto"><code class="language-python"><span class="token keyword">import</span> torch
+<span class="token keyword">import</span> torch.nn <span class="token keyword">as</span> nn
+
+<span class="token keyword">class</span> <span class="token function">AlphaNet</span><span class="token punctuation">(</span>nn<span class="token punctuation">.</span>Module<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">def</span> <span class="token function">__init__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> input_dim<span class="token punctuation">,</span> hidden_dim<span class="token punctuation">,</span> output_dim<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token builtin">super</span><span class="token punctuation">(</span>AlphaNet<span class="token punctuation">,</span> self<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">__init__</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+        <span class="token comment"># Layer definitions</span>
+        self<span class="token punctuation">.</span>fc1 <span class="token operator">=</span> nn<span class="token punctuation">.</span>Linear<span class="token punctuation">(</span>input_dim<span class="token punctuation">,</span> hidden_dim<span class="token punctuation">)</span>
+        self<span class="token punctuation">.</span>activation <span class="token operator">=</span> nn<span class="token punctuation">.</span>GELU<span class="token punctuation">(</span><span class="token punctuation">)</span>
+        self<span class="token punctuation">.</span>fc2 <span class="token operator">=</span> nn<span class="token punctuation">.</span>Linear<span class="token punctuation">(</span>hidden_dim<span class="token punctuation">,</span> output_dim<span class="token punctuation">)</span>
+
+    <span class="token keyword">def</span> <span class="token function">forward</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> x<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        x <span class="token operator">=</span> self<span class="token punctuation">.</span>fc1<span class="token punctuation">(</span>x<span class="token punctuation">)</span>
+        x <span class="token operator">=</span> self<span class="token punctuation">.</span>activation<span class="token punctuation">(</span>x<span class="token punctuation">)</span>
+        x <span class="token operator">=</span> self<span class="token punctuation">.</span>fc2<span class="token punctuation">(</span>x<span class="token punctuation">)</span>
+        <span class="token keyword">return</span> x</code></pre>
+</div>
+<p class="mb-6">
+                                The mathematical representation of the activation phase is crucial. Let $z^{[l]}$ be the linear combination at layer $l$:
+                            </p>
+<!-- LaTeX Block (Visual Mock) -->
+<div class="my-6 p-6 rounded-xl bg-white/[0.05] border border-white/10 flex items-center justify-center font-display-md font-serif italic text-xl">
+                                z^{[l]} = W^{[l]} a^{[l-1]} + b^{[l]}
+                            </div>
+<h2 class="font-headline-lg text-headline-lg text-on-surface mt-10 mb-4 flex items-center gap-2 group">
+<span class="text-white/50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">#</span>
+                                2. Considerations for Scale
+                            </h2>
+<ul class="list-none pl-0 space-y-3 mb-8">
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-primary text-lg mt-1" data-icon="lens">lens</span>
+<span><strong>Memory Constraints:</strong> Operating at 10B+ parameters requires careful sharding strategies.</span>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-primary text-lg mt-1" data-icon="lens">lens</span>
+<span><strong>Inference Latency:</strong> Quantization approaches (e.g., INT8) need to be evaluated post-training.</span>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- 3. Inspector Panel (Right) -->
+<aside class="hidden xl:flex flex-col h-full fixed right-0 top-0 w-inspector-width bg-surface/50 backdrop-blur-xl border-l border-white/10 z-40">
+<!-- Inspector Header -->
+<div class="h-16 border-b border-white/10 flex items-center px-6">
+<h2 class="font-headline-md text-headline-md text-on-surface">Note Metadata</h2>
+</div>
+<!-- Context Tabs -->
+<div class="flex items-center px-2 pt-2 border-b border-white/10">
+<button class="flex-1 py-3 border-b-2 border-primary text-primary font-label-md text-label-md font-bold transition-colors">Details</button>
+<button class="flex-1 py-3 border-b-2 border-transparent text-on-surface-variant hover:text-on-surface font-label-md text-label-md transition-colors">History</button>
+<button class="flex-1 py-3 border-b-2 border-transparent text-on-surface-variant hover:text-on-surface font-label-md text-label-md transition-colors">Links</button>
+</div>
+<!-- Inspector Content Scrollable -->
+<div class="flex-1 overflow-y-auto p-6 space-y-8">
+<!-- Tags Section -->
+<div>
+<div class="flex items-center justify-between mb-3">
+<h3 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Tags</h3>
+<button class="text-primary hover:text-white transition-colors">
+<span class="material-symbols-outlined text-sm" data-icon="add">add</span>
+</button>
+</div>
+<div class="flex flex-wrap gap-2">
+<span class="px-3 py-1 rounded-full bg-white/10 text-primary border border-white/20 font-label-md text-label-md flex items-center gap-1">
+<span class="material-symbols-outlined text-sm" data-icon="sell">sell</span> AI Research
+                        </span>
+<span class="px-3 py-1 rounded-full bg-white/10 text-primary border border-white/20 font-label-md text-label-md flex items-center gap-1">
+<span class="material-symbols-outlined text-sm" data-icon="sell">sell</span> Architecture
+                        </span>
+<span class="px-3 py-1 rounded-full bg-white/10 text-primary border border-white/20 font-label-md text-label-md flex items-center gap-1">
+<span class="material-symbols-outlined text-sm" data-icon="sell">sell</span> Sprint Alpha
+                        </span>
+</div>
+</div>
+<!-- Backlinks Section -->
+<div>
+<h3 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider mb-3">Linked Mentions (3)</h3>
+<div class="space-y-3">
+<!-- Card 1 -->
+<div class="p-3 rounded-lg bg-white/[0.05] border border-white/10 hover:bg-white/[0.1] transition-colors cursor-pointer group">
+<h4 class="font-label-md text-label-md text-on-surface group-hover:text-primary transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="description">description</span>
+                                Weekly Sync - Oct 12
+                            </h4>
+<p class="font-body-md text-sm text-on-surface-variant mt-1 line-clamp-2">
+                                Discussed the progress on [[Neural Network Architecture]]. The team agreed to test GeLU...
+                            </p>
+</div>
+<!-- Card 2 -->
+<div class="p-3 rounded-lg bg-white/[0.05] border border-white/10 hover:bg-white/[0.1] transition-colors cursor-pointer group">
+<h4 class="font-label-md text-label-md text-on-surface group-hover:text-primary transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="description">description</span>
+                                Q4 Planning Document
+                            </h4>
+<p class="font-body-md text-sm text-on-surface-variant mt-1 line-clamp-2">
+                                Core dependency: Finalize the [[Neural Network Architecture]] by end of sprint 2 to begin...
+                            </p>
+</div>
+</div>
+</div>
+<!-- Attachments Section -->
+<div>
+<div class="flex items-center justify-between mb-3">
+<h3 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Attachments (1)</h3>
+</div>
+<div class="p-3 rounded-lg bg-black/40 border border-white/10 flex items-center gap-3">
+<div class="w-10 h-10 rounded bg-white/20 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined" data-icon="image">image</span>
+</div>
+<div class="flex-1 overflow-hidden">
+<p class="font-label-md text-label-md text-on-surface truncate">arch_diagram_v2.png</p>
+<p class="text-xs text-on-surface-variant">2.4 MB • Image</p>
+</div>
+<button class="text-on-surface-variant hover:text-white transition-colors">
+<span class="material-symbols-outlined text-sm" data-icon="download">download</span>
+</button>
+</div>
+</div>
+<!-- Outline Mini-map -->
+<div>
+<h3 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider mb-3">Outline</h3>
+<div class="pl-2 border-l border-white/20 space-y-2 relative">
+<!-- Active Indicator -->
+<div class="absolute left-[-1px] top-1 w-[2px] h-4 bg-primary"></div>
+<a class="block text-primary font-label-md text-label-md hover:underline" href="#">1. Forward Propagation</a>
+<a class="block pl-4 text-on-surface-variant font-label-md text-label-md hover:text-on-surface hover:underline" href="#">Code Implementation</a>
+<a class="block text-on-surface-variant font-label-md text-label-md hover:text-on-surface hover:underline" href="#">2. Considerations for Scale</a>
+</div>
+</div>
+</div>
+<!-- Sticky Bottom Info -->
+<div class="p-4 border-t border-white/10 bg-black/20">
+<p class="text-xs text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-xs" data-icon="update">update</span> Last edited 2 hours ago
+                </p>
+</div>
+</aside>
+</div>
+</body></html>

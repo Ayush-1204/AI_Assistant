@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Aura AI - Voice Interface</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<style>
+        @font-face {
+            font-family: 'Geist';
+            src: url('https://cdn.jsdelivr.net/fontsource/fonts/geist-sans@latest/latin-400-normal.woff2') format('woff2');
+            font-weight: 400;
+        }
+        @font-face {
+            font-family: 'Geist';
+            src: url('https://cdn.jsdelivr.net/fontsource/fonts/geist-sans@latest/latin-500-normal.woff2') format('woff2');
+            font-weight: 500;
+        }
+        @font-face {
+            font-family: 'Geist';
+            src: url('https://cdn.jsdelivr.net/fontsource/fonts/geist-sans@latest/latin-600-normal.woff2') format('woff2');
+            font-weight: 600;
+        }
+        @font-face {
+            font-family: 'Geist';
+            src: url('https://cdn.jsdelivr.net/fontsource/fonts/geist-sans@latest/latin-700-normal.woff2') format('woff2');
+            font-weight: 700;
+        }
+        @font-face {
+            font-family: 'JetBrains Mono';
+            src: url('https://cdn.jsdelivr.net/fontsource/fonts/jetbrains-mono@latest/latin-400-normal.woff2') format('woff2');
+            font-weight: 400;
+        }
+        
+        body {
+            background-color: #131313;
+            color: #e2e2e2;
+            font-family: 'Geist', sans-serif;
+            overflow: hidden;
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.02);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(32px);
+            -webkit-backdrop-filter: blur(32px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Pulse Animation for Aura */
+        @keyframes pulse-ring {
+            0% {
+                transform: scale(0.8);
+                opacity: 0.5;
+                box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.2);
+            }
+            70% {
+                transform: scale(1.1);
+                opacity: 0.8;
+                box-shadow: 0 0 0 40px rgba(255, 255, 255, 0);
+            }
+            100% {
+                transform: scale(0.8);
+                opacity: 0.5;
+                box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+            }
+        }
+
+        .aura-orb {
+            width: 240px;
+            height: 240px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, rgba(226, 226, 226, 0.9) 0%, rgba(198, 198, 198, 0.6) 40%, rgba(142, 142, 142, 0.1) 80%);
+            box-shadow: 0 0 60px rgba(255, 255, 255, 0.1), inset 0 0 40px rgba(255, 255, 255, 0.2);
+            animation: pulse-ring 4s infinite cubic-bezier(0.45, 0, 0.55, 1);
+            position: relative;
+        }
+        
+        .aura-orb::before {
+            content: '';
+            position: absolute;
+            top: -20px; left: -20px; right: -20px; bottom: -20px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+            z-index: -1;
+            animation: pulse-ring 3s infinite cubic-bezier(0.45, 0, 0.55, 1) reverse;
+        }
+
+        /* Waveform Animation */
+        .waveform-bar {
+            width: 4px;
+            border-radius: 2px;
+            background-color: #e2e2e2;
+            animation: bounce 1s ease-in-out infinite alternate;
+        }
+
+        @keyframes bounce {
+            0% { height: 10px; opacity: 0.3; }
+            100% { height: 60px; opacity: 1; }
+        }
+        
+        .waveform-bar:nth-child(2n) { animation-delay: 0.1s; }
+        .waveform-bar:nth-child(3n) { animation-delay: 0.3s; }
+        .waveform-bar:nth-child(5n) { animation-delay: 0.2s; }
+        .waveform-bar:nth-child(7n) { animation-delay: 0.4s; }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#c6c6c6",
+                        "surface-tint": "#c6c6c6",
+                        "on-primary": "#303030",
+                        "primary-container": "#474747",
+                        "on-primary-container": "#e2e2e2",
+                        "secondary": "#c6c6c6",
+                        "on-secondary": "#303030",
+                        "secondary-container": "#474747",
+                        "on-secondary-container": "#e2e2e2",
+                        "tertiary": "#c6c6c6",
+                        "on-tertiary": "#303030",
+                        "tertiary-container": "#474747",
+                        "on-tertiary-container": "#e2e2e2",
+                        "error": "#ffb4ab",
+                        "on-error": "#690005",
+                        "error-container": "#93000a",
+                        "on-error-container": "#ffdad6",
+                        "background": "#131313",
+                        "on-background": "#e2e2e2",
+                        "surface": "#131313",
+                        "on-surface": "#e2e2e2",
+                        "surface-variant": "#444746",
+                        "on-surface-variant": "#c4c7c5",
+                        "outline": "#8e918f",
+                        "outline-variant": "#444746",
+                        "shadow": "#000000",
+                        "scrim": "#000000",
+                        "inverse-surface": "#e2e2e2",
+                        "inverse-on-surface": "#303030",
+                        "inverse-primary": "#5e5e5e",
+                        "primary-fixed": "#e2e2e2",
+                        "on-primary-fixed": "#1b1b1b",
+                        "primary-fixed-dim": "#c6c6c6",
+                        "on-primary-fixed-variant": "#474747",
+                        "secondary-fixed": "#e2e2e2",
+                        "on-secondary-fixed": "#1b1b1b",
+                        "secondary-fixed-dim": "#c6c6c6",
+                        "on-secondary-fixed-variant": "#474747",
+                        "tertiary-fixed": "#e2e2e2",
+                        "on-tertiary-fixed": "#1b1b1b",
+                        "tertiary-fixed-dim": "#c6c6c6",
+                        "on-tertiary-fixed-variant": "#474747",
+                        "surface-dim": "#131313",
+                        "surface-bright": "#393939",
+                        "surface-container-lowest": "#0e0e0e",
+                        "surface-container-low": "#1b1b1b",
+                        "surface-container": "#1f1f1f",
+                        "surface-container-high": "#2a2a2a",
+                        "surface-container-highest": "#353535"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px",
+                        "main": "0.5rem",
+                        "inner": "0.5rem"
+                    },
+                    spacing: {
+                        "container-margin": "24px",
+                        "sidebar-width": "280px",
+                        "inspector-width": "320px",
+                        "gutter": "16px"
+                    },
+                    fontFamily: {
+                        "code-sm": ["jetbrainsMono"],
+                        "headline-lg": ["Geist"],
+                        "label-md": ["Geist"],
+                        "headline-md": ["Geist"],
+                        "display-lg": ["Geist"],
+                        "body-lg": ["Geist"],
+                        "body-md": ["Geist"],
+                        "headline-lg-mobile": ["Geist"]
+                    },
+                    fontSize: {
+                        "code-sm": ["13px", { lineHeight: "20px", fontWeight: "400" }],
+                        "headline-lg": ["32px", { lineHeight: "40px", letterSpacing: "-0.01em", fontWeight: "600" }],
+                        "label-md": ["14px", { lineHeight: "20px", letterSpacing: "0.01em", fontWeight: "500" }],
+                        "headline-md": ["24px", { lineHeight: "32px", fontWeight: "600" }],
+                        "display-lg": ["48px", { lineHeight: "56px", letterSpacing: "-0.02em", fontWeight: "700" }],
+                        "body-lg": ["18px", { lineHeight: "28px", fontWeight: "400" }],
+                        "body-md": ["16px", { lineHeight: "24px", fontWeight: "400" }],
+                        "headline-lg-mobile": ["24px", { lineHeight: "32px", fontWeight: "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background text-on-background h-screen w-full flex overflow-hidden">
+<!-- Atmospheric Background Gradient -->
+<div class="fixed inset-0 z-0 pointer-events-none" style="background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.02) 0%, transparent 80%);"></div>
+<!-- Left Panel: SideNavBar -->
+<nav class="w-sidebar-width h-screen sticky left-0 top-0 flex flex-col py-6 z-10 glass-panel border-r border-white/5 transition-all">
+<!-- Header -->
+<div class="px-6 mb-8 flex items-center gap-4">
+<div class="w-10 h-10 rounded-xl bg-surface-container-high border border-white/10 flex items-center justify-center overflow-hidden">
+<img alt="User Profile Avatar" class="object-cover w-full h-full" data-alt="A macro shot of a sleek, minimalist glowing neon ring inside a dark metallic cube, representing artificial intelligence. The lighting is cinematic, highlighting the futuristic texture of the metal." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBKzexycmzJIedLEeOTSRJdgzrjXlyMjux7KJgZ534gTke3JaYkeJd29wdrv2CeyNz2bJ1m1bu8F8ACclqrgAri6f4EKkE6aDpWGSK60B81GXcEuWDRaFCtTEnB86QYSVBpje-oR6xrNu9w_CDNbnjaUNbQIp77Q6SiNRyCkdu12ADpiP2Z_O0peeQ60Nc289LS-MYO_8f5YdI3IB3vVeokDSZ9GVcRsVoeJKu_X8shnGV7ZQ4I9Qr0"/>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary">Aura AI</h1>
+<p class="font-label-md text-label-md text-on-surface-variant">Pro Workspace</p>
+</div>
+</div>
+<!-- CTA -->
+<div class="px-6 mb-6">
+<button class="w-full flex items-center justify-center gap-2 py-3 rounded-lg bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-colors">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">add</span>
+<span class="font-label-md text-label-md">New Session</span>
+</button>
+</div>
+<!-- Main Navigation Tabs -->
+<div class="flex-1 px-4 space-y-1">
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant font-normal hover:bg-white/5 transition-colors" href="#">
+<span class="material-symbols-outlined">chat</span>
+<span class="font-body-md text-body-md">Chats</span>
+</a>
+<!-- Semantic Fallback to Voice/Chats -->
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-primary font-bold border-r-2 border-primary bg-primary/5 transition-colors" href="#" style="transform: scale(0.95);">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">mic</span>
+<span class="font-body-md text-body-md">Voice</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant font-normal hover:bg-white/5 transition-colors" href="#">
+<span class="material-symbols-outlined">notes</span>
+<span class="font-body-md text-body-md">Notes</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant font-normal hover:bg-white/5 transition-colors" href="#">
+<span class="material-symbols-outlined">check_circle</span>
+<span class="font-body-md text-body-md">Tasks</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant font-normal hover:bg-white/5 transition-colors" href="#">
+<span class="material-symbols-outlined">description</span>
+<span class="font-body-md text-body-md">Docs</span>
+</a>
+</div>
+<!-- Footer Navigation -->
+<div class="px-4 mt-auto space-y-1">
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant font-normal hover:bg-white/5 transition-colors" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-body-md text-body-md">Settings</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant font-normal hover:bg-white/5 transition-colors" href="#">
+<span class="material-symbols-outlined">help_outline</span>
+<span class="font-body-md text-body-md">Support</span>
+</a>
+</div>
+</nav>
+<!-- Central Workspace: Voice Interface -->
+<main class="flex-1 flex flex-col h-full relative z-10 p-6">
+<!-- Top App Bar equivalent logic (suppressed for immersive mode, but maintaining structure if needed) -->
+<header class="flex justify-between items-center w-full mb-8">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+<span class="font-label-md text-label-md text-primary tracking-widest uppercase">Live Session</span>
+</div>
+<div class="flex gap-4">
+<button class="text-on-surface-variant hover:text-on-surface transition-colors p-2">
+<span class="material-symbols-outlined">fullscreen</span>
+</button>
+</div>
+</header>
+<!-- Main Content Area -->
+<div class="flex-1 flex flex-col items-center justify-center relative">
+<!-- Aura Visualizer -->
+<div class="mb-16 flex flex-col items-center justify-center relative w-full h-80">
+<div class="aura-orb"></div>
+<!-- Overlay Audio Waveform beneath the orb -->
+<div class="absolute bottom-0 w-full max-w-md flex justify-center items-end h-24 gap-1 px-8 z-20">
+<!-- Generating bars via JS would be better, but doing inline for demo -->
+<div class="waveform-bar h-[20px]"></div><div class="waveform-bar h-[40px]"></div><div class="waveform-bar h-[15px]"></div>
+<div class="waveform-bar h-[50px]"></div><div class="waveform-bar h-[30px]"></div><div class="waveform-bar h-[60px]"></div>
+<div class="waveform-bar h-[25px]"></div><div class="waveform-bar h-[45px]"></div><div class="waveform-bar h-[20px]"></div>
+<div class="waveform-bar h-[35px]"></div><div class="waveform-bar h-[55px]"></div><div class="waveform-bar h-[15px]"></div>
+<div class="waveform-bar h-[40px]"></div><div class="waveform-bar h-[25px]"></div><div class="waveform-bar h-[45px]"></div>
+</div>
+</div>
+<!-- Transcript Area -->
+<div class="w-full max-w-2xl mx-auto text-center space-y-6 mb-12 flex-1">
+<div class="opacity-50 transition-opacity duration-300">
+<p class="font-body-lg text-body-lg text-on-surface-variant">"Can you analyze the recent market trends for renewable energy?"</p>
+</div>
+<div>
+<p class="font-headline-lg text-headline-lg text-on-surface">"Certainly. Analyzing current data streams. Renewable energy markets are showing a 15% upward trend in the last quarter, primarily driven by solar investments."</p>
+</div>
+</div>
+<!-- Bottom Controls -->
+<div class="w-full max-w-3xl glass-card rounded-lg p-4 flex items-center justify-between mt-auto">
+<!-- Input Selector -->
+<div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-container-high/50 border border-white/5 hover:bg-surface-container-high transition-colors cursor-pointer">
+<span class="material-symbols-outlined text-on-surface-variant" style="font-size: 18px;">mic_none</span>
+<span class="font-label-md text-label-md text-on-surface">Rode NT1-A</span>
+<span class="material-symbols-outlined text-on-surface-variant ml-2" style="font-size: 16px;">expand_more</span>
+</div>
+<!-- Main Action: Hold to Talk -->
+<button class="relative group flex items-center justify-center w-16 h-16 rounded-full bg-primary-container text-on-primary-container shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)] transition-all duration-300 transform hover:scale-105">
+<div class="absolute inset-0 rounded-full border border-white/20"></div>
+<span class="material-symbols-outlined" style="font-size: 28px; font-variation-settings: 'FILL' 1;">mic</span>
+</button>
+<!-- Output Selector & Mode -->
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-container-high/50 border border-white/5 hover:bg-surface-container-high transition-colors cursor-pointer">
+<span class="material-symbols-outlined text-on-surface-variant" style="font-size: 18px;">volume_up</span>
+<span class="font-label-md text-label-md text-on-surface">Studio Monitors</span>
+</div>
+<div class="h-8 w-px bg-white/10 mx-2"></div>
+<button class="flex items-center gap-2 px-3 py-2 rounded-lg border border-primary/30 text-primary hover:bg-primary/10 transition-colors">
+<span class="material-symbols-outlined" style="font-size: 18px;">sync</span>
+<span class="font-label-md text-label-md">Continuous</span>
+</button>
+</div>
+</div>
+</div>
+</main>
+<!-- Right Panel: Inspector -->
+<aside class="w-inspector-width h-screen sticky right-0 top-0 flex flex-col p-6 z-10 glass-panel border-l border-white/5">
+<header class="flex items-center justify-between mb-6">
+<h2 class="font-headline-md text-headline-md font-semibold text-on-surface">Inspector</h2>
+<button class="text-on-surface-variant hover:text-on-surface p-1 rounded-md hover:bg-white/5 transition-colors">
+<span class="material-symbols-outlined">close</span>
+</button>
+</header>
+<div class="flex-1 overflow-y-auto space-y-6 pr-2">
+<!-- Status Module -->
+<div class="glass-card rounded-lg p-4">
+<h3 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider mb-3">System Status</h3>
+<div class="space-y-3">
+<div class="flex justify-between items-center">
+<span class="font-body-md text-body-md text-on-surface">Latency</span>
+<span class="font-code-sm text-code-sm text-secondary">42ms</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="font-body-md text-body-md text-on-surface">Model</span>
+<span class="font-code-sm text-code-sm text-on-surface-variant">Aura-V-Omni</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="font-body-md text-body-md text-on-surface">Confidence</span>
+<span class="font-code-sm text-code-sm text-primary">99.8%</span>
+</div>
+</div>
+</div>
+<!-- Execution Logs -->
+<div>
+<h3 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider mb-3">Live Execution</h3>
+<div class="glass-card rounded-lg bg-[#000000] p-4 font-code-sm text-code-sm space-y-2 border-none">
+<div class="text-on-surface-variant">&gt; Awaiting input...</div>
+<div class="text-primary">&gt; Voice detected (SNR: 24dB)</div>
+<div class="text-secondary">&gt; Transcription complete.</div>
+<div class="text-on-surface-variant">&gt; Routing intent...</div>
+<div class="text-tertiary">&gt; Calling API: MarketData</div>
+<div class="text-on-surface-variant">&gt; Synthesizing response...</div>
+<div class="text-primary animate-pulse">&gt; Streaming audio...</div>
+</div>
+</div>
+<!-- Context Tools -->
+<div class="glass-card rounded-lg p-4 mt-auto">
+<h3 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider mb-3">Active Context</h3>
+<div class="flex flex-wrap gap-2">
+<span class="px-2 py-1 rounded-md bg-surface-container border border-white/10 font-code-sm text-code-sm text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined" style="font-size: 14px;">description</span> Q3_Report.pdf
+                     </span>
+<span class="px-2 py-1 rounded-md bg-surface-container border border-white/10 font-code-sm text-code-sm text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined" style="font-size: 14px;">language</span> web_search
+                     </span>
+</div>
+</div>
+</div>
+</aside>
+</body></html>

@@ -17,7 +17,7 @@ class BaseSTTProvider(ABC):
     @abstractmethod
     async def stream_transcripts(self) -> AsyncGenerator[str, None]:
         """Continually yield full or partial transcripts from the provider."""
-        pass
+        yield ""
 
     @abstractmethod
     async def end_session(self) -> None:

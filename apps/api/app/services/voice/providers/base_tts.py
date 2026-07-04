@@ -18,7 +18,7 @@ class BaseTTSProvider(ABC):
     @abstractmethod
     async def stream_audio(self) -> AsyncGenerator[bytes, None]:
         """Continually yield raw audio bytes as they are synthesized."""
-        pass
+        yield b""
 
     @abstractmethod
     async def stop_generation(self) -> None:

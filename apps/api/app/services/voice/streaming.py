@@ -42,13 +42,14 @@ class StreamingCoordinator:
         self.stt_task = asyncio.create_task(self._listen_for_transcripts())
         self.tts_audio_task = asyncio.create_task(self._stream_tts_audio_back())
         
-        logger.info(f"[Voice] session started for {self.session.session_id}")
-        
         try:
             while True:
-                # Receive raw audio chunk from client
-                data = await self.websocket.receive_bytes()
-                await self.stt.process_audio(data)
+                # Safely parse incoming payload, ignoring text if frontend sends pings
+                message = await self.websocket.receive()
+                if message.get("type") == "websocket.disconnect":
+                    break
+                if "bytes" in message:
+                    await self.stt.process_audio(message["bytes"])
         except WebSocketDisconnect:
             pass
         finally:

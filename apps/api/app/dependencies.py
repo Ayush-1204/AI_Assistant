@@ -81,8 +81,10 @@ from app.integrations.search.tavily import TavilySearchProvider
 from app.services.ai.tools.google_calendar import CalendarTool
 from app.services.ai.tools.google_gmail import GmailTool
 from app.services.ai.tools.google_drive import DriveTool
+from app.services.ai.tools.google_tasks import GoogleTasksTool
 from app.integrations.google.auth import GoogleAuthService
 from app.integrations.google.calendar import GoogleCalendarService
+from app.integrations.google.tasks import GoogleTasksService
 from app.integrations.google.gmail import GoogleGmailService
 from app.integrations.google.drive import GoogleDriveService
 from app.repositories.oauth_repository import OAuthRepository
@@ -456,10 +458,10 @@ def get_tool_orchestrator(
     if settings.GOOGLE_CLIENT_ID:
         oauth_repo = OAuthRepository(db)
         auth_service = GoogleAuthService(oauth_repo)
-        
         registry.register(CalendarTool(GoogleCalendarService(auth_service)))
         registry.register(GmailTool(GoogleGmailService(auth_service)))
         registry.register(DriveTool(GoogleDriveService(auth_service)))
+        registry.register(GoogleTasksTool(GoogleTasksService(auth_service)))
     
     if settings.enable_web_search:
         search_provider = None
