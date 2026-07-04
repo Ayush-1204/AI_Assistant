@@ -16,6 +16,7 @@ from app.routers.notes import router as notes_router
 from app.routers.tasks import router as tasks_router
 from app.routers.reminders import router as reminders_router
 from app.routers.devices import router as devices_router
+from app.routers.voice import router as voice_router
 
 settings = get_settings()
 
@@ -37,3 +38,4 @@ app.include_router(notes_router)
 app.include_router(tasks_router)
 app.include_router(reminders_router)
 app.include_router(devices_router)
+app.include_router(voice_router)

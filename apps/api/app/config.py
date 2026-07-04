@@ -104,6 +104,13 @@ class Settings(BaseSettings):
     JOB_TIMEOUT_SECONDS: int = 600
     FIREBASE_CREDENTIALS_PATH: str = ""
 
+    # Voice Configuration
+    ENABLE_VOICE: bool = True
+    DEFAULT_STT_PROVIDER: str = "whisper"
+    DEFAULT_TTS_PROVIDER: str = "edge_tts"
+    MAX_AUDIO_DURATION: int = 60
+    STREAMING_CHUNK_MS: int = 100
+
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=True,

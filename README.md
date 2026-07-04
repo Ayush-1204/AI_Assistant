@@ -1696,3 +1696,58 @@ Introduce a first-party Personal Knowledge System (PKS) supporting Notes, Tasks,
 - Constructed `note_service.py` securely bridging notes explicitly to the `DocumentProcessor`—automatically triggering indexing, chunking, embedding workflows on saved notes achieving instant zero-duplication hybrid availability organically! 
 - Shipped independent AI Tool wrappers (`NotesTool`, `TasksTool`, `RemindersTool`) seamlessly extending the ReAct pipeline capabilities orchestrating CRUD dynamically.
 - Deployed decoupled REST endpoints scaling the new architecture domains seamlessly.
+
+----------------------------------------------------------------
+
+# Sprint 25 – Proactive Scheduler & Unified Notification Platform
+
+## Objective
+Transform the assistant into a proactive AI assistant by building an autonomous asynchronous background scheduler scaling execution jobs and fanning out payloads across dynamic multi-channel notification providers.
+
+## Changes
+- Built native `scheduled_job.py`, `notification.py`, and `device.py` securely mapping states matching user context tokens.
+- Drafted a robust configurable abstract class provider `BaseNotificationProvider`.
+- Delivered isolated `EmailNotificationProvider`, `DatabaseNotificationProvider`, and `PushNotificationProvider` capable of dynamically iterating fault-tolerant loops over `aysncio.gather`.
+- Wired the system natively into the FastAPI lifecycle hooking the `BackgroundScheduler` directly into the `lifespan` generator bootstrapping Agent planning cycles effortlessly.
+
+----------------------------------------------------------------
+
+# Sprint 26 – Voice Assistant Platform
+
+## Objective
+Introduce a complete, provider-agnostic voice interaction platform with support for Speech-to-Text (STT), Text-to-Speech (TTS), bidirectional streaming, and barge-in interruptions, natively hooking into existing AI ReAct tooling.
+
+## Changes
+- Built native `app/services/voice/` isolating `VoiceSession` models structuring cross-turn streaming states cleanly mapping users.
+- Formulated `BaseSTTProvider` and `BaseTTSProvider` abstracting audio transcoding loops seamlessly connecting standard Python logic to disparate native SDKs.
+- Drafted a highly responsive `StreamingCoordinator` consuming WebSocket buffers dynamically pausing LLM generations and terminating audio loops mid-turn resolving seamless barge-in interruption effortlessly.
+- Mapped Voice functionality cleanly to the foundational `Planner` and `ToolOrchestrator` isolating functionality structurally without mutating legacy endpoints!
+
+## Streaming Architecture Sequence
+```mermaid
+sequenceDiagram
+    participant User
+    participant WebSocket
+    participant StreamingCoordinator
+    participant STT as STT Provider
+    participant Planner Agent
+    participant TTS as TTS Provider
+
+    User->>WebSocket: Audio Chunks
+    WebSocket->>StreamingCoordinator: push_audio()
+    StreamingCoordinator->>STT: stream()
+    STT-->>StreamingCoordinator: partial/full transcript
+
+    alt STT detects interruption
+        StreamingCoordinator->>TTS: halt_playback()
+        StreamingCoordinator->>Planner Agent: cancel_generation()
+    end
+    
+    StreamingCoordinator->>Planner Agent: run(transcript)
+    Planner Agent-->>StreamingCoordinator: text_stream (LLM/Tools)
+    
+    StreamingCoordinator->>TTS: push_text(text_stream)
+    TTS-->>StreamingCoordinator: audio_bytes
+    StreamingCoordinator-->>WebSocket: audio_bytes
+    WebSocket-->>User: Voice Playing
+```
