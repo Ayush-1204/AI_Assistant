@@ -1,4 +1,4 @@
-from sqlalchemy import select, case
+from sqlalchemy import select, case, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -139,6 +139,50 @@ class DocumentChunkRepository:
                 Document.status == DocumentStatus.READY,
             )
             .order_by(match_score.asc(), distance.asc())
+            .limit(top_k)
+            .options(
+                selectinload(DocumentChunk.document)
+            )
+        )
+
+        result = await self.db.execute(stmt)
+
+        return [
+            (
+                row[0],
+                float(row[1]),
+            )
+            for row in result.all()
+        ]
+
+    async def keyword_search(
+        self,
+        query: str,
+        user_id: int,
+        top_k: int = 5,
+    ) -> list[tuple[DocumentChunk, float]]:
+        """
+        Perform PostgreSQL full-text keyword search natively isolating textual limits.
+
+        Returns:
+            list of (DocumentChunk, ts_rank).
+        """
+        tsquery = func.plainto_tsquery('english', query)
+        tsvector = func.to_tsvector('english', DocumentChunk.content)
+        rank = func.ts_rank(tsvector, tsquery).label("rank")
+
+        stmt = (
+            select(
+                DocumentChunk,
+                rank,
+            )
+            .join(Document)
+            .where(
+                Document.user_id == user_id,
+                Document.status == DocumentStatus.READY,
+                tsvector.op("@@")(tsquery)
+            )
+            .order_by(rank.desc())
             .limit(top_k)
             .options(
                 selectinload(DocumentChunk.document)

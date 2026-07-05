@@ -1,0 +1,33 @@
+{
+   "description": "Just One Click to Absolute Elegance!",
+   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxK+Ck78//svEARTZxnPhaeN61tAJ31SPSMj41Zd8O7GlQf+m1Uj/pCfZbaII8gCKtw71IxTWmly6sQ3POYw06+ZVrPxCYCBl4/iqEgQzE6HRnds31r/FdbjpdRSix4JnS63yVieKx2LWCr0ATLiXOoKqjLyqmaMuttkwVssaN6brMBVAJDU0g3/4qrak+u7zI9BhMk3pGIQK179PijmwuEQkPiqmsDisHwbaDhbMsxkUgxTlyG4hHN9YTHmTHPmrQoSNxAQkI4raLma39NkZOQWh+aPnIeikC0lkZ8JHZnQeAwwZ4E6rVdfb/1GQ6nkMx/jVsDGjYPV9VZQ48Q8u5QIDAQAB",
+   "manifest_version": 3,
+   "name": "Minecraft Dungeons",
+   "theme": {
+      "colors": {
+         "bookmark_text": [ 255, 255, 255 ],
+         "frame": [ 20, 21, 26 ],
+         "ntp_background": [ 20, 21, 26 ],
+         "tab_background_text": [ 255, 255, 255 ],
+         "tab_text": [ 255, 255, 255 ],
+         "toolbar": [ 61, 64, 76 ]
+      },
+      "images": {
+         "theme_ntp_attribution": "images/attribution.png",
+         "theme_ntp_background": "minecraft-dungeons_1920x1080.png"
+      },
+      "properties": {
+         "ntp_background_alignment": "bottom",
+         "ntp_background_repeat": "repeat-x",
+         "ntp_logo_alternate": 1
+      },
+      "tints": {
+         "buttons": [ 1, 1, 1 ],
+         "frame_inactive": [ -1, -1, -1 ],
+         "frame_incognito": [ -1, -1, -1 ],
+         "frame_incognito_inactive": [ -1, -1, -1 ]
+      }
+   },
+   "update_url": "https://clients2.google.com/service/update2/crx",
+   "version": "1"
+}

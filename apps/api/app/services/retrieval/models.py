@@ -14,11 +14,16 @@ class RetrievalResult:
     """
 
     chunk: DocumentChunk
-    distance: float
+    distance: float | None = None
+    keyword_score: float | None = None
+    rrf_score: float = 0.0
+    rerank_score: float | None = None
 
     @property
     def similarity(self) -> float:
-        return max(
-            0.0,
-            1.0 - self.distance,
-        )
+        if self.distance is not None:
+            return max(
+                0.0,
+                1.0 - self.distance,
+            )
+        return 0.0

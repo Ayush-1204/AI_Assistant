@@ -1,0 +1,27 @@
+name: second_brain_frontend
+description: Frontend for the Personal AI Assistant Platform / Second Brain
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^2.5.1
+  flutter_markdown: ^0.7.1
+  google_fonts: ^6.1.0
+  web_socket_channel: ^3.0.1
+  dio: ^5.4.3
+  url_launcher: ^6.3.1
+  file_picker: ^11.0.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true

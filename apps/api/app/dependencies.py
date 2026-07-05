@@ -16,6 +16,9 @@ from app.repositories.document_repository import DocumentRepository
 from app.repositories.document_chunk_repository import (
     DocumentChunkRepository,
 )
+from app.repositories.note_repository import NoteRepository
+from app.repositories.task_repository import TaskRepository
+from app.repositories.reminder_repository import ReminderRepository
 
 # Services
 from app.services.auth_service import AuthService
@@ -23,7 +26,12 @@ from app.services.conversation_service import ConversationService
 from app.services.message_service import MessageService
 from app.services.document_service import DocumentService
 from app.services.storage_service import StorageService
+from app.services.notes.note_service import NoteService
+from app.services.tasks.task_service import TaskService
+from app.services.reminders.reminder_service import ReminderService
 from app.services.retrieval.retrieval_service import RetrievalService
+from app.services.retrieval.fusion import ResultFusion
+from app.services.retrieval.reranking import Reranker, CrossEncoderReranker
 
 
 # AI
@@ -57,6 +65,29 @@ from app.services.ai.memory import (
     MemoryExtractor,
     MemoryService,
 )
+
+# Tools
+from app.services.ai.tools.registry import ToolRegistry
+from app.services.ai.tools.orchestrator import ToolOrchestrator
+from app.services.ai.tools.datetime_tool import CurrentTimeTool
+from app.services.ai.tools.calculator import CalculatorTool
+from app.services.ai.tools.document_search import DocumentSearchTool
+from app.services.ai.tools.memory_search import MemorySearchTool
+from app.services.ai.tools.web_search import WebSearchTool
+from app.services.ai.tools.notes_tool import NotesTool
+from app.services.ai.tools.tasks_tool import TasksTool
+from app.services.ai.tools.reminders_tool import RemindersTool
+from app.integrations.search.tavily import TavilySearchProvider
+from app.services.ai.tools.google_calendar import CalendarTool
+from app.services.ai.tools.google_gmail import GmailTool
+from app.services.ai.tools.google_drive import DriveTool
+from app.services.ai.tools.google_tasks import GoogleTasksTool
+from app.integrations.google.auth import GoogleAuthService
+from app.integrations.google.calendar import GoogleCalendarService
+from app.integrations.google.tasks import GoogleTasksService
+from app.integrations.google.gmail import GoogleGmailService
+from app.integrations.google.drive import GoogleDriveService
+from app.repositories.oauth_repository import OAuthRepository
 
 # Documents
 from app.services.documents.processor import DocumentProcessor
@@ -126,6 +157,16 @@ def get_document_chunk_repository(
     return DocumentChunkRepository(db)
 
 
+def get_note_repository(db: AsyncSession = Depends(get_db)) -> NoteRepository:
+    return NoteRepository(db)
+
+def get_task_repository(db: AsyncSession = Depends(get_db)) -> TaskRepository:
+    return TaskRepository(db)
+
+def get_reminder_repository(db: AsyncSession = Depends(get_db)) -> ReminderRepository:
+    return ReminderRepository(db)
+
+
 # ==========================================================
 # Core Services
 # ==========================================================
@@ -160,12 +201,54 @@ def get_message_service(
     )
 
 
+
+
+
 # ==========================================================
 # AI Provider
 # ==========================================================
+from app.services.ai.providers.router import ProviderRouter
 
-def get_llm_provider() -> GeminiProvider:
-    return GeminiProvider()
+_router_instance = None
+
+def get_provider_router() -> ProviderRouter:
+    global _router_instance
+    if _router_instance is None:
+        from app.services.ai.providers.openai_provider import OpenAICompatibleProvider
+        _router_instance = ProviderRouter()
+        
+        # 1. Google Gemini Native Providers
+        _router_instance.register_provider(GeminiProvider(model_name="gemini-2.5-flash", provider_name="gemini-2.5-flash"))
+        _router_instance.register_provider(GeminiProvider(model_name="gemini-2.5-flash-lite", provider_name="gemini-2.5-flash-lite"))
+        _router_instance.register_provider(GeminiProvider(model_name="gemini-2.5-pro", provider_name="gemini-2.5-pro"))
+        _router_instance.register_provider(GeminiProvider(model_name="gemini-2.0-flash", provider_name="gemini-2.0-flash"))
+        _router_instance.register_provider(GeminiProvider(model_name="gemini-1.5-pro", provider_name="gemini-1.5-pro"))
+        _router_instance.register_provider(GeminiProvider(model_name="gemini-1.5-flash", provider_name="gemini-1.5-flash"))
+        
+        # 2. Local Ollama Native Providers
+        _router_instance.register_provider(OllamaProvider(model_name="qwen2.5-coder:14b", provider_name="ollama-coder"))
+        _router_instance.register_provider(OllamaProvider(model_name="deepseek-r1", provider_name="ollama-reasoning"))
+        _router_instance.register_provider(OllamaProvider(model_name="qwen3:8b", provider_name="ollama-default"))
+        
+        # 3. Groq Fast OpenAI-Compatible Pipeline
+        if settings.GROQ_API_KEY:
+            _router_instance.register_provider(OpenAICompatibleProvider(
+                api_key=settings.GROQ_API_KEY, 
+                base_url="https://api.groq.com/openai/v1", 
+                model_name="llama-3.3-70b-versatile",
+                provider_name="groq-llama"
+            ))
+            
+        # 4. OpenRouter Scalable OpenAI-Compatible Pipeline
+        if settings.OPENROUTER_API_KEY:
+            _router_instance.register_provider(OpenAICompatibleProvider(
+                api_key=settings.OPENROUTER_API_KEY,
+                base_url="https://openrouter.ai/api/v1",
+                model_name="meta-llama/llama-3.3-70b-instruct", 
+                provider_name="openrouter"
+            ))
+            
+    return _router_instance
 
 
 # ==========================================================
@@ -173,8 +256,8 @@ def get_llm_provider() -> GeminiProvider:
 # ==========================================================
 
 def get_memory_extractor(
-    provider: GeminiProvider = Depends(
-        get_llm_provider,
+    provider: ProviderRouter = Depends(
+        get_provider_router,
     ),
 ) -> MemoryExtractor:
 
@@ -233,6 +316,22 @@ def get_embedding_service(
 #
 #
 
+_fusion_instance = None
+_reranker_instance = None
+
+def get_result_fusion() -> ResultFusion:
+    global _fusion_instance
+    if _fusion_instance is None:
+        _fusion_instance = ResultFusion()
+    return _fusion_instance
+
+def get_reranker() -> Reranker:
+    global _reranker_instance
+    if _reranker_instance is None:
+        _reranker_instance = CrossEncoderReranker()
+    return _reranker_instance
+
+
 def get_retrieval_service(
 
     chunk_repository: DocumentChunkRepository = Depends(
@@ -242,12 +341,22 @@ def get_retrieval_service(
     embedding_service: EmbeddingService = Depends(
         get_embedding_service,
     ),
+    
+    result_fusion: ResultFusion = Depends(
+        get_result_fusion,
+    ),
+    
+    reranker: Reranker = Depends(
+        get_reranker,
+    ),
 
 ) -> RetrievalService:
 
     return RetrievalService(
         chunk_repository=chunk_repository,
         embedding_service=embedding_service,
+        result_fusion=result_fusion,
+        reranker=reranker,
     )
 
 
@@ -338,13 +447,70 @@ def get_document_service(
         processor=processor,
     )
 
+def get_note_service(
+    note_repository: NoteRepository = Depends(get_note_repository),
+    document_repository: DocumentRepository = Depends(get_document_repository),
+    document_processor: DocumentProcessor = Depends(get_document_processor),
+) -> NoteService:
+    return NoteService(note_repository, document_repository, document_processor)
+
+
+def get_task_service(repo: TaskRepository = Depends(get_task_repository)) -> TaskService:
+    return TaskService(repo)
+
+
+def get_reminder_service(repo: ReminderRepository = Depends(get_reminder_repository)) -> ReminderService:
+    return ReminderService(repo)
+
+
+# ==========================================================
+# Tool Orchestrator
+# ==========================================================
+
+def get_tool_orchestrator(
+    retrieval_service: RetrievalService = Depends(get_retrieval_service),
+    memory_service: MemoryService = Depends(get_memory_service),
+    note_service: NoteService = Depends(get_note_service),
+    task_service: TaskService = Depends(get_task_service),
+    reminder_service: ReminderService = Depends(get_reminder_service),
+    db: AsyncSession = Depends(get_db),
+) -> ToolOrchestrator:
+
+    registry = ToolRegistry()
+    registry.register(CurrentTimeTool())
+    registry.register(CalculatorTool())
+    registry.register(DocumentSearchTool(retrieval_service))
+    registry.register(MemorySearchTool(memory_service))
+    
+    registry.register(NotesTool(note_service))
+    registry.register(TasksTool(task_service))
+    registry.register(RemindersTool(reminder_service))
+    
+    if settings.GOOGLE_CLIENT_ID:
+        oauth_repo = OAuthRepository(db)
+        auth_service = GoogleAuthService(oauth_repo)
+        registry.register(CalendarTool(GoogleCalendarService(auth_service)))
+        registry.register(GmailTool(GoogleGmailService(auth_service)))
+        registry.register(DriveTool(GoogleDriveService(auth_service)))
+        registry.register(GoogleTasksTool(GoogleTasksService(auth_service)))
+    
+    if settings.enable_web_search:
+        search_provider = None
+        if settings.default_search_provider == "tavily":
+            search_provider = TavilySearchProvider()
+        
+        if search_provider:
+            registry.register(WebSearchTool(search_provider))
+            
+    return ToolOrchestrator(registry)
+
 # ==========================================================
 # AI Service
 # ==========================================================
 
 def get_ai_service(
-    provider: GeminiProvider = Depends(
-        get_llm_provider,
+    provider: ProviderRouter = Depends(
+        get_provider_router,
     ),
     message_service: MessageService = Depends(
         get_message_service,
@@ -358,6 +524,9 @@ def get_ai_service(
     memory_service: MemoryService = Depends(
         get_memory_service,
     ),
+    tool_orchestrator: ToolOrchestrator = Depends(
+        get_tool_orchestrator,
+    ),
 ) -> AIService:
 
     return AIService(
@@ -366,6 +535,7 @@ def get_ai_service(
         conversation_service=conversation_service,
         context_builder=context_builder,
         memory_service=memory_service,
+        tool_orchestrator=tool_orchestrator,
     )
 
 
@@ -400,3 +570,32 @@ async def get_current_user(
         )
 
     return user
+
+def boot_scheduler():
+    from app.services.scheduler.scheduler import BackgroundScheduler
+    from app.services.scheduler.worker import SchedulerWorker
+    from app.services.scheduler.dispatcher import AgentDispatcher
+    from app.services.notifications.notification_service import NotificationService
+    from app.services.notifications.providers.database_provider import DatabaseNotificationProvider
+    from app.services.notifications.providers.email_provider import EmailNotificationProvider
+    from app.services.notifications.providers.push_provider import PushNotificationProvider
+    from app.db.session import AsyncSessionLocal
+
+    async def worker_factory():
+        db = AsyncSessionLocal()
+        notification_service = NotificationService([
+            DatabaseNotificationProvider(db),
+            EmailNotificationProvider(),
+            PushNotificationProvider(db)
+        ])
+        dispatcher = AgentDispatcher(
+            planner=None, 
+            executor=None, 
+            notification_service=notification_service, 
+            db=db
+        )
+        return SchedulerWorker(db, dispatcher)
+
+    scheduler = BackgroundScheduler(worker_factory)
+    scheduler.start()
+    return scheduler

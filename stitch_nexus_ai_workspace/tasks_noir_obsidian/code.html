@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Aura AI - Tasks</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-primary-fixed-variant": "#2f2f2f",
+                      "inverse-on-surface": "#f4f4f4",
+                      "on-secondary": "#1c1c1c",
+                      "on-surface-variant": "#c4c4c4",
+                      "outline-variant": "#444444",
+                      "on-error-container": "#ffdad6",
+                      "surface-variant": "#444444",
+                      "on-primary-container": "#ffffff",
+                      "surface-dim": "#131313",
+                      "primary-fixed": "#e3e3e3",
+                      "surface-container-highest": "#353535",
+                      "outline": "#8e8e8e",
+                      "on-tertiary-container": "#b8b8b8",
+                      "on-secondary-container": "#cccccc",
+                      "on-primary": "#000000",
+                      "background": "#131313",
+                      "tertiary-fixed": "#cfcfcf",
+                      "surface-container-low": "#1b1b1b",
+                      "secondary-fixed": "#dbdbdb",
+                      "on-secondary-fixed": "#121212",
+                      "surface-tint": "#e3e3e3",
+                      "surface-container-lowest": "#0e0e0e",
+                      "on-surface": "#e3e3e3",
+                      "on-error": "#690005",
+                      "error": "#ffb4ab",
+                      "on-secondary-fixed-variant": "#383838",
+                      "primary-fixed-dim": "#c7c7c7",
+                      "primary": "#e3e3e3",
+                      "on-background": "#e3e3e3",
+                      "tertiary-fixed-dim": "#b3b3b3",
+                      "on-primary-fixed": "#0e0e0e",
+                      "inverse-surface": "#303030",
+                      "error-container": "#93000a",
+                      "on-tertiary-fixed": "#121212",
+                      "on-tertiary": "#0a0a0a",
+                      "surface-bright": "#393939",
+                      "surface-container": "#1f1f1f",
+                      "secondary-fixed-dim": "#bfbfbf",
+                      "surface-container-high": "#2a2a2a",
+                      "secondary": "#b3b3b3",
+                      "primary-container": "#424242",
+                      "tertiary": "#9e9e9e",
+                      "surface": "#131313",
+                      "inverse-primary": "#5e5e5e",
+                      "tertiary-container": "#262626",
+                      "secondary-container": "#333333",
+                      "on-tertiary-fixed-variant": "#383838"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "sidebar-width": "280px",
+                      "inspector-width": "320px",
+                      "gutter": "16px",
+                      "radius-inner": "16px",
+                      "container-margin": "24px",
+                      "radius-main": "24px"
+              },
+              "fontFamily": {
+                      "code-sm": [
+                              "jetbrainsMono"
+                      ],
+                      "headline-md": [
+                              "Geist"
+                      ],
+                      "body-lg": [
+                              "Geist"
+                      ],
+                      "display-lg": [
+                              "Geist"
+                      ],
+                      "headline-lg-mobile": [
+                              "Geist"
+                      ],
+                      "label-md": [
+                              "Geist"
+                      ],
+                      "headline-lg": [
+                              "Geist"
+                      ],
+                      "body-md": [
+                              "Geist"
+                      ]
+              },
+              "fontSize": {
+                      "code-sm": [
+                              "13px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-md": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "display-lg": [
+                              "48px",
+                              {
+                                      "lineHeight": "56px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "headline-lg-mobile": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "label-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "letterSpacing": "0.01em",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "headline-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ]
+              }
+            }
+          }
+        }
+    </script>
+<style>
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.02);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(32px);
+            -webkit-backdrop-filter: blur(32px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .glass-card:hover {
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        /* Custom scrollbar for webkit */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body-md h-screen overflow-hidden selection:bg-primary selection:text-on-primary">
+<!-- TopNavBar -->
+<header class="fixed top-0 right-0 w-full md:w-[calc(100%-280px)] h-16 bg-surface/30 backdrop-blur-md border-b border-white/5 flex justify-between items-center px-gutter z-40">
+<div class="flex items-center gap-4">
+<h1 class="font-headline-md text-headline-md font-bold text-primary md:hidden">Aura AI</h1>
+<div class="hidden md:flex items-center gap-6">
+<h1 class="font-headline-md text-headline-md font-bold text-primary">Aura Dashboard</h1>
+<nav class="flex gap-4">
+<a class="font-label-md text-label-md text-on-surface-variant hover:text-primary transition-opacity opacity-80 hover:opacity-100" href="#">Recent</a>
+<a class="font-label-md text-label-md text-on-surface-variant hover:text-primary transition-opacity opacity-80 hover:opacity-100" href="#">Pinned</a>
+<a class="font-label-md text-label-md text-on-surface-variant hover:text-primary transition-opacity opacity-80 hover:opacity-100" href="#">Shared</a>
+</nav>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden sm:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">search</span>
+<input class="bg-black/20 border border-white/10 rounded-lg pl-10 pr-4 py-1.5 font-label-md text-label-md text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all w-64" placeholder="Search tasks..." type="text"/>
+</div>
+<button class="text-on-surface-variant hover:text-primary transition-opacity opacity-80 hover:opacity-100">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-opacity opacity-80 hover:opacity-100">
+<span class="material-symbols-outlined">account_circle</span>
+</button>
+</div>
+</header>
+<!-- SideNavBar -->
+<nav class="hidden md:flex fixed left-0 top-0 h-full w-sidebar-width bg-surface/50 backdrop-blur-xl border-r border-white/5 flex-col py-6 z-50">
+<div class="px-6 mb-8 flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center border border-primary/30 shrink-0 overflow-hidden">
+<img alt="User Profile Avatar" class="w-full h-full object-cover" data-alt="A futuristic AI avatar profile picture in a sleek, minimalist style. Soft, glowing cool blue and purple hues emanate from the avatar against a deep charcoal background, reflecting the advanced technology theme. High resolution, high contrast, clean vectors." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDccteI5lCM7nSu8UWzsw8oxOg9yh1MT7IAfeOtOGrT32pKsgfG6UDNwZ7MXqfx_iddRcs_ZmXKv6cUghMRhAhUZw3pQ8RdXMeHDY_zqZ7eMUgQxC2pEG6emJriV-0XHONpNpR1pOouuX8HIMzo_Qguxa7jTrGXnmLKABhd3PBIawOaBA6tiI6vtHiF8nb81cbkJWV6wht6vpRzQqUnS2-7LbvOD2IUDIrQGmeXghaFvMsmPjsTPhrt"/>
+</div>
+<div>
+<h2 class="font-headline-md text-headline-md font-bold text-primary">Aura AI</h2>
+<p class="font-label-md text-label-md text-on-surface-variant">Pro Workspace</p>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto px-4 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-white/5 hover:text-on-surface transition-colors scale-95 transition-transform duration-200 font-body-md text-body-md" href="#">
+<span class="material-symbols-outlined">chat</span>
+                Chats
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-white/5 hover:text-on-surface transition-colors scale-95 transition-transform duration-200 font-body-md text-body-md" href="#">
+<span class="material-symbols-outlined">description</span>
+                Notes
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-primary font-bold border-r-2 border-primary bg-white/5 scale-95 transition-transform duration-200 font-body-md text-body-md" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                Tasks
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-white/5 hover:text-on-surface transition-colors scale-95 transition-transform duration-200 font-body-md text-body-md" href="#">
+<span class="material-symbols-outlined">folder</span>
+                Documents
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-white/5 hover:text-on-surface transition-colors scale-95 transition-transform duration-200 font-body-md text-body-md" href="#">
+<span class="material-symbols-outlined">calendar_today</span>
+                Calendar
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-white/5 hover:text-on-surface transition-colors scale-95 transition-transform duration-200 font-body-md text-body-md" href="#">
+<span class="material-symbols-outlined">mail</span>
+                Gmail
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-white/5 hover:text-on-surface transition-colors scale-95 transition-transform duration-200 font-body-md text-body-md" href="#">
+<span class="material-symbols-outlined">cloud</span>
+                Drive
+            </a>
+</div>
+<div class="px-4 mt-auto space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-white/5 hover:text-on-surface transition-colors scale-95 transition-transform duration-200 font-body-md text-body-md" href="#">
+<span class="material-symbols-outlined">notifications</span>
+                Notifications
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-white/5 hover:text-on-surface transition-colors scale-95 transition-transform duration-200 font-body-md text-body-md" href="#">
+<span class="material-symbols-outlined">settings</span>
+                Settings
+            </a>
+</div>
+</nav>
+<!-- Main Workspace -->
+<main class="md:ml-[280px] pt-16 h-full flex flex-col transition-all duration-300 mr-[320px]">
+<div class="px-container-margin py-6 flex-1 flex flex-col min-h-0">
+<!-- Header Area -->
+<div class="flex justify-between items-end mb-6 shrink-0">
+<div>
+<h2 class="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface">Sprint Alpha</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">Manage project deliverables and track AI model training progress.</p>
+</div>
+<button class="bg-primary/20 hover:bg-primary/30 border border-primary/50 text-primary px-4 py-2 rounded-lg flex items-center gap-2 transition-all hover:shadow-[0_0_15px_rgba(255,255,255,0.2)]">
+<span class="material-symbols-outlined text-[18px]">add</span>
+<span class="font-label-md text-label-md">New Task</span>
+</button>
+</div>
+<!-- Kanban Board -->
+<div class="flex-1 flex gap-6 overflow-x-auto pb-4 items-start min-h-0">
+<!-- Column: To Do -->
+<div class="w-[320px] shrink-0 flex flex-col max-h-full glass-panel rounded-xl">
+<div class="p-4 border-b border-white/5 flex items-center justify-between shrink-0">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-surface-variant"></div>
+<h3 class="font-label-md text-label-md font-semibold">To Do</h3>
+<span class="bg-white/10 text-on-surface-variant text-[12px] px-2 py-0.5 rounded-full">3</span>
+</div>
+<button class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined text-[18px]">add</span></button>
+</div>
+<div class="p-3 overflow-y-auto flex-1 space-y-3">
+<!-- Task Card -->
+<div class="glass-card rounded-lg p-4 cursor-pointer group transition-all">
+<div class="flex justify-between items-start mb-2">
+<span class="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded bg-error/20 text-error border border-error/30">High</span>
+<button class="text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity"><span class="material-symbols-outlined text-[16px]">more_horiz</span></button>
+</div>
+<h4 class="font-body-md text-body-md font-medium text-on-surface mb-1">Define Schema</h4>
+<p class="font-label-md text-label-md text-on-surface-variant line-clamp-2 mb-4">Create initial data models for the user preference engine.</p>
+<div class="flex items-center justify-between mt-auto">
+<div class="flex items-center gap-1 text-on-surface-variant text-[12px]">
+<span class="material-symbols-outlined text-[14px]">calendar_today</span>
+                                    Oct 24
+                                </div>
+<div class="flex items-center gap-2">
+<div class="flex items-center gap-1 text-on-surface-variant text-[12px]">
+<span class="material-symbols-outlined text-[14px]">checklist</span> 0/4
+                                    </div>
+<div class="w-6 h-6 rounded-full bg-secondary/20 border border-secondary/30 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A small abstract, geometric avatar design in soft cyan and deep blue tones, suitable for a minimalist user profile picture. Sharp edges, soft gradients." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCy6n5I1jfk3ie8Yo1hmwn9AfJ7PozvIgumnbpavOjTvRfPTHjjUEcHW2Fu1Dt_TRrT-0qFhniOf-aaHFXxJLJ6iawoppdHGxosvoobEA7fw0Xr51zOxaBCUUfawl63fBEZmoIpnX75zvvA9lOOdPJB8F3ZDbTKJjc0IdZUOUE1FaziSSuAcpSaQ3c5czykMx6N5qKCqsDyJtIKriv5yOlAv5I81WO8k0CaKkFieDPnRmkjoKlmt90I"/>
+</div>
+</div>
+</div>
+</div>
+<!-- Task Card -->
+<div class="glass-card rounded-lg p-4 cursor-pointer group transition-all">
+<div class="flex justify-between items-start mb-2">
+<span class="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded bg-tertiary/20 text-tertiary border border-tertiary/30">Medium</span>
+</div>
+<h4 class="font-body-md text-body-md font-medium text-on-surface mb-1">API Integration</h4>
+<p class="font-label-md text-label-md text-on-surface-variant line-clamp-2 mb-4">Connect the frontend to the new natural language processing endpoints.</p>
+<div class="flex items-center justify-between mt-auto">
+<div class="flex items-center gap-1 text-error text-[12px]">
+<span class="material-symbols-outlined text-[14px]">calendar_today</span>
+                                    Oct 22 (Overdue)
+                                </div>
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full bg-primary/20 border border-primary/30 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A small futuristic avatar featuring a stylized glowing wireframe head in violet and indigo, dark background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC-k5nzk2rrGeMwD5G9MJT2gMoNs56L7itmfVbQJUt01yCKo4khrCVM0qqtGQLTZal6aYrmxL34Y6wZNa1lp2OqK1YxFGnyqYuJ8FK4Tlq1GXa4WO42MCGCx5q66JoL6-arQlAFJllZtqE4ECMCbZ3Z4_el8THI6oWewbBFNX-japXPTWYp9VNlufnLT7KMYLDHq682oKc_UmG64hw4EqkRPXX4WB7VipGsrsjY6tByiSauP_77_GAx"/>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Column: In Progress -->
+<div class="w-[320px] shrink-0 flex flex-col max-h-full glass-panel rounded-xl">
+<div class="p-4 border-b border-white/5 flex items-center justify-between shrink-0">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-secondary"></div>
+<h3 class="font-label-md text-label-md font-semibold">In Progress</h3>
+<span class="bg-white/10 text-on-surface-variant text-[12px] px-2 py-0.5 rounded-full">2</span>
+</div>
+<button class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined text-[18px]">add</span></button>
+</div>
+<div class="p-3 overflow-y-auto flex-1 space-y-3">
+<!-- Task Card - Active -->
+<div class="glass-card rounded-lg p-4 cursor-pointer group transition-all border-primary/50 shadow-[0_0_15px_rgba(255,255,255,0.1)] relative overflow-hidden">
+<div class="absolute top-0 left-0 w-1 h-full bg-primary"></div>
+<div class="flex justify-between items-start mb-2 pl-2">
+<span class="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded bg-error/20 text-error border border-error/30">High</span>
+<button class="text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity"><span class="material-symbols-outlined text-[16px]">more_horiz</span></button>
+</div>
+<h4 class="font-body-md text-body-md font-medium text-on-surface mb-1 pl-2">Model Fine-tuning</h4>
+<p class="font-label-md text-label-md text-on-surface-variant line-clamp-2 mb-4 pl-2">Adjust hyperparameters for the summarization task on the new dataset.</p>
+<div class="pl-2">
+<div class="w-full bg-black/40 rounded-full h-1.5 mb-3">
+<div class="bg-primary h-1.5 rounded-full w-[65%]"></div>
+</div>
+</div>
+<div class="flex items-center justify-between mt-auto pl-2">
+<div class="flex items-center gap-1 text-on-surface-variant text-[12px]">
+<span class="material-symbols-outlined text-[14px]">calendar_today</span>
+                                    Oct 25
+                                </div>
+<div class="flex items-center gap-2">
+<div class="flex items-center gap-1 text-on-surface-variant text-[12px]">
+<span class="material-symbols-outlined text-[14px]">forum</span> 3
+                                    </div>
+<div class="w-6 h-6 rounded-full bg-primary/20 border border-primary/30 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A small futuristic avatar featuring a stylized glowing wireframe head in violet and indigo, dark background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDEOa_WI0T-s8IH1zg63tX5jhiPjinsqNL1PZvj3bxQ9s-kho7RDeRK7TFbknvJMgDJYgRSPIitma9Agv2o1j1WGi0sJoHqOIOxP5aYCMLX9e4NKzKoghyBCjv8Zyd5t0V0rEjjdUfm6Ao5rkUaw8S11uzeKIgTQdo_Y7c4-mVlGlmKl7yh2GCLYHba-_O7u7508c8V0JsGiNoYwtincbDeTgjfZEfG-g9gQRHCEQRjF15t60k-8rm9"/>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Column: Under Review -->
+<div class="w-[320px] shrink-0 flex flex-col max-h-full glass-panel rounded-xl">
+<div class="p-4 border-b border-white/5 flex items-center justify-between shrink-0">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-tertiary"></div>
+<h3 class="font-label-md text-label-md font-semibold">Under Review</h3>
+<span class="bg-white/10 text-on-surface-variant text-[12px] px-2 py-0.5 rounded-full">1</span>
+</div>
+<button class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined text-[18px]">add</span></button>
+</div>
+<div class="p-3 overflow-y-auto flex-1 space-y-3">
+<!-- Task Card -->
+<div class="glass-card rounded-lg p-4 cursor-pointer group transition-all">
+<div class="flex justify-between items-start mb-2">
+<span class="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded bg-surface-variant text-on-surface-variant border border-outline">Low</span>
+</div>
+<h4 class="font-body-md text-body-md font-medium text-on-surface mb-1">Update Documentation</h4>
+<p class="font-label-md text-label-md text-on-surface-variant line-clamp-2 mb-4">Document the new endpoint parameters in the developer portal.</p>
+<div class="flex items-center justify-between mt-auto">
+<div class="flex items-center gap-1 text-on-surface-variant text-[12px]">
+<span class="material-symbols-outlined text-[14px]">calendar_today</span>
+                                    Oct 26
+                                </div>
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full bg-secondary/20 border border-secondary/30 overflow-hidden flex items-center justify-center text-[10px] text-secondary">
+                                        JD
+                                    </div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Column: Done -->
+<div class="w-[320px] shrink-0 flex flex-col max-h-full glass-panel rounded-xl opacity-70">
+<div class="p-4 border-b border-white/5 flex items-center justify-between shrink-0">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-primary"></div>
+<h3 class="font-label-md text-label-md font-semibold">Done</h3>
+<span class="bg-white/10 text-on-surface-variant text-[12px] px-2 py-0.5 rounded-full">12</span>
+</div>
+</div>
+<div class="p-3 overflow-y-auto flex-1 space-y-3">
+<!-- Task Card -->
+<div class="glass-card rounded-lg p-4 cursor-pointer">
+<h4 class="font-body-md text-body-md font-medium text-on-surface-variant line-through mb-1">Setup CI/CD Pipeline</h4>
+<div class="flex items-center justify-between mt-2">
+<div class="flex items-center gap-1 text-primary text-[12px]">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+                                    Completed Oct 20
+                                </div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- NavigationDrawer (Inspector) -->
+<aside class="hidden xl:flex fixed right-0 top-0 h-full w-inspector-width bg-surface/50 backdrop-blur-xl border-l border-white/5 flex-col pt-20 z-30">
+<div class="px-6 mb-6">
+<div class="flex items-center justify-between mb-2">
+<h2 class="font-headline-md text-headline-md text-on-surface">Task Details</h2>
+<button class="text-on-surface-variant hover:text-on-surface">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<p class="font-label-md text-label-md text-on-surface-variant flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-secondary"></span> In Progress
+            </p>
+</div>
+<div class="px-2 mb-4">
+<div class="flex border-b border-white/5">
+<button class="flex-1 py-2 font-label-md text-label-md text-tertiary font-bold border-b-2 border-tertiary flex items-center justify-center gap-2 hover:bg-white/5 transition-colors">
+<span class="material-symbols-outlined text-[18px]">menu_book</span> Details
+                </button>
+<button class="flex-1 py-2 font-label-md text-label-md text-on-surface-variant flex items-center justify-center gap-2 hover:bg-white/5 transition-colors">
+<span class="material-symbols-outlined text-[18px]">build</span> Activity
+                </button>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto px-6 pb-6 space-y-6">
+<div>
+<h3 class="font-body-lg text-body-lg font-semibold text-on-surface mb-2">Model Fine-tuning</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">Adjust hyperparameters for the summarization task on the new dataset. Focus on reducing hallucination rates while maintaining brevity.</p>
+</div>
+<div class="glass-panel p-4 rounded-lg space-y-4">
+<div class="flex justify-between items-center">
+<span class="font-label-md text-label-md text-on-surface-variant">Assignee</span>
+<div class="flex items-center gap-2">
+<img class="w-6 h-6 rounded-full object-cover border border-primary/30" data-alt="A small futuristic avatar featuring a stylized glowing wireframe head in violet and indigo, dark background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDGHse-sWNcwvYdMOA8Prjv8F7qz2z_lv86KDsvCcXgIXHLOpOzeBLAizsu8s1bsJhDKS1podDebhhdVK14nEf1SDZkKdDVyG_AD5IEXaBDthB3JDjBAaAw2yc6mkGN3SWwPLEYycqM2VEbQ1A4gU2YyPB2Kt6-MRXhjcJ5XKQeZh4hE567-Ols_TxUjNL5wr-_Im2Tw2yDLAiMi9t_rt-rbE_EcH1ko7VRMJNi1hDzSrI8Wr7Q3FTM"/>
+<span class="font-label-md text-label-md">Alex Rivera</span>
+</div>
+</div>
+<div class="flex justify-between items-center">
+<span class="font-label-md text-label-md text-on-surface-variant">Due Date</span>
+<span class="font-label-md text-label-md">Oct 25, 2023</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="font-label-md text-label-md text-on-surface-variant">Priority</span>
+<span class="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded bg-error/20 text-error border border-error/30">High</span>
+</div>
+</div>
+<div>
+<h4 class="font-label-md text-label-md font-semibold text-on-surface mb-3 flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">check_box</span> Subtasks
+                </h4>
+<div class="space-y-2">
+<label class="flex items-start gap-3 cursor-pointer group">
+<div class="w-5 h-5 rounded border border-primary bg-primary/20 flex items-center justify-center mt-0.5">
+<span class="material-symbols-outlined text-[14px] text-primary">check</span>
+</div>
+<span class="font-body-md text-body-md text-on-surface-variant line-through group-hover:text-on-surface transition-colors">Prepare validation dataset</span>
+</label>
+<label class="flex items-start gap-3 cursor-pointer group">
+<div class="w-5 h-5 rounded border border-outline bg-black/20 group-hover:border-primary transition-colors mt-0.5"></div>
+<span class="font-body-md text-body-md text-on-surface group-hover:text-primary transition-colors">Run baseline tests</span>
+</label>
+<label class="flex items-start gap-3 cursor-pointer group">
+<div class="w-5 h-5 rounded border border-outline bg-black/20 group-hover:border-primary transition-colors mt-0.5"></div>
+<span class="font-body-md text-body-md text-on-surface group-hover:text-primary transition-colors">Tune learning rate</span>
+</label>
+</div>
+</div>
+<div>
+<h4 class="font-label-md text-label-md font-semibold text-on-surface mb-3 flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">link</span> Linked Assets
+                </h4>
+<div class="glass-panel p-3 rounded-lg flex items-center gap-3 hover:bg-white/5 cursor-pointer transition-colors border border-white/5">
+<div class="w-8 h-8 rounded bg-secondary/10 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[18px]">psychology</span>
+</div>
+<div>
+<p class="font-label-md text-label-md text-on-surface">Summarization_v2.ckpt</p>
+<p class="text-[12px] text-on-surface-variant">Model Checkpoint • 2.4GB</p>
+</div>
+</div>
+</div>
+</div>
+</aside>
+</body></html>

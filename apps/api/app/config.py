@@ -38,10 +38,46 @@ class Settings(BaseSettings):
     rag_chunk_overlap: int = 64
     rag_top_k: int = 5
     rag_similarity_threshold: float = 0.35
-    rag_max_context_chunks: int = 5
-    context_max_memories: int = 10
-    context_max_history: int = 20
+    max_document_chunks: int = 5
+    max_memory_items: int = 10
+    max_history_messages: int = 20
     retrieval_allow_best_match_fallback: bool = True
+
+    max_context_tokens: int = 16000
+    max_tool_results: int = 5
+    max_tool_output_length: int = 2000
+    reserved_response_tokens: int = 2000
+
+    # Hybrid Retrieval
+    enable_hybrid_retrieval: bool = True
+    enable_reranking: bool = False
+    dense_top_k: int = 5
+    keyword_top_k: int = 5
+    reranker_candidate_count: int = 10
+    reranker_output_count: int = 5
+
+    # Routing
+    default_provider: str = "gemini"
+    default_model: str = "gemini-2.5-flash"
+    fallback_provider_chain: list[str] = ["gemini", "ollama"]
+    retry_count: int = 3
+    retry_backoff: float = 2.0
+    health_check_interval: int = 60
+    routing_strategy: str = "priority"
+    load_balancing_strategy: str | None = None
+
+    # Agent Planning
+    MAX_AGENT_STEPS: int = 10
+    ENABLE_MULTI_STEP_AGENT: bool = True
+    ENABLE_TOOL_RESULT_CACHE: bool = True
+    MAX_TOOL_RETRIES_PER_STEP: int = 3
+
+    # Web Search
+    enable_web_search: bool = True
+    default_search_provider: str = "tavily"
+    default_max_results: int = 5
+    search_timeout: int = 15
+    TAVILY_API_KEY: str | None = None
 
     # JWT
     SECRET_KEY: str
@@ -53,6 +89,31 @@ class Settings(BaseSettings):
     # Gemini
     GEMINI_API_KEY: str
     GEMINI_MODEL: str = "gemini-2.5-flash"
+    
+    # Fast Models
+    GROQ_API_KEY: str | None = None
+    OPENROUTER_API_KEY: str | None = None
+
+    # Google Workspace
+    GOOGLE_CLIENT_ID: str | None = None
+    GOOGLE_CLIENT_SECRET: str | None = None
+    GOOGLE_REDIRECT_URI: str | None = None
+
+    # Scheduler & Notifications
+    ENABLE_SCHEDULER: bool = True
+    ENABLE_EMAIL_NOTIFICATIONS: bool = False
+    ENABLE_PUSH_NOTIFICATIONS: bool = False
+    SCHEDULER_INTERVAL_SECONDS: int = 10
+    MAX_JOB_RETRIES: int = 3
+    JOB_TIMEOUT_SECONDS: int = 600
+    FIREBASE_CREDENTIALS_PATH: str = ""
+
+    # Voice Configuration
+    ENABLE_VOICE: bool = True
+    DEFAULT_STT_PROVIDER: str = "whisper"
+    DEFAULT_TTS_PROVIDER: str = "edge_tts"
+    MAX_AUDIO_DURATION: int = 60
+    STREAMING_CHUNK_MS: int = 100
 
     model_config = SettingsConfigDict(
         env_file=".env",

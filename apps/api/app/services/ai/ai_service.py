@@ -9,7 +9,9 @@ from app.services.ai.memory.memory_service import MemoryService
 from app.services.ai.providers.base import BaseLLMProvider
 from app.services.conversation_service import ConversationService
 from app.services.message_service import MessageService
-
+from app.services.ai.tools.orchestrator import ToolOrchestrator
+from app.services.ai.planner.planner import Planner
+from app.services.ai.planner.executor import AgentExecutor
 
 class AIService:
 
@@ -20,12 +22,33 @@ class AIService:
         conversation_service: ConversationService,
         context_builder: ContextBuilder,
         memory_service: MemoryService,
+        tool_orchestrator: ToolOrchestrator,
     ):
         self.provider = provider
         self.message_service = message_service
         self.conversation_service = conversation_service
         self.context_builder = context_builder
         self.memory_service = memory_service
+        self.tool_orchestrator = tool_orchestrator
+
+    async def _get_strategy(self):
+        metadata = await self.provider.get_metadata()
+        if metadata.supports_native_tools:
+            from app.services.ai.tools.strategies import NativeFunctionStrategy
+            return NativeFunctionStrategy(self.tool_orchestrator.registry)
+        else:
+            from app.services.ai.tools.strategies import XmlFunctionStrategy
+            return XmlFunctionStrategy(self.tool_orchestrator.registry)
+
+    def _classify_intent(self, prompt: str) -> str:
+        text = prompt.lower()
+        if any(w in text for w in ["code", "python", "debug", "def ", "class ", "error", "bug"]):
+            return "coding"
+        if any(w in text for w in ["think", "reason", "math", "solve", "why", "logic"]):
+            return "reasoning"
+        if any(w in text for w in ["document", "analyze", "summarize", "long doc"]):
+            return "long_doc"
+        return "general"
 
     async def chat(
         self,
@@ -34,47 +57,29 @@ class AIService:
         prompt: str,
     ) -> tuple[str, list[Citation]]:
 
-        await self.conversation_service.get_by_id(
-            conversation_id,
-            user_id,
-        )
+        await self.conversation_service.get_by_id(conversation_id, user_id)
+        await self.message_service.create(conversation_id, MessageCreate(role=MessageRole.USER, content=prompt))
+        await self.memory_service.process_message(user_id=user_id, message=prompt)
 
-        await self.message_service.create(
-            conversation_id,
-            MessageCreate(
-                role=MessageRole.USER,
-                content=prompt,
-            ),
-        )
+        messages, citations = await self.context_builder.build(user_id=user_id, conversation_id=conversation_id, query=prompt)
 
-        # -------- Memory --------
+        strategy = await self._get_strategy()
+        tool_extension = strategy.get_system_prompt_extension()
+        if tool_extension and messages and messages[0].get("role") == "system":
+            messages[0]["content"] += tool_extension
 
-        await self.memory_service.process_message(
-            user_id=user_id,
-            message=prompt,
-        )
+        context = {"user_id": user_id, "conversation_id": conversation_id}
+        tools_payload = strategy.get_tools_for_provider()
+        intent = self._classify_intent(prompt)
 
-        # -------- Context --------
+        planner = Planner(self.provider, strategy, intent=intent)
+        agent = AgentExecutor(planner, self.tool_orchestrator, strategy, intent=intent)
+        
+        final_response = await agent.run(prompt, context, messages, tools_payload)
 
-        messages, citations = await self.context_builder.build(
-            user_id=user_id,
-            conversation_id=conversation_id,
-            query=prompt,
-        )
+        await self.message_service.create(conversation_id, MessageCreate(role=MessageRole.ASSISTANT, content=final_response))
+        return final_response, citations
 
-        response = await self.provider.chat(
-            messages,
-        )
-
-        await self.message_service.create(
-            conversation_id,
-            MessageCreate(
-                role=MessageRole.ASSISTANT,
-                content=response,
-            ),
-        )
-
-        return response, citations
 
     async def stream_chat(
         self,
@@ -83,48 +88,36 @@ class AIService:
         prompt: str,
     ) -> AsyncGenerator[str, None]:
 
-        await self.conversation_service.get_by_id(
-            conversation_id,
-            user_id,
-        )
+        await self.conversation_service.get_by_id(conversation_id, user_id)
+        await self.message_service.create(conversation_id, MessageCreate(role=MessageRole.USER, content=prompt))
+        await self.memory_service.process_message(user_id=user_id, message=prompt)
 
-        await self.message_service.create(
-            conversation_id,
-            MessageCreate(
-                role=MessageRole.USER,
-                content=prompt,
-            ),
-        )
+        messages, citations = await self.context_builder.build(user_id=user_id, conversation_id=conversation_id, query=prompt)
 
-        # -------- Memory --------
+        strategy = await self._get_strategy()
+        tool_extension = strategy.get_system_prompt_extension()
+        if tool_extension and messages and messages[0].get("role") == "system":
+            messages[0]["content"] += tool_extension
 
-        await self.memory_service.process_message(
-            user_id=user_id,
-            message=prompt,
-        )
-
-        # -------- Context --------
-
-        messages, citations = await self.context_builder.build(
-            user_id=user_id,
-            conversation_id=conversation_id,
-            query=prompt,
-        )
-
-        # Emit citations first using SSE block
         yield f"data: {json.dumps({'type': 'citations', 'citations': [c.model_dump() for c in citations]})}\n\n"
 
-        full_response = ""
-        async for chunk in self.provider.stream_chat(messages):
-            yield f"data: {json.dumps({'type': 'content', 'delta': chunk})}\n\n"
-            full_response += chunk
+        context = {"user_id": user_id, "conversation_id": conversation_id}
+        tools_payload = strategy.get_tools_for_provider()
+        intent = self._classify_intent(prompt)
+        
+        planner = Planner(self.provider, strategy, intent=intent)
+        agent = AgentExecutor(planner, self.tool_orchestrator, strategy, intent=intent)
+        
+        final_response = ""
+        async for chunk in agent.stream_run(prompt, context, messages, tools_payload):
+            if chunk.startswith("data: ") and '"delta"' in chunk:
+                # Accumulate the final answer transparently for storage
+                try:
+                    delta = json.loads(chunk[6:])['delta']
+                    final_response += delta
+                except:
+                    pass
+            yield chunk
 
-        await self.message_service.create(
-            conversation_id,
-            MessageCreate(
-                role=MessageRole.ASSISTANT,
-                content=full_response,
-            ),
-        )
-
+        await self.message_service.create(conversation_id, MessageCreate(role=MessageRole.ASSISTANT, content=final_response))
         yield "data: [DONE]\n\n"
