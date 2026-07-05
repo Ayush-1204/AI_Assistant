@@ -30,3 +30,29 @@ Thumbs.db
 .DS_Store
 
  
+
+# Security and Credentials
+*.pem
+*.key
+*.cert
+*.p12
+*.pfx
+id_rsa*
+secrets.*
+credentials.json
+*.keystore
+
+# Unnecessary / Temporary / Build Files
+tmp/
+temp/
+*.bak
+*.swp
+*.tmp
+node_modules/
+build/
+dist/
+.dart_tool/
+
+# Browser Profiles
+.chrome_profile
+.chrome_progile
