@@ -10,12 +10,13 @@ class BackgroundScheduler:
         self.task = None
 
     async def _loop(self):
+        from app.db.session import AsyncSessionLocal
         while self.running:
             try:
-                # We need a new session per tick to avoid transaction leaks
-                worker = await self.worker_factory()
-                await worker.poll_due_reminders()
-                await worker.process_pending_jobs()
+                async with AsyncSessionLocal() as session:
+                    worker = await self.worker_factory(session)
+                    await worker.poll_due_reminders()
+                    await worker.process_pending_jobs()
             except Exception as e:
                 logging.error(f"Scheduler loop error: {e}")
             await asyncio.sleep(self.interval)

@@ -40,6 +40,16 @@ class AIService:
             from app.services.ai.tools.strategies import XmlFunctionStrategy
             return XmlFunctionStrategy(self.tool_orchestrator.registry)
 
+    def _classify_intent(self, prompt: str) -> str:
+        text = prompt.lower()
+        if any(w in text for w in ["code", "python", "debug", "def ", "class ", "error", "bug"]):
+            return "coding"
+        if any(w in text for w in ["think", "reason", "math", "solve", "why", "logic"]):
+            return "reasoning"
+        if any(w in text for w in ["document", "analyze", "summarize", "long doc"]):
+            return "long_doc"
+        return "general"
+
     async def chat(
         self,
         user_id: int,
@@ -60,9 +70,10 @@ class AIService:
 
         context = {"user_id": user_id, "conversation_id": conversation_id}
         tools_payload = strategy.get_tools_for_provider()
+        intent = self._classify_intent(prompt)
 
-        planner = Planner(self.provider, strategy)
-        agent = AgentExecutor(planner, self.tool_orchestrator, strategy)
+        planner = Planner(self.provider, strategy, intent=intent)
+        agent = AgentExecutor(planner, self.tool_orchestrator, strategy, intent=intent)
         
         final_response = await agent.run(prompt, context, messages, tools_payload)
 
@@ -92,9 +103,10 @@ class AIService:
 
         context = {"user_id": user_id, "conversation_id": conversation_id}
         tools_payload = strategy.get_tools_for_provider()
+        intent = self._classify_intent(prompt)
         
-        planner = Planner(self.provider, strategy)
-        agent = AgentExecutor(planner, self.tool_orchestrator, strategy)
+        planner = Planner(self.provider, strategy, intent=intent)
+        agent = AgentExecutor(planner, self.tool_orchestrator, strategy, intent=intent)
         
         final_response = ""
         async for chunk in agent.stream_run(prompt, context, messages, tools_payload):

@@ -60,3 +60,26 @@ class LeastRecentlyUsedStrategy(LoadBalancingStrategy):
                 best = p
         self.last_used[best] = time.time()
         return best
+
+class IntentBasedRoutingStrategy(RoutingStrategy):
+    def __init__(self, fallback_chains: dict[str, list[str]]):
+        """
+        fallback_chains = {
+            "general": ["gemini-2.5-flash", "groq-llama", "gemini-2.5-flash-lite", "gemini-1.5-flash", "openrouter", "gemini-2.0-flash", "ollama-default"],
+            "long_doc": ["gemini-2.5-pro", "gemini-1.5-pro", "gemini-2.5-flash", "openrouter"],
+            "vision": ["gemini-2.5-pro", "gemini-2.0-flash", "gemini-1.5-pro"],
+            "coding": ["ollama-coder", "gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-pro"],
+            "reasoning": ["ollama-reasoning", "gemini-2.5-pro", "gemini-1.5-pro"],
+            "voice": ["groq-llama", "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-1.5-flash", "ollama-default"]
+        }
+        """
+        self.fallback_chains = fallback_chains
+        
+    def select_provider(self, available_providers: list[str], intent: str = "general") -> str:
+        chain = self.fallback_chains.get(intent) or self.fallback_chains.get("general", [])
+        for provider in chain:
+            if provider in available_providers:
+                return provider
+        if available_providers:
+            return available_providers[0]
+        return ""

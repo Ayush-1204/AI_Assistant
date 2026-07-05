@@ -13,16 +13,17 @@ settings = get_settings()
 
 
 class GeminiProvider(BaseLLMProvider):
-    def __init__(self):
+    def __init__(self, model_name: str | None = None, provider_name: str = "gemini"):
         self.client = genai.Client(
             api_key=settings.GEMINI_API_KEY,
         )
 
-        self.model = settings.GEMINI_MODEL
+        self.model = model_name or settings.GEMINI_MODEL
+        self.provider_name = provider_name
 
     @property
     def name(self) -> str:
-        return "gemini"
+        return self.provider_name
 
     async def get_metadata(self) -> ProviderMetadata:
         return ProviderMetadata(
@@ -52,6 +53,7 @@ class GeminiProvider(BaseLLMProvider):
         self,
         messages: list[dict],
         tools: list[dict] | None = None,
+        intent: str = "general",
     ):
 
         prompt = PromptBuilder.chat(messages)
@@ -96,6 +98,7 @@ class GeminiProvider(BaseLLMProvider):
         self,
         messages: list[dict],
         tools: list[dict] | None = None,
+        intent: str = "general",
     ) -> AsyncGenerator[Any, None]:
         prompt = PromptBuilder.chat(messages)
         

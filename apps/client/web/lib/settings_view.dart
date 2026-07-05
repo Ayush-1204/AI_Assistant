@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 // ignore: avoid_web_libraries_in_flutter
 import 'dart:html' as html;
 import 'providers/auth_provider.dart';
-import 'api_client.dart';
 import 'login_view.dart';
 
 class SettingsView extends ConsumerStatefulWidget {
@@ -196,14 +195,17 @@ class _SettingsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF141416).withOpacity(0.8),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.07)),
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: const Color(0xFF141416).withOpacity(0.8),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white.withOpacity(0.07)),
+        ),
+        child: child,
       ),
-      child: child,
     );
   }
 }

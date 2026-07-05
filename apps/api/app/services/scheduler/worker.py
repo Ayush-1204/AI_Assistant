@@ -45,4 +45,4 @@ class SchedulerWorker:
             job.execution_time = now
             await self.db.commit()
             
-            asyncio.create_task(self.dispatcher.execute_job(job))
+            asyncio.create_task(self.dispatcher.execute_job(job.id))

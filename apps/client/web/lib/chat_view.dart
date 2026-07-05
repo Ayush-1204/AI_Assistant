@@ -1,4 +1,7 @@
+// ignore_for_file: unused_import
+
 import 'package:flutter/material.dart';
+import 'dart:ui';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -67,7 +70,17 @@ class _ChatViewState extends ConsumerState<ChatView> {
       future: ref.read(apiClientProvider).fetchDashboardWidgets(),
       builder: (context, snapshot) {
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const SizedBox(height: 24, child: Center(child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)));
+          return GridView.count(
+            crossAxisCount: crossAxisCount,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
+            childAspectRatio: screenWidth > 800 ? 1.45 : 1.75, // Lower ratio = taller cards
+            children: List.generate(3, (index) {
+              return const _SkeletonDashboardCard();
+            }),
+          );
         }
         
         final widgets = snapshot.data!;
@@ -77,17 +90,11 @@ class _ChatViewState extends ConsumerState<ChatView> {
           physics: const NeverScrollableScrollPhysics(),
           crossAxisSpacing: 16,
           mainAxisSpacing: 16,
-          childAspectRatio: screenWidth > 800 ? 1.6 : 2.0,
+          childAspectRatio: screenWidth > 800 ? 1.45 : 1.75, // Consistent aspect ratio
           children: List.generate(widgets.length, (index) {
-            final w = widgets[index];
-            final iconMap = {'light_mode': Icons.light_mode, 'calendar_month': Icons.calendar_month, 'public': Icons.public, 'checklist': Icons.checklist};
             return _DashboardWidgetCard(
-              iconMap[w['icon']] ?? Icons.widgets, 
-              Color(int.parse(w['color_hex'], radix: 16)),
-              w['badge'], 
-              w['title'], 
-              w['subtitle'],
-              index
+              data: widgets[index] as Map<String, dynamic>,
+              index: index
             );
           }),
         );
@@ -113,7 +120,26 @@ class _ChatViewState extends ConsumerState<ChatView> {
               const Spacer(),
               _buildHeaderAction(Icons.search, "Search"),
               _buildHeaderDivider(),
-              _buildHeaderAction(Icons.history, "Recent", active: true),
+              Consumer(builder: (context, ref, _) {
+                final sessions = ref.watch(chatProvider).sessions;
+                return PopupMenuButton<int>(
+                  offset: const Offset(0, 40),
+                  color: const Color(0xFF1F1F1F),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  onSelected: (id) => ref.read(chatProvider.notifier).switchSession(id),
+                  itemBuilder: (context) => sessions.map((s) {
+                    final isActive = ref.watch(chatProvider).conversationId == s['id'];
+                    return PopupMenuItem<int>(
+                      value: s['id'] as int,
+                      child: Text(
+                        s['title']?.toString() ?? 'Session ${s['id']}',
+                        style: TextStyle(color: isActive ? Theme.of(context).colorScheme.primary : Colors.white70),
+                      ),
+                    );
+                  }).toList(),
+                  child: _buildHeaderAction(Icons.history, "Recent", active: true),
+                );
+              }),
               _buildHeaderDivider(),
               _buildHeaderAction(Icons.push_pin, "Pinned"),
               const SizedBox(width: 16),
@@ -333,25 +359,307 @@ class _ChatViewState extends ConsumerState<ChatView> {
   }
 }
 
-class _DashboardWidgetCard extends StatefulWidget {
-  final IconData icon;
-  final Color color;
-  final String badge;
-  final String title;
-  final String subtitle;
-  final int index;
-  
-  const _DashboardWidgetCard(this.icon, this.color, this.badge, this.title, this.subtitle, this.index);
+class _SkeletonDashboardCard extends StatefulWidget {
+  const _SkeletonDashboardCard({super.key});
 
+  @override
+  State<_SkeletonDashboardCard> createState() => _SkeletonDashboardCardState();
+}
+
+class _SkeletonDashboardCardState extends State<_SkeletonDashboardCard> with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400))..repeat(reverse: true);
+  }
+  
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (context, child) {
+        final opacity = 0.15 + (_ctrl.value * 0.25);
+        final baseColor = Colors.white.withOpacity(opacity);
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 16.0, sigmaY: 16.0),
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.04),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: Colors.white.withOpacity(0.08)),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 40, spreadRadius: -10)
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(width: 48, height: 48, decoration: BoxDecoration(color: baseColor, shape: BoxShape.circle)),
+                      Container(width: 72, height: 24, decoration: BoxDecoration(color: baseColor, borderRadius: BorderRadius.circular(12))),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Container(width: 140, height: 26, decoration: BoxDecoration(color: baseColor, borderRadius: BorderRadius.circular(8))),
+                  const SizedBox(height: 12),
+                  Container(width: double.infinity, height: 12, decoration: BoxDecoration(color: Colors.white.withOpacity(opacity * 0.7), borderRadius: BorderRadius.circular(4))),
+                  const SizedBox(height: 8),
+                  Container(width: 180, height: 12, decoration: BoxDecoration(color: Colors.white.withOpacity(opacity * 0.7), borderRadius: BorderRadius.circular(4))),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: Container(width: double.infinity, decoration: BoxDecoration(color: Colors.white.withOpacity(opacity * 0.5), borderRadius: BorderRadius.circular(16))),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class AnimatedWeatherIcon extends StatefulWidget {
+  const AnimatedWeatherIcon({super.key});
+  @override
+  State<AnimatedWeatherIcon> createState() => _AnimatedWeatherIconState();
+}
+
+class _AnimatedWeatherIconState extends State<AnimatedWeatherIcon> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(vsync: this, duration: const Duration(seconds: 3))..repeat(reverse: true);
+  late final Animation<double> _anim = Tween<double>(begin: -8.0, end: 8.0).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOutSine));
+
+  @override
+  void dispose() { _controller.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (context, child) => Transform.translate(
+        offset: Offset(0, _anim.value),
+        child: const Icon(Icons.cloud, size: 48, color: Colors.amberAccent),
+      ),
+    );
+  }
+}
+
+class _DashboardWidgetCard extends StatefulWidget {
+  final Map<String, dynamic> data;
+  final int index;
+  const _DashboardWidgetCard({Key? key, required this.data, required this.index}) : super(key: key);
   @override
   State<_DashboardWidgetCard> createState() => _DashboardWidgetCardState();
 }
 
 class _DashboardWidgetCardState extends State<_DashboardWidgetCard> {
   bool _isHovered = false;
+  late PageController _pageController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+  }
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  Widget _buildWeatherInner() {
+    final w = widget.data;
+    final forecast = w['forecast'] as List<dynamic>? ?? [];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(w['title'] ?? '', style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white, height: 1.0)),
+                const SizedBox(height: 4),
+                Text(w['subtitle'] ?? '', style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.5))),
+              ],
+            ),
+            const AnimatedWeatherIcon(),
+          ],
+        ),
+        if (w['ai_summary'] != null && w['ai_summary'].toString().isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Expanded(
+             child: Text(w['ai_summary'] ?? '', style: TextStyle(fontSize: 13, height: 1.4, color: Colors.white.withOpacity(0.8)), maxLines: 3, overflow: TextOverflow.ellipsis),
+          ),
+        ] else const Spacer(),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: forecast.map((f) {
+            return Column(
+              children: [
+                Text(f['day'].toString(), style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.5))),
+                const SizedBox(height: 4),
+                Icon(Icons.wb_sunny, size: 16, color: Colors.white.withOpacity(0.8)),
+                const SizedBox(height: 4),
+                Text("${f['high']}°", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+              ],
+            );
+          }).toList(),
+        )
+      ],
+    );
+  }
+
+  Widget _buildCalendarInner() {
+    final w = widget.data;
+    final grid = w['month_grid'] as List<dynamic>? ?? [];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(w['title'] ?? '', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                Text(w['badge'] ?? '', style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.5))),
+              ],
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(color: Colors.indigoAccent.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
+              child: const Text('Today', style: TextStyle(color: Colors.indigoAccent, fontSize: 11, fontWeight: FontWeight.bold)),
+            )
+          ],
+        ),
+        if (w['ai_summary'] != null && w['ai_summary'].toString().isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Text(w['ai_summary'] ?? '', style: TextStyle(fontSize: 13, height: 1.4, color: Colors.white.withOpacity(0.8)), maxLines: 2, overflow: TextOverflow.ellipsis),
+        ],
+        const SizedBox(height: 12),
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              int rows = (grid.length / 7).ceil();
+              if (rows == 0) rows = 1;
+              double itemWidth = constraints.maxWidth / 7;
+              double itemHeight = constraints.maxHeight / rows;
+              double safeRatio = (itemWidth > 0 && itemHeight > 0) ? (itemWidth / itemHeight) : 1.0;
+
+              return GridView.builder(
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 7, 
+                  childAspectRatio: safeRatio, 
+                  mainAxisSpacing: 4, 
+                  crossAxisSpacing: 4
+                ),
+                itemCount: grid.length,
+                itemBuilder: (context, idx) {
+                  final d = grid[idx];
+                  if (d['day'] == 0) return const SizedBox();
+                  bool isEvent = d['hasEvent'] ?? false;
+                  bool isToday = d['day'] == w['current_day'];
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: isToday ? Colors.indigoAccent : (isEvent ? Colors.white.withOpacity(0.08) : Colors.transparent),
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Flexible(child: Text(d['day'].toString(), style: TextStyle(fontSize: 12, fontWeight: isToday ? FontWeight.bold : FontWeight.normal, color: Colors.white.withOpacity(isToday ? 1.0 : 0.6)))),
+                        if (isEvent && !isToday) Container(margin: const EdgeInsets.only(top: 2), width: 4, height: 4, decoration: const BoxDecoration(color: Colors.indigoAccent, shape: BoxShape.circle)),
+                      ],
+                    ),
+                  );
+                },
+              );
+            }
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNewsInner() {
+    final w = widget.data;
+    final articles = w['articles'] as List<dynamic>? ?? [];
+    if (articles.isEmpty) return const SizedBox();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Stack(
+            children: [
+              PageView.builder(
+                controller: _pageController,
+                itemBuilder: (context, idx) {
+                  final actIdx = idx % articles.length; 
+                  final article = articles[actIdx];
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text("Top News", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(color: Colors.green.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
+                              child: Text(article['domain'].toString().toUpperCase(), style: const TextStyle(color: Colors.greenAccent, fontSize: 11, fontWeight: FontWeight.bold)),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Text(article['title'] ?? '', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white, height: 1.2), maxLines: 2, overflow: TextOverflow.ellipsis),
+                        const SizedBox(height: 12),
+                        Expanded(
+                          child: Text(article['summary'] ?? '', style: TextStyle(fontSize: 13, height: 1.6, color: Colors.white.withOpacity(0.6)), overflow: TextOverflow.fade),
+                        ),
+                        const SizedBox(height: 24), // Avoid crossing over the arrow bounds
+                      ],
+                    ),
+                  );
+                },
+              ),
+              Positioned(
+                bottom: 0, right: 0,
+                child: Row(
+                  children: [
+                    IconButton(icon: Icon(Icons.chevron_left, color: Colors.white.withOpacity(0.5)), onPressed: () { _pageController.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.ease); }),
+                    IconButton(icon: Icon(Icons.chevron_right, color: Colors.white.withOpacity(0.5)), onPressed: () { _pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.ease); }),
+                  ],
+                )
+              )
+            ],
+          )
+        )
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    String id = widget.data['id'] ?? '';
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 0, end: 1),
       duration: Duration(milliseconds: 400 + (widget.index * 150)),
@@ -365,44 +673,33 @@ class _DashboardWidgetCardState extends State<_DashboardWidgetCard> {
               onEnter: (_) => setState(() => _isHovered = true),
               onExit: (_) => setState(() => _isHovered = false),
               child: AnimatedScale(
-                scale: _isHovered ? 1.03 : 1.0,
+                scale: _isHovered ? 1.02 : 1.0,
                 duration: const Duration(milliseconds: 200),
                 curve: Curves.easeOutCubic,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1F1F1F).withOpacity(0.7),
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: Colors.white.withOpacity(_isHovered ? 0.2 : 0.05)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(_isHovered ? 0.4 : 0.2), 
-                        blurRadius: _isHovered ? 24 : 10, 
-                        offset: Offset(0, _isHovered ? 10 : 4)
-                      )
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: widget.color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Icon(widget.icon, color: widget.color, size: 20)),
-                          Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: widget.color.withOpacity(0.1), borderRadius: BorderRadius.circular(16)), child: Text(widget.badge, style: TextStyle(color: widget.color, fontSize: 12, fontWeight: FontWeight.w600))),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(32),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 16.0, sigmaY: 16.0),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1F1F1F).withOpacity(0.35),
+                        borderRadius: BorderRadius.circular(32),
+                        border: Border.all(color: Colors.white.withOpacity(_isHovered ? 0.15 : 0.05)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(_isHovered ? 0.3 : 0.1), 
+                            blurRadius: _isHovered ? 24 : 10, 
+                            offset: Offset(0, _isHovered ? 8 : 4)
+                          )
                         ],
                       ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(widget.title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.white, height: 1.2, letterSpacing: -0.5)),
-                          const SizedBox(height: 4),
-                          Text(widget.subtitle, style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(0.5))),
-                        ],
-                      ),
-                    ],
+                      child: id == 'weather' ? _buildWeatherInner()
+                           : id == 'calendar' ? _buildCalendarInner()
+                           : id == 'news' ? _buildNewsInner()
+                           : const SizedBox(),
+                    ),
                   ),
                 ),
               ),

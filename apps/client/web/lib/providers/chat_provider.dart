@@ -9,6 +9,7 @@ class ChatState {
   final List<String> messages;
   final bool isSending;
   final bool isListening;
+  final List<dynamic> sessions;
 
   ChatState({
     this.conversationId,
@@ -17,6 +18,7 @@ class ChatState {
     ],
     this.isSending = false,
     this.isListening = false,
+    this.sessions = const [],
   });
 
   ChatState copyWith({
@@ -24,12 +26,14 @@ class ChatState {
     List<String>? messages,
     bool? isSending,
     bool? isListening,
+    List<dynamic>? sessions,
   }) {
     return ChatState(
       conversationId: conversationId ?? this.conversationId,
       messages: messages ?? this.messages,
       isSending: isSending ?? this.isSending,
       isListening: isListening ?? this.isListening,
+      sessions: sessions ?? this.sessions,
     );
   }
 }
@@ -46,12 +50,25 @@ class ChatNotifier extends StateNotifier<ChatState> {
     try {
       final conversations = await _apiClient.fetchConversations();
       if (conversations.isNotEmpty) {
-        state = state.copyWith(conversationId: conversations.first['id'] as int);
+        state = state.copyWith(
+          conversationId: conversations.first['id'] as int,
+          sessions: conversations,
+        );
         _initWebSocket();
+      } else {
+        state = state.copyWith(sessions: []);
       }
     } catch (e) {
       debugPrint("Failed to load conversation: $e");
     }
+  }
+
+  Future<void> switchSession(int id) async {
+    state = state.copyWith(
+       conversationId: id,
+       messages: ["Assistant: Loading conversation history..."],
+    );
+    _initWebSocket();
   }
 
   Future<void> _initWebSocket() async {

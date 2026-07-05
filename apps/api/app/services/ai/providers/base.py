@@ -27,6 +27,7 @@ class BaseLLMProvider(ABC):
         self,
         messages: list[dict],
         tools: list[dict] | None = None,
+        intent: str = "general",
     ) -> str:
         pass
 
@@ -35,6 +36,7 @@ class BaseLLMProvider(ABC):
         self,
         messages: list[dict],
         tools: list[dict] | None = None,
+        intent: str = "general",
     ) -> AsyncGenerator[Any, None]:
         yield ""
 

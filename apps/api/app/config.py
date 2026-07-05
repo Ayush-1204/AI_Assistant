@@ -89,6 +89,10 @@ class Settings(BaseSettings):
     # Gemini
     GEMINI_API_KEY: str
     GEMINI_MODEL: str = "gemini-2.5-flash"
+    
+    # Fast Models
+    GROQ_API_KEY: str | None = None
+    OPENROUTER_API_KEY: str | None = None
 
     # Google Workspace
     GOOGLE_CLIENT_ID: str | None = None

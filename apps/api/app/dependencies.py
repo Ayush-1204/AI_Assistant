@@ -214,9 +214,40 @@ _router_instance = None
 def get_provider_router() -> ProviderRouter:
     global _router_instance
     if _router_instance is None:
+        from app.services.ai.providers.openai_provider import OpenAICompatibleProvider
         _router_instance = ProviderRouter()
-        _router_instance.register_provider(GeminiProvider())
-        _router_instance.register_provider(OllamaProvider())
+        
+        # 1. Google Gemini Native Providers
+        _router_instance.register_provider(GeminiProvider(model_name="gemini-2.5-flash", provider_name="gemini-2.5-flash"))
+        _router_instance.register_provider(GeminiProvider(model_name="gemini-2.5-flash-lite", provider_name="gemini-2.5-flash-lite"))
+        _router_instance.register_provider(GeminiProvider(model_name="gemini-2.5-pro", provider_name="gemini-2.5-pro"))
+        _router_instance.register_provider(GeminiProvider(model_name="gemini-2.0-flash", provider_name="gemini-2.0-flash"))
+        _router_instance.register_provider(GeminiProvider(model_name="gemini-1.5-pro", provider_name="gemini-1.5-pro"))
+        _router_instance.register_provider(GeminiProvider(model_name="gemini-1.5-flash", provider_name="gemini-1.5-flash"))
+        
+        # 2. Local Ollama Native Providers
+        _router_instance.register_provider(OllamaProvider(model_name="qwen2.5-coder:14b", provider_name="ollama-coder"))
+        _router_instance.register_provider(OllamaProvider(model_name="deepseek-r1", provider_name="ollama-reasoning"))
+        _router_instance.register_provider(OllamaProvider(model_name="qwen3:8b", provider_name="ollama-default"))
+        
+        # 3. Groq Fast OpenAI-Compatible Pipeline
+        if settings.GROQ_API_KEY:
+            _router_instance.register_provider(OpenAICompatibleProvider(
+                api_key=settings.GROQ_API_KEY, 
+                base_url="https://api.groq.com/openai/v1", 
+                model_name="llama-3.3-70b-versatile",
+                provider_name="groq-llama"
+            ))
+            
+        # 4. OpenRouter Scalable OpenAI-Compatible Pipeline
+        if settings.OPENROUTER_API_KEY:
+            _router_instance.register_provider(OpenAICompatibleProvider(
+                api_key=settings.OPENROUTER_API_KEY,
+                base_url="https://openrouter.ai/api/v1",
+                model_name="meta-llama/llama-3.3-70b-instruct", 
+                provider_name="openrouter"
+            ))
+            
     return _router_instance
 
 

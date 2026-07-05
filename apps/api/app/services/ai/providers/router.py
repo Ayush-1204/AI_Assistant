@@ -11,7 +11,7 @@ from app.services.ai.providers.exceptions import (
 )
 from app.services.ai.providers.strategies import (
     FixedProviderStrategy, PriorityStrategy, RoundRobinStrategy, LeastRecentlyUsedStrategy,
-    RoutingStrategy, LoadBalancingStrategy
+    RoutingStrategy, LoadBalancingStrategy, IntentBasedRoutingStrategy
 )
 from app.services.ai.providers.metadata import ProviderMetadata
 
@@ -31,6 +31,15 @@ class ProviderRouter(BaseLLMProvider):
             self.strategy = PriorityStrategy(self.settings.fallback_provider_chain)
         else:
             self.strategy = FixedProviderStrategy(self.settings.default_provider)
+            
+        self.intent_strategy = IntentBasedRoutingStrategy({
+            "voice": ["groq-llama", "gemini-flash", "ollama-default"],
+            "long_doc": ["gemini-pro", "gemini-flash"],
+            "coding": ["ollama-coder", "gemini-flash"],
+            "reasoning": ["ollama-reasoning", "gemini-pro"],
+            "vision": ["gemini-flash"],
+            "general": ["gemini-flash", "groq-llama", "ollama-default"]
+        })
             
         self.lb_type = self.settings.load_balancing_strategy
         self.lb_strategy: LoadBalancingStrategy | None = None
@@ -85,19 +94,21 @@ class ProviderRouter(BaseLLMProvider):
                 available.append(name)
         return available
 
-    def _select_provider(self, available: list[str]) -> BaseLLMProvider:
+    def _select_provider(self, available: list[str], intent: str = "general") -> BaseLLMProvider:
         if not available:
             raise AllProvidersFailedError("No healthy providers available mapping limits.")
             
-        if self.lb_strategy:
+        if self.intent_strategy:
+            selected_name = self.intent_strategy.select_provider(available, intent=intent)
+        elif self.lb_strategy:
             selected_name = self.lb_strategy.select_provider(available)
         else:
             selected_name = self.strategy.select_provider(available)
             
-        logger.info("Provider selected successfully", extra={"provider": selected_name, "strategy": self.strategy_type})
+        logger.info("Provider selected successfully", extra={"provider": selected_name, "strategy": "intent"})
         return self.providers[selected_name]
 
-    async def _execute_with_router(self, operation: str, *args, **kwargs):
+    async def _execute_with_router(self, operation: str, *args, intent: str = "general", **kwargs):
         available_at_start = await self._get_available_providers()
         tried_providers = set()
         
@@ -106,7 +117,7 @@ class ProviderRouter(BaseLLMProvider):
             if not current_available:
                 break
                 
-            provider = self._select_provider(current_available)
+            provider = self._select_provider(current_available, intent=intent)
             tried_providers.add(provider.name)
             
             for attempt in range(self.settings.retry_count):
@@ -114,7 +125,7 @@ class ProviderRouter(BaseLLMProvider):
                     start_time = time.perf_counter()
                     
                     if operation == "chat":
-                        result = await provider.chat(*args, **kwargs)
+                        result = await provider.chat(*args, intent=intent, **kwargs)
                     elif operation == "generate_title":
                         result = await provider.generate_title(*args, **kwargs)
                     elif operation == "extract_memory":
@@ -136,8 +147,8 @@ class ProviderRouter(BaseLLMProvider):
                     
         raise AllProvidersFailedError("All providers fallback chain entirely failed.")
 
-    async def chat(self, messages: list[dict], tools: list[dict] | None = None) -> str:
-        return await self._execute_with_router("chat", messages, tools=tools)
+    async def chat(self, messages: list[dict], tools: list[dict] | None = None, intent: str = "general") -> str:
+        return await self._execute_with_router("chat", messages, tools=tools, intent=intent)
 
     async def generate_title(self, first_message: str) -> str:
         return await self._execute_with_router("generate_title", first_message)
@@ -145,7 +156,7 @@ class ProviderRouter(BaseLLMProvider):
     async def extract_memory(self, message: str) -> dict | None:
         return await self._execute_with_router("extract_memory", message)
 
-    async def stream_chat(self, messages: list[dict], tools: list[dict] | None = None) -> AsyncGenerator[Any, None]:
+    async def stream_chat(self, messages: list[dict], tools: list[dict] | None = None, intent: str = "general") -> AsyncGenerator[Any, None]:
         available_at_start = await self._get_available_providers()
         tried_providers = set()
         
@@ -154,13 +165,13 @@ class ProviderRouter(BaseLLMProvider):
             if not current_available:
                 break
                 
-            provider = self._select_provider(current_available)
+            provider = self._select_provider(current_available, intent=intent)
             tried_providers.add(provider.name)
             
             for attempt in range(self.settings.retry_count):
                 try:
                     start_time = time.perf_counter()
-                    stream = provider.stream_chat(messages, tools=tools)
+                    stream = provider.stream_chat(messages, tools=tools, intent=intent)
                     
                     found_first_chunk = False
                     async for chunk in stream:

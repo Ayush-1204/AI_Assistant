@@ -17,10 +17,12 @@ class AgentExecutor:
         planner: Planner,
         orchestrator: ToolOrchestrator,
         strategy: ToolInvocationStrategy,
+        intent: str = "general",
     ):
         self.planner = planner
         self.orchestrator = orchestrator
         self.strategy = strategy
+        self.intent = intent
 
     async def run(self, query: str, context: dict, messages: list[dict], tools_payload: list[dict]) -> str:
         state_mgr = ExecutionStateManager(query)
@@ -77,7 +79,7 @@ class AgentExecutor:
             full_text = ""
             is_tool_call_predicted = False
             
-            async for chunk in self.planner.provider.stream_chat(messages, tools=tools_payload):
+            async for chunk in self.planner.provider.stream_chat(messages, tools=tools_payload, intent=self.intent):
                 if not isinstance(chunk, str):
                     is_tool_call_predicted = True
                     collected_response_obj = chunk

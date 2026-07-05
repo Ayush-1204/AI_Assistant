@@ -11,13 +11,13 @@ from app.services.ai.providers.exceptions import ProviderTransientError
 
 class OllamaProvider(BaseLLMProvider):
 
-    def __init__(self):
-
-        self.model = "qwen3:8b"
+    def __init__(self, model_name: str = "qwen3:8b", provider_name: str = "ollama"):
+        self.model = model_name
+        self.provider_name = provider_name
 
     @property
     def name(self) -> str:
-        return "ollama"
+        return self.provider_name
 
     async def get_metadata(self) -> ProviderMetadata:
         return ProviderMetadata(
@@ -45,6 +45,7 @@ class OllamaProvider(BaseLLMProvider):
         self,
         messages: list[dict],
         tools: list[dict] | None = None,
+        intent: str = "general",
     ) -> str:
 
         try:
@@ -60,6 +61,7 @@ class OllamaProvider(BaseLLMProvider):
         self,
         messages: list[dict],
         tools: list[dict] | None = None,
+        intent: str = "general",
     ) -> AsyncGenerator[Any, None]:
 
         try:
