@@ -5,18 +5,18 @@ Revises: 1289d90976a4
 Create Date: 2026-07-01 19:15:29.413592
 
 """
-from typing import Sequence, Union
+from collections.abc import Sequence
+
+import sqlalchemy as sa
 from pgvector.sqlalchemy import Vector
 
 from alembic import op
-import sqlalchemy as sa
-
 
 # revision identifiers, used by Alembic.
 revision: str = 'f87bd8281f91'
-down_revision: Union[str, Sequence[str], None] = '1289d90976a4'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = '1289d90976a4'
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:

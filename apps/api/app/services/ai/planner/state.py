@@ -2,10 +2,11 @@ import hashlib
 import json
 import uuid
 from datetime import datetime, timezone
-from typing import Optional
 
 from app.schemas.tool import ToolRequest, ToolResponse
+
 from .models import AgentExecutionState
+
 
 class ExecutionStateManager:
     def __init__(self, query: str):
@@ -21,7 +22,7 @@ class ExecutionStateManager:
         payload_str = json.dumps(payload, sort_keys=True)
         return hashlib.sha256(payload_str.encode("utf-8")).hexdigest()
 
-    def check_duplicate(self, request: ToolRequest) -> Optional[ToolResponse]:
+    def check_duplicate(self, request: ToolRequest) -> ToolResponse | None:
         call_hash = self._hash_tool_call(request)
         return self.tool_cache.get(call_hash)
 

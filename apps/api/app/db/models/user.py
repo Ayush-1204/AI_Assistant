@@ -1,10 +1,9 @@
+from datetime import datetime
 from sqlalchemy import Boolean, DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
-
 from app.db.base import Base
-
 
 
 class User(Base):
@@ -33,12 +32,12 @@ class User(Base):
         default=True,
     )
 
-    created_at: Mapped[DateTime] = mapped_column(
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
     )
 
-    updated_at: Mapped[DateTime] = mapped_column(
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         onupdate=func.now(),
@@ -58,6 +57,18 @@ class User(Base):
 
     documents = relationship(
         "Document",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+
+    people = relationship(
+        "Person",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+
+    habits = relationship(
+        "Habit",
         back_populates="user",
         cascade="all, delete-orphan",
     )

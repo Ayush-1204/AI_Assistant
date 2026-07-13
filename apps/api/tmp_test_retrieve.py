@@ -1,14 +1,14 @@
-import sys
-import os
 import asyncio
 import logging
+import os
+import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "Documents", "AI_Assistant", "apps", "api")))
 
 from app.db.session import AsyncSessionLocal
 from app.repositories.document_chunk_repository import DocumentChunkRepository
-from app.services.ai.embeddings.providers.ollama import OllamaEmbeddingProvider
 from app.services.ai.embeddings.embedding_service import EmbeddingService
+from app.services.ai.embeddings.providers.ollama import OllamaEmbeddingProvider
 from app.services.retrieval.retrieval_service import RetrievalService
 
 logging.basicConfig(level=logging.INFO)

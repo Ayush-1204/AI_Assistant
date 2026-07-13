@@ -83,6 +83,16 @@ class MessageService:
             message.content = data.content
 
         return await self.message_repository.update(message)
+
+    async def delete_last_n_messages(
+        self,
+        conversation_id: int,
+        count: int = 2
+    ) -> None:
+        messages = await self.list_by_conversation(conversation_id)
+        if len(messages) >= count:
+            for message in messages[-count:]:
+                await self.message_repository.delete(message)
     
     async def get_history(
         self,

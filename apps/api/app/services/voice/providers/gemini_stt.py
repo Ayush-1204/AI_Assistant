@@ -1,5 +1,7 @@
+from collections.abc import AsyncGenerator
+
 from .base_stt import BaseSTTProvider
-from typing import AsyncGenerator
+
 
 class GeminiSTTProvider(BaseSTTProvider):
     """

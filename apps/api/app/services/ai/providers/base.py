@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
-from app.services.ai.providers.metadata import ProviderMetadata
 from typing import Any
+
+from app.services.ai.providers.metadata import ProviderMetadata
 
 
 class BaseLLMProvider(ABC):

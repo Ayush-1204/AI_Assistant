@@ -1,10 +1,10 @@
 import logging
-import httpx
-from typing import Any
 
-from app.schemas.search import SearchResult
-from app.integrations.search.base import SearchProvider
+import httpx
+
 from app.config import get_settings
+from app.integrations.search.base import SearchProvider
+from app.schemas.search import SearchResult
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +14,8 @@ class TavilySearchProvider(SearchProvider):
         self.api_key = api_key or self.settings.TAVILY_API_KEY
         if not self.api_key:
             logger.warning("Tavily API key is missing. Web search will fail.")
+        else:
+            logger.debug("Tavily API key configured (key present).")
             
         self.base_url = "https://api.tavily.com/search"
         self.timeout = self.settings.search_timeout
@@ -56,11 +58,12 @@ class TavilySearchProvider(SearchProvider):
                 return results
                 
             except httpx.HTTPStatusError as e:
-                logger.error(f"Tavily search API error: {e.response.text}")
+                logger.error(f"Tavily search API error [{e.response.status_code}]: {e.response.text}")
                 raise RuntimeError(f"Search provider error: {e.response.status_code}") from e
             except httpx.RequestError as e:
-                logger.error(f"Tavily search request failed: {str(e)}")
-                raise RuntimeError(f"Search provider connection error: {str(e)}") from e
+                logger.error(f"Tavily search request failed: {repr(e)}")
+                raise RuntimeError(f"Search provider connection error: {repr(e)}") from e
             except Exception as e:
-                logger.error(f"Unexpected error in Tavily search: {str(e)}")
+                logger.error(f"Unexpected error in Tavily search: {repr(e)}")
                 raise RuntimeError("Search execution failed dynamically") from e
+

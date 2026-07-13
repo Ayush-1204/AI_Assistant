@@ -1,3 +1,9 @@
+from app.schemas.conversation import (
+    ConversationBase,
+    ConversationCreate,
+    ConversationResponse,
+    ConversationUpdate,
+)
 from app.schemas.user import (
     TokenResponse,
     UserBase,
@@ -5,26 +11,17 @@ from app.schemas.user import (
     UserResponse,
 )
 
-from app.schemas.conversation import (
-    ConversationBase,
-    ConversationCreate,
-    ConversationResponse,
-    ConversationUpdate,
+from .chat import (
+    ChatRequest,
+    ChatResponse,
 )
-
+from .conversation_summary import ConversationSummary
 from .message import (
     MessageCreate,
     MessageResponse,
     MessageRole,
     MessageUpdate,
 )
-
-from .chat import (
-    ChatRequest,
-    ChatResponse,
-)
-
-from .conversation_summary import ConversationSummary
 
 __all__ = [
     "UserBase",

@@ -5,17 +5,13 @@ Revises: f87bd8281f91
 Create Date: 2026-07-01 20:13:23.192628
 
 """
-from typing import Sequence, Union
-
-from alembic import op
-import sqlalchemy as sa
-
+from collections.abc import Sequence
 
 # revision identifiers, used by Alembic.
 revision: str = '158757f21730'
-down_revision: Union[str, Sequence[str], None] = 'f87bd8281f91'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = 'f87bd8281f91'
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:

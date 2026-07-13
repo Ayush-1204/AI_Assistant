@@ -24,8 +24,7 @@ class SecondBrainApp extends StatelessWidget {
         colorScheme: const ColorScheme.dark(
           primary: Color(0xFFFFFFFF),    // Noir Primary
           secondary: Color(0xFFCCCCCC),  // Noir Secondary
-          surface: Color(0xFF131313),    // Noir Surface
-          background: Color(0xFF0A0A0A), // Noir Background
+          surface: Color(0xFF131313), // Noir Background
           onPrimary: Color(0xFF000000),  // text on primary
           onSurface: Color(0xFFF5F5F5),
           error: Color(0xFFFFB4AB),

@@ -1,11 +1,9 @@
-from fastapi import HTTPException, UploadFile, status, BackgroundTasks
+from fastapi import BackgroundTasks, HTTPException, UploadFile, status
 
 from app.db.models import Document, DocumentStatus
 from app.repositories.document_repository import DocumentRepository
-from app.services.storage_service import StorageService
 from app.services.documents.processor import DocumentProcessor
-
-
+from app.services.storage_service import StorageService
 
 
 class DocumentService:

@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
+from app.schemas.message import MessageResponse
 
 
 class ConversationBase(BaseModel):
@@ -22,3 +23,7 @@ class ConversationResponse(ConversationBase):
     user_id: int
     created_at: datetime
     updated_at: datetime
+
+
+class ConversationDetailResponse(ConversationResponse):
+    messages: list[MessageResponse] = []

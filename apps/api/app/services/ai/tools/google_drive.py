@@ -1,6 +1,8 @@
 import json
-from app.services.ai.tools.base import BaseTool
+
 from app.integrations.google.drive import GoogleDriveService
+from app.services.ai.tools.base import BaseTool
+
 
 class DriveTool(BaseTool):
     def __init__(self, service: GoogleDriveService):
@@ -48,7 +50,7 @@ class DriveTool(BaseTool):
                 if isinstance(rv, bytes):
                     # Attempt decode
                     return f"File Content Prefix: {rv.decode('utf-8', errors='ignore')[:3000]}"
-                return f"File downloaded"
+                return "File downloaded"
             elif action == "delete":
                 await self.service.delete_file(user_id, kwargs['file_id'])
                 return "File deleted."

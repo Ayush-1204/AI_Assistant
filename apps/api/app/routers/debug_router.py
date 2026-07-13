@@ -1,9 +1,6 @@
-from fastapi import APIRouter
-from fastapi import Depends
-from fastapi import Query
+from fastapi import APIRouter, Depends, Query
 
-from app.dependencies import get_current_user
-from app.dependencies import get_retrieval_service
+from app.dependencies import get_current_user, get_retrieval_service
 from app.schemas.debug import (
     RetrievalDebugResponse,
     RetrievalDebugResult,

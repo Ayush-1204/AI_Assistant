@@ -1,9 +1,8 @@
 from datetime import datetime, timedelta, timezone
 
-from jose import jwt
+from jose import JWTError, jwt
 
 from app.config import get_settings
-from jose import JWTError
 
 settings = get_settings()
 

@@ -2,7 +2,6 @@ from pathlib import Path
 
 from app.db.models import (
     Document,
-    DocumentChunk,
     DocumentStatus,
 )
 from app.repositories.document_chunk_repository import (

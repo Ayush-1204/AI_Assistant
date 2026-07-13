@@ -1,13 +1,14 @@
-from google import genai
 import json
-from typing import Any
 from collections.abc import AsyncGenerator
+from typing import Any
+
+from google import genai
 
 from app.config import get_settings
 from app.services.ai.prompts import PromptBuilder
 from app.services.ai.providers.base import BaseLLMProvider
-from app.services.ai.providers.metadata import ProviderMetadata
 from app.services.ai.providers.exceptions import ProviderTransientError
+from app.services.ai.providers.metadata import ProviderMetadata
 
 settings = get_settings()
 
@@ -56,23 +57,55 @@ class GeminiProvider(BaseLLMProvider):
         intent: str = "general",
     ):
 
-        prompt = PromptBuilder.chat(messages)
+        prompt_text = PromptBuilder.chat(messages)
         
         print("\n\n=== [DEBUG] EXACT CONTEXT SENT TO GEMINI (CHAT) ===")
-        print(prompt)
+        print(prompt_text)
         print("===================================================\n\n")
 
+        import base64
+
+        import google.genai.types as gt
+        
+        contents: list[Any] = [prompt_text]
+        for msg in messages:
+            if msg.get("images"):
+                for b64_str in msg["images"]:
+                    try:
+                        contents.append(
+                            gt.Part.from_bytes(
+                                data=base64.b64decode(b64_str),
+                                mime_type="image/jpeg",
+                            )
+                        )
+                    except Exception:
+                        pass
+        
+        gemini_tools: list[Any] = list(tools) if tools else []
+            
         config = None
-        if tools:
+        if "lite" not in self.model.lower():
+            # Give Gemini explicit access to its own Search Grounding allowing it to choose vs Tavily
             import google.genai.types as gt
-            config = gt.GenerateContentConfig(tools=tools)
+            try:
+                # Add native search grounding properly formatted using the SDK schema
+                gemini_tools.append(gt.Tool(google_search=gt.GoogleSearch()))
+                config = gt.GenerateContentConfig(tools=gemini_tools)
+            except Exception:
+                pass
 
         try:
-            response = self.client.models.generate_content(
-                model=self.model,
-                contents=prompt,
-                config=config,
-            )
+            if config:
+                response = await self.client.aio.models.generate_content(
+                    model=self.model,
+                    contents=contents,
+                    config=config,
+                )
+            else:
+                response = await self.client.aio.models.generate_content(
+                    model=self.model,
+                    contents=contents,
+                )
             # We return the response object rather than just string for tools strategy to inspect
             return response
         except Exception as e:
@@ -87,7 +120,7 @@ class GeminiProvider(BaseLLMProvider):
             first_message,
         )
 
-        response = self.client.models.generate_content(
+        response = await self.client.aio.models.generate_content(
             model=self.model,
             contents=prompt,
         )
@@ -100,18 +133,54 @@ class GeminiProvider(BaseLLMProvider):
         tools: list[dict] | None = None,
         intent: str = "general",
     ) -> AsyncGenerator[Any, None]:
-        prompt = PromptBuilder.chat(messages)
+        prompt_text = PromptBuilder.chat(messages)
         
         print("\n\n=== [DEBUG] EXACT CONTEXT SENT TO GEMINI (STREAM_CHAT) ===")
-        print(prompt)
+        print(prompt_text)
         print("==========================================================\n\n")
 
+        import base64
+
+        import google.genai.types as gt
+        
+        contents: list[Any] = [prompt_text]
+        for msg in messages:
+            if msg.get("images"):
+                for b64_str in msg["images"]:
+                    try:
+                        contents.append(
+                            gt.Part.from_bytes(
+                                data=base64.b64decode(b64_str),
+                                mime_type="image/jpeg",
+                            )
+                        )
+                    except Exception:
+                        pass
+
+        gemini_tools: list[Any] = list(tools) if tools else []
+        
+        config = None
+        if "lite" not in self.model.lower():
+            import google.genai.types as gt
+            try:
+                gemini_tools.append(gt.Tool(google_search=gt.GoogleSearch()))
+                config = gt.GenerateContentConfig(tools=gemini_tools)
+            except Exception:
+                pass
+            
         # Utilize Google SDK's native async client
         try:
-            response = await self.client.aio.models.generate_content_stream(
-                model=self.model,
-                contents=prompt,
-            )
+            if config:
+                response = await self.client.aio.models.generate_content_stream(
+                    model=self.model,
+                    contents=contents,
+                    config=config,
+                )
+            else:
+                response = await self.client.aio.models.generate_content_stream(
+                    model=self.model,
+                    contents=contents,
+                )
 
             async for chunk in response:
                 if chunk.function_calls:
@@ -150,7 +219,7 @@ class GeminiProvider(BaseLLMProvider):
     {message}
     """
 
-        response = self.client.models.generate_content(
+        response = await self.client.aio.models.generate_content(
             model=self.model,
             contents=prompt,
         )

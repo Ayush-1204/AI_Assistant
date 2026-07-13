@@ -1,6 +1,8 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.db.models.note import Note
+
 
 class NoteRepository:
     def __init__(self, session: AsyncSession):

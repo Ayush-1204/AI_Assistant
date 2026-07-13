@@ -1,10 +1,12 @@
-import logging
 import asyncio
+import logging
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.config import settings
 from app.db.models.device import Device
 from app.services.notifications.providers.base import BaseNotificationProvider
-from app.config import settings
 
 # Wait to import firebase_admin to avoid crashing if not installed yet
 try:

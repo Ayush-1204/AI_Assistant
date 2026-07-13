@@ -1,7 +1,9 @@
-import logging
 import base64
+import logging
 from email.message import EmailMessage
+
 from googleapiclient.discovery import build
+
 from app.integrations.google.auth import GoogleAuthService
 
 logger = logging.getLogger(__name__)

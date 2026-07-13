@@ -1,17 +1,17 @@
 import secrets
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Tuple
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.oauth_state import OAuthState
 
+
 class OAuthStateRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def create_state(self, user_id: Optional[int] = None, expires_in_minutes: int = 15) -> str:
+    async def create_state(self, user_id: int | None = None, expires_in_minutes: int = 15) -> str:
         state_str = secrets.token_urlsafe(32)
         expires_at = datetime.now(timezone.utc) + timedelta(minutes=expires_in_minutes)
         
@@ -24,7 +24,7 @@ class OAuthStateRepository:
         await self.db.commit()
         return state_str
         
-    async def consume_state(self, state: str) -> Tuple[bool, Optional[int]]:
+    async def consume_state(self, state: str) -> tuple[bool, int | None]:
         stmt = select(OAuthState).where(OAuthState.state == state)
         result = await self.db.execute(stmt)
         record = result.scalar_one_or_none()

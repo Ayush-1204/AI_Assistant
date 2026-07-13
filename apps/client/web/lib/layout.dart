@@ -5,6 +5,11 @@ import 'chat_view.dart';
 import 'notes_view.dart';
 import 'documents_view.dart';
 import 'settings_view.dart';
+import 'token_usage_view.dart';
+import 'life_metrics_view.dart';
+import 'calendar_view.dart';
+import 'people_view.dart';
+import 'memory_view.dart';
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -15,7 +20,7 @@ class MainLayout extends StatefulWidget {
 
 class _MainLayoutState extends State<MainLayout> {
   int _selectedIndex = 0;
-  Offset _mousePos = Offset.zero;
+  final ValueNotifier<Offset> _mousePos = ValueNotifier(Offset.zero);
   bool _isSidebarOpen = true;
 
 
@@ -23,7 +28,11 @@ class _MainLayoutState extends State<MainLayout> {
     const ChatView(),
     const NotesView(),
     const DocumentsView(),
-    const Center(child: Text('Calendar (Coming Soon)')),
+    const CalendarView(),
+    const TokenUsageView(),
+    const LifeMetricsView(),
+    const PeopleView(),
+    const MemoryView(),
     const SettingsView(),
   ];
 
@@ -32,6 +41,10 @@ class _MainLayoutState extends State<MainLayout> {
     _NavItem(icon: Icons.note_outlined, activeIcon: Icons.note, label: 'Notes'),
     _NavItem(icon: Icons.folder_outlined, activeIcon: Icons.folder, label: 'Knowledge Base'),
     _NavItem(icon: Icons.calendar_month_outlined, activeIcon: Icons.calendar_month, label: 'Calendar'),
+    _NavItem(icon: Icons.speed_outlined, activeIcon: Icons.speed, label: 'Token Limits'),
+    _NavItem(icon: Icons.track_changes_outlined, activeIcon: Icons.track_changes, label: 'Life Metrics'),
+    _NavItem(icon: Icons.people_outline, activeIcon: Icons.people, label: 'People CRM'),
+    _NavItem(icon: Icons.psychology_outlined, activeIcon: Icons.psychology, label: 'Memories'),
   ];
 
   @override
@@ -39,7 +52,7 @@ class _MainLayoutState extends State<MainLayout> {
     return Scaffold(
       body: MouseRegion(
         onHover: (event) {
-          if (mounted) setState(() => _mousePos = event.position);
+          _mousePos.value = event.position;
         },
         child: Stack(
           children: [
@@ -65,8 +78,8 @@ class _MainLayoutState extends State<MainLayout> {
                                 width: 32, height: 32,
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.white.withOpacity(0.15)),
-                                  color: Colors.white.withOpacity(0.05),
+                                  border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+                                  color: Colors.white.withValues(alpha: 0.05),
                                 ),
                                 child: const Icon(Icons.hub_outlined, size: 16, color: Colors.white),
                               ),
@@ -74,7 +87,7 @@ class _MainLayoutState extends State<MainLayout> {
                               const Expanded(child: Text('Second Brain', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white), maxLines: 1)),
                             ],
                             IconButton(
-                              icon: Icon(_isSidebarOpen ? Icons.chevron_left : Icons.menu, color: Colors.white.withOpacity(0.5)),
+                              icon: Icon(_isSidebarOpen ? Icons.chevron_left : Icons.menu, color: Colors.white.withValues(alpha: 0.5)),
                               onPressed: () => setState(() => _isSidebarOpen = !_isSidebarOpen),
                             ),
                           ],
@@ -98,7 +111,7 @@ class _MainLayoutState extends State<MainLayout> {
                         const SizedBox(height: 16),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: Align(alignment: Alignment.centerLeft, child: Text('CHAT HISTORY', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white.withOpacity(0.3), letterSpacing: 1.2))),
+                          child: Align(alignment: Alignment.centerLeft, child: Text('CHAT HISTORY', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white.withValues(alpha: 0.3), letterSpacing: 1.2))),
                         ),
                         const SizedBox(height: 8),
                         Expanded(
@@ -122,11 +135,11 @@ class _MainLayoutState extends State<MainLayout> {
                                           },
                                           child: Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                            decoration: BoxDecoration(color: isActive ? Colors.white.withOpacity(0.05) : Colors.transparent, borderRadius: BorderRadius.circular(8)),
+                                            decoration: BoxDecoration(color: isActive ? Colors.white.withValues(alpha: 0.05) : Colors.transparent, borderRadius: BorderRadius.circular(8)),
                                             child: Row(children: [
-                                              Icon(Icons.chat_bubble_outline, size: 14, color: isActive ? Colors.white.withOpacity(0.8) : Colors.white.withOpacity(0.4)),
+                                              Icon(Icons.chat_bubble_outline, size: 14, color: isActive ? Colors.white.withValues(alpha: 0.8) : Colors.white.withValues(alpha: 0.4)),
                                               const SizedBox(width: 12),
-                                              Expanded(child: Text(title, style: TextStyle(fontSize: 13, color: isActive ? Colors.white.withOpacity(0.9) : Colors.white.withOpacity(0.6)), maxLines: 1, overflow: TextOverflow.clip)),
+                                              Expanded(child: Text(title, style: TextStyle(fontSize: 13, color: isActive ? Colors.white.withValues(alpha: 0.9) : Colors.white.withValues(alpha: 0.6)), maxLines: 1, overflow: TextOverflow.clip)),
                                             ]),
                                           )
                                         ),
@@ -137,13 +150,13 @@ class _MainLayoutState extends State<MainLayout> {
                           )
                         ),
                       ] else const Spacer(),
-                      Container(height: 1, color: Colors.white.withOpacity(0.06)),
+                      Container(height: 1, color: Colors.white.withValues(alpha: 0.06)),
                       _SidebarTile(
-                        icon: _selectedIndex == 4 ? Icons.settings : Icons.settings_outlined,
+                        icon: _selectedIndex == 8 ? Icons.settings : Icons.settings_outlined,
                         label: 'Settings',
-                        selected: _selectedIndex == 4,
+                        selected: _selectedIndex == 8,
                         isExpanded: _isSidebarOpen,
-                        onTap: () => setState(() => _selectedIndex = 4),
+                        onTap: () => setState(() => _selectedIndex = 8),
                       ),
                       const SizedBox(height: 12),
                       ],
@@ -151,14 +164,24 @@ class _MainLayoutState extends State<MainLayout> {
                   ),
                 ),
                 // Content
-                Container(width: 1, color: Colors.white.withOpacity(0.06)),
-                Expanded(child: _views[_selectedIndex]),
+                Container(width: 1, color: Colors.white.withValues(alpha: 0.06)),
+                Expanded(
+                  child: IndexedStack(
+                    index: _selectedIndex,
+                    children: _views,
+                  ),
+                ),
               ],
             ),
             Positioned.fill(
               child: IgnorePointer(
-                child: CustomPaint(
-                  painter: _SpotlightPainter(_mousePos),
+                child: ValueListenableBuilder<Offset>(
+                  valueListenable: _mousePos,
+                  builder: (context, mousePos, child) {
+                    return CustomPaint(
+                      painter: _SpotlightPainter(mousePos),
+                    );
+                  },
                 ),
               ),
             ),
@@ -212,9 +235,9 @@ class _SidebarTileState extends State<_SidebarTile> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(8),
                 color: widget.selected 
-                  ? Colors.white.withOpacity(0.08) 
+                  ? Colors.white.withValues(alpha: 0.08) 
                   : _isHovered 
-                      ? Colors.white.withOpacity(0.03) 
+                      ? Colors.white.withValues(alpha: 0.03) 
                       : Colors.transparent,
               ),
               child: Row(
@@ -252,7 +275,7 @@ class _SpotlightPainter extends CustomPainter {
     final Paint paint = Paint()
       ..shader = RadialGradient(
         colors: [
-          Colors.white.withOpacity(0.05),
+          Colors.white.withValues(alpha: 0.05),
           Colors.transparent,
         ],
         stops: const [0.0, 1.0],

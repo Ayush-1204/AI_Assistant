@@ -1,7 +1,10 @@
-from sqlalchemy import String, DateTime, ForeignKey
+from datetime import datetime
+from sqlalchemy import DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
+
 from app.db.base import Base
+
 
 class OAuthCredential(Base):
     __tablename__ = "oauth_credentials"
@@ -36,17 +39,17 @@ class OAuthCredential(Base):
         nullable=True
     )
     
-    expires_at: Mapped[DateTime] = mapped_column(
+    expires_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), 
         nullable=True
     )
 
-    created_at: Mapped[DateTime] = mapped_column(
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
     )
 
-    updated_at: Mapped[DateTime] = mapped_column(
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         onupdate=func.now(),

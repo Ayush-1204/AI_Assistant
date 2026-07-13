@@ -5,17 +5,13 @@ Revises: e11624f7a437
 Create Date: 2026-07-03 16:21:29.634974
 
 """
-from typing import Sequence, Union
-
-from alembic import op
-import sqlalchemy as sa
-
+from collections.abc import Sequence
 
 # revision identifiers, used by Alembic.
 revision: str = '64d85cab085d'
-down_revision: Union[str, Sequence[str], None] = 'e11624f7a437'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = 'e11624f7a437'
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:

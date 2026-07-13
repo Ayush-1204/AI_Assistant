@@ -127,7 +127,7 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
                           elevation: 0,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
-                            side: BorderSide(color: Colors.white.withOpacity(0.15)),
+                            side: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
                           ),
                         ),
                         child: const Text('Connect', style: TextStyle(fontSize: 13)),
@@ -144,12 +144,23 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
             child: Column(
               children: [
                 _ToggleTile(
+                  title: 'Local-Only Privacy Mode',
+                  subtitle: 'Force all agent generations through local LLMs, blocking cloud access.',
+                  value: ref.watch(apiClientProvider).isLocalOnly,
+                  onChanged: (v) {
+                    setState(() {
+                      ref.read(apiClientProvider).setLocalOnly(v);
+                    });
+                  },
+                ),
+                Divider(color: Colors.white.withValues(alpha: 0.06)),
+                _ToggleTile(
                   title: 'Voice Barge-in',
                   subtitle: 'Allow microphone to interrupt the AI while speaking',
                   value: _voiceBargein,
                   onChanged: (v) => setState(() => _voiceBargein = v),
                 ),
-                Divider(color: Colors.white.withOpacity(0.06)),
+                Divider(color: Colors.white.withValues(alpha: 0.06)),
                 _ToggleTile(
                   title: 'Auto-Extract Memories',
                   subtitle: 'Detect background details to store permanently',
@@ -173,7 +184,7 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
                   contentPadding: EdgeInsets.zero,
                   onTap: () => _showSnack('Export coming soon'),
                 ),
-                Divider(color: Colors.white.withOpacity(0.06)),
+                Divider(color: Colors.white.withValues(alpha: 0.06)),
                 ListTile(
                   leading: const Icon(Icons.delete_forever, color: Colors.redAccent),
                   title: const Text('Delete Account', style: TextStyle(color: Colors.redAccent)),
@@ -200,9 +211,9 @@ class _SettingsCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: const Color(0xFF141416).withOpacity(0.8),
+          color: const Color(0xFF141416).withValues(alpha: 0.8),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white.withOpacity(0.07)),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
         ),
         child: child,
       ),
@@ -225,7 +236,7 @@ class _ToggleTile extends StatelessWidget {
       subtitle: Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.white38)),
       value: value,
       onChanged: onChanged,
-      activeColor: Theme.of(context).colorScheme.primary,
+      activeThumbColor: Theme.of(context).colorScheme.primary,
       contentPadding: EdgeInsets.zero,
     );
   }

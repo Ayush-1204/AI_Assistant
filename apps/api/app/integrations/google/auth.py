@@ -1,12 +1,11 @@
 import logging
-from typing import Optional
 
-from google.oauth2.credentials import Credentials
-from google.auth.transport.requests import Request
 from google_auth_oauthlib.flow import Flow
 
 from app.config import settings
 from app.repositories.oauth_repository import OAuthRepository
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +75,7 @@ class GoogleAuthService:
             provider="google"
         )
         
-    async def get_credentials(self, user_id: int) -> Optional[Credentials]:
+    async def get_credentials(self, user_id: int) -> Credentials | None:
         record = await self.oauth_repo.get_by_user_id(user_id, "google")
         if not record:
             return None

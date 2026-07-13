@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
-import asyncio
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
+
 
 class BaseTTSProvider(ABC):
     """Abstract Base Class for Text-to-Speech Providers."""

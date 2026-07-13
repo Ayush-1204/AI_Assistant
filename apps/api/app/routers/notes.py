@@ -1,9 +1,9 @@
-from typing import Any
 from fastapi import APIRouter, Depends
-from app.dependencies import get_current_user, get_note_service
-from app.db.models.user import User
-from app.services.notes.note_service import NoteService
 from pydantic import BaseModel
+
+from app.db.models.user import User
+from app.dependencies import get_current_user, get_note_service
+from app.services.notes.note_service import NoteService
 
 router = APIRouter(prefix="/notes", tags=["Notes"])
 

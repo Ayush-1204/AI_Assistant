@@ -1,6 +1,8 @@
 import json
-from app.services.ai.tools.base import BaseTool
+
 from app.integrations.google.gmail import GoogleGmailService
+from app.services.ai.tools.base import BaseTool
+
 
 class GmailTool(BaseTool):
     def __init__(self, service: GoogleGmailService):

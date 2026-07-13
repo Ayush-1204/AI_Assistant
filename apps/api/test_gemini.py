@@ -1,21 +1,27 @@
-import asyncio
+import os
 
-from app.services.ai.providers.gemini_provider import GeminiProvider
+from dotenv import load_dotenv
 
+load_dotenv()
 
-async def main():
-    provider = GeminiProvider()
+from google import genai
 
-    response = await provider.generate(
-        [
-            {
-                "role": "user",
-                "content": "Say hello in one sentence.",
-            }
-        ]
-    )
+client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
-    print(response)
+models_to_test = [
+    "gemini-1.5-flash",
+    "gemini-1.5-pro",
+    "gemini-2.5-pro",
+    "gemini-1.5-pro-latest",
+]
 
-
-asyncio.run(main())
+for m in models_to_test:
+    print(f"Testing {m}...")
+    try:
+        response = client.models.generate_content(
+            model=m,
+            contents="hello"
+        )
+        print(f"✅ {m} works! Response: {response.text}")
+    except Exception as e:
+        print(f"❌ {m} failed: {e}")

@@ -1,5 +1,7 @@
 from datetime import datetime
+
 from app.services.ai.tools.base import BaseTool
+
 
 class CurrentTimeTool(BaseTool):
     @property

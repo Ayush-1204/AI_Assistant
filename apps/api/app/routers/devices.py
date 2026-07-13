@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from app.dependencies import get_db, get_current_user
-from app.db.models.user import User
-from app.db.models.device import Device
 from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db.models.device import Device
+from app.db.models.user import User
+from app.dependencies import get_current_user, get_db
 
 router = APIRouter(prefix="/devices", tags=["Devices"])
 

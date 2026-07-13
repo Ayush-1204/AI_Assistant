@@ -1,5 +1,5 @@
-import time
 import logging
+import time
 
 from app.schemas.tool import ToolRequest, ToolResponse
 from app.services.ai.tools.registry import ToolRegistry
@@ -16,6 +16,18 @@ class ToolOrchestrator:
             msg = f"Error: Tool '{request.name}' not found natively."
             logger.warning(msg)
             return ToolResponse(id=request.id, name=request.name, content=msg, is_error=True)
+
+        if tool.requires_confirmation and not request.arguments.get("_confirmed", False):
+            msg = "Action paused: Requires explicit user authorization."
+            logger.info("Tool execution paused for user confirmation", extra={"tool": request.name})
+            return ToolResponse(id=request.id, name=request.name, content=msg, requires_confirmation=True)
+            
+        from app.config import get_settings
+        if getattr(get_settings(), "LOCAL_ONLY_MODE", False):
+             if getattr(tool, "requires_network", True):
+                 msg = f"Security Block: '{request.name}' requires network access, which is blocked in Local-Only Mode."
+                 logger.warning(msg)
+                 return ToolResponse(id=request.id, name=request.name, content=msg, is_error=True)
             
         try:
             start_time = time.perf_counter()
@@ -23,7 +35,9 @@ class ToolOrchestrator:
             latency = (time.perf_counter() - start_time) * 1000.0
             
             logger.info("Tool executed successfully", extra={"tool": request.name, "latency_ms": latency})
-            return ToolResponse(id=request.id, name=request.name, content=str(result), is_error=False)
+            from app.security.credential_stripper import CredentialStripper
+            safe_content = CredentialStripper().strip(str(result))
+            return ToolResponse(id=request.id, name=request.name, content=safe_content, is_error=False)
             
         except Exception as e:
             msg = f"Error executing internal tool: {str(e)}"

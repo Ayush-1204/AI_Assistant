@@ -8,10 +8,10 @@ from app.repositories.document_chunk_repository import (
     DocumentChunkRepository,
 )
 from app.services.ai.embeddings.embedding_service import EmbeddingService
-from app.services.retrieval.models import RetrievalResult
 from app.services.retrieval.fusion import ResultFusion
-from app.services.retrieval.reranking import Reranker
+from app.services.retrieval.models import RetrievalResult
 from app.services.retrieval.ranking import document_title
+from app.services.retrieval.reranking import Reranker
 
 logger = logging.getLogger(__name__)
 

@@ -42,6 +42,8 @@ class ContextBuilder:
         user_id: int,
         conversation_id: int,
         query: str,
+        location_lat: float | None = None,
+        location_lon: float | None = None,
     ) -> tuple[list[dict], list[Citation]]:
 
         context: list[dict] = []
@@ -58,6 +60,8 @@ class ContextBuilder:
             "omitted_document_chunks": 0,
             "omitted_tool_outputs": 0,
         }
+        
+        system_blocks: list[str] = []
 
         def _estimate_tokens(text: str) -> int:
             return len(text) // 4
@@ -69,9 +73,21 @@ class ContextBuilder:
         # 1. System Prompt
         # -----------------------------
         
-        system_prompt = "You are a helpful AI assistant. Use the following context to answer the user's query."
+        loc_str = ""
+        if location_lat is not None and location_lon is not None:
+            loc_str = f" User's actual coordinates natively are ({location_lat}, {location_lon})."
+            
+        system_prompt = (
+            "You are a helpful, human-like AI assistant. "
+            "IMPORTANT RULES FOR YOUR BEHAVIOR:\n"
+            "1. You will be provided with system context (Tool Executions, Coordinates, Memories). "
+            "DO NOT explicitly mention, recite, or regurgitate this raw metadata (like 'I see your coordinates are...' or 'The tool executed with...').\n"
+            "2. Seamlessly use the provided data to answer the user naturally. "
+            "Use the following context to answer the user's query."
+        ) + loc_str
+        
         current_tokens += _estimate_tokens(system_prompt)
-        context.append({"role": "system", "content": system_prompt})
+        system_blocks.append(system_prompt)
 
         # -----------------------------
         # 2. Long-term memory
@@ -100,12 +116,7 @@ class ContextBuilder:
         if memory_items:
             header = "=== RELEVANT MEMORIES ===\n\n"
             current_tokens += _estimate_tokens(header)
-            context.append(
-                {
-                    "role": "system",
-                    "content": header + "\n\n".join(memory_items),
-                }
-            )
+            system_blocks.append(header + "\n\n".join(memory_items))
 
         # -----------------------------
         # 3. RAG (Relevant Documents)
@@ -158,10 +169,10 @@ class ContextBuilder:
                 )
 
         if rag_sections:
-            header = "=== RELEVANT DOCUMENTS ===\n\n"
+            header = "\n\n=== RELEVANT DOCUMENTS ===\n\n"
             current_tokens += _estimate_tokens(header)
             joined_rag = header + "\n\n-------------------------------------\n\n".join(rag_sections) + "\n\n-------------------------------------"
-            context.append({"role": "system", "content": joined_rag})
+            system_blocks.append(joined_rag)
 
         # -----------------------------
         # 4. Tool Results & Conversation History
@@ -176,6 +187,8 @@ class ContextBuilder:
         import re
 
         for msg in history:
+            msg_images = getattr(msg, "images", None)
+            
             if "<tool_response>" in msg.content:
                 pattern = r"(Tool execution result for:.*?)?<tool_response>(.*?)</tool_response>"
                 matches = list(re.finditer(pattern, msg.content, re.DOTALL))
@@ -187,9 +200,28 @@ class ContextBuilder:
                     
                 clean_content = re.sub(pattern, "", msg.content, flags=re.DOTALL).strip()
                 if clean_content:
-                     processed_history.append({"role": msg.role, "content": clean_content})
+                     processed_history.append({"role": msg.role, "content": clean_content, "images": msg_images})
             else:
-                processed_history.append({"role": msg.role, "content": msg.content})
+                processed_history.append({"role": msg.role, "content": msg.content, "images": msg_images})
+                
+        # --- Conversation Summarization Engine ---
+        # Instead of truncating past N messages, we compress the older half into a dense summary block
+        MAX_TAIL = settings.max_history_messages
+        if len(processed_history) > MAX_TAIL:
+            old_messages = processed_history[:-MAX_TAIL]
+            processed_history = processed_history[-MAX_TAIL:]
+            
+            try:
+                from app.dependencies import _router_instance
+                if _router_instance:
+                    compress_prompt = f"Summarize the core topics, user preferences, and established facts from these older conversation turns into a dense paragraph. Omit pleasantries:\\n\\n{old_messages}"
+                    summary = await _router_instance.chat([{"role": "user", "content": compress_prompt}], intent="general")
+                    if summary:
+                        summary_block = f"\\n\\n=== PAST CONVERSATION SUMMARY ===\\n{summary.strip()}\\n================================="
+                        current_tokens += _estimate_tokens(summary_block)
+                        system_blocks.append(summary_block)
+            except Exception as e:
+                logger.error(f"Progressive summarization failed: {e}")
 
         # Process Tools budget
         tool_sections = []
@@ -209,15 +241,21 @@ class ContextBuilder:
                 stats["tool_results_used"] += 1
                 
         if tool_sections:
-            header = "=== TOOL RESULTS ===\n"
+            header = "\n\n=== TOOL RESULTS ===\n"
             current_tokens += _estimate_tokens(header)
-            context.append({"role": "system", "content": header + "\n".join(tool_sections)})
+            system_blocks.append(header + "\n".join(tool_sections))
+
+        # Consolidate all systemic blocks safely without sequence crashes
+        if system_blocks:
+            context.append({"role": "system", "content": "\n".join(system_blocks)})
 
         # Isolate Current User Prompt securely removing it from backward slicing bounds
         current_user_message = None
         if processed_history and processed_history[-1]["role"] == "user":
             current_user_message = processed_history.pop()
-            current_tokens += _estimate_tokens(current_user_message["content"])
+            content = current_user_message.get("content")
+            if content is not None:
+                current_tokens += _estimate_tokens(str(content))
 
         # History chronological reversing slices
         history_sections = []
@@ -226,7 +264,8 @@ class ContextBuilder:
                 stats["omitted_conversation_messages"] += 1
                 continue
                 
-            tokens = _estimate_tokens(msg_dict["content"])
+            content = msg_dict.get("content")
+            tokens = _estimate_tokens(str(content)) if content is not None else 0
             if current_tokens + tokens > budget:
                 stats["omitted_conversation_messages"] += 1
                 continue

@@ -1,8 +1,8 @@
-from abc import ABC, abstractmethod
-from typing import Any
-import re
 import json
 import logging
+import re
+from abc import ABC, abstractmethod
+from typing import Any
 
 from app.schemas.tool import ToolRequest, ToolResponse
 from app.services.ai.tools.registry import ToolRegistry
@@ -54,7 +54,9 @@ class XmlFunctionStrategy(ToolInvocationStrategy):
 <tool_call>
 {"name": "tool_name", "args": {"arg1": "value1"}}
 </tool_call>
-You will receive the tool output in a <tool_response> block. You can only call ONE tool at a time!"""
+You will receive the tool output in a <tool_response> block. You can only call ONE tool at a time!
+
+CRITICAL INSTRUCTION: If the user queries a basic pleasantry, casual greeting, or conversational filler (e.g., 'hello', 'hey', 'how are you', 'who are you'), YOU MUST NOT INVOKE ANY TOOLS. Respond immediately with a friendly conversational greeting. Do not over-complicate chit-chat."""
         return prompt
         
     def get_tools_for_provider(self) -> Any:
@@ -86,7 +88,7 @@ You will receive the tool output in a <tool_response> block. You can only call O
             )
             return True, [req]
             
-        except json.JSONDecodeError as e:
+        except json.JSONDecodeError:
             req = ToolRequest(id=match.group(0), name="PARSE_ERROR", arguments={})
             return True, [req]
             
@@ -114,7 +116,7 @@ You will receive the tool output in a <tool_response> block. You can only call O
 
 class NativeFunctionStrategy(ToolInvocationStrategy):
     def get_system_prompt_extension(self) -> str:
-        return ""
+        return "CRITICAL INSTRUCTION: If the user queries a basic pleasantry, casual greeting, or conversational filler (e.g., 'hello', 'hey', 'how are you', 'who are you'), YOU MUST NOT INVOKE ANY TOOLS. Respond immediately with a friendly conversational greeting. Do not over-complicate chit-chat."
         
     def get_tools_for_provider(self) -> Any:
         schemas = self.registry.get_all_schemas()

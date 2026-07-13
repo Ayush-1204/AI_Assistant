@@ -1,6 +1,8 @@
 from typing import Any
+
 from app.services.ai.tools.base import BaseTool
 from app.services.notes.note_service import NoteService
+
 
 class NotesTool(BaseTool):
     def __init__(self, note_service: NoteService):

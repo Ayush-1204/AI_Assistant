@@ -5,17 +5,17 @@ Revises: fd4a93656d09
 Create Date: 2026-07-01 13:32:32.307705
 
 """
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = '1289d90976a4'
-down_revision: Union[str, Sequence[str], None] = 'fd4a93656d09'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = 'fd4a93656d09'
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:

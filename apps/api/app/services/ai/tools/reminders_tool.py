@@ -1,7 +1,9 @@
+from datetime import datetime
 from typing import Any
+
 from app.services.ai.tools.base import BaseTool
 from app.services.reminders.reminder_service import ReminderService
-from datetime import datetime
+
 
 class RemindersTool(BaseTool):
     def __init__(self, reminder_service: ReminderService):

@@ -22,7 +22,7 @@ class DocumentsView extends ConsumerWidget {
               const Spacer(),
               Container(
                 decoration: BoxDecoration(
-                  boxShadow: [BoxShadow(color: Colors.white.withOpacity(0.1), blurRadius: 16)],
+                  boxShadow: [BoxShadow(color: Colors.white.withValues(alpha: 0.1), blurRadius: 16)],
                 ),
                 child: ElevatedButton.icon(
                   onPressed: () {},
@@ -43,11 +43,11 @@ class DocumentsView extends ConsumerWidget {
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                color: const Color(0xFF1F1F1F).withOpacity(0.7),
+                color: const Color(0xFF1F1F1F).withValues(alpha: 0.7),
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.white.withOpacity(0.05)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(0, 4))
                 ],
               ),
               child: docsAsyncValue.when(
@@ -59,9 +59,9 @@ class DocumentsView extends ConsumerWidget {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.folder_outlined, size: 48, color: Colors.white.withOpacity(0.2)),
+                          Icon(Icons.folder_outlined, size: 48, color: Colors.white.withValues(alpha: 0.2)),
                           const SizedBox(height: 16),
-                          Text("No documents in Knowledge Base.", style: TextStyle(color: Colors.white.withOpacity(0.5))),
+                          Text("No documents in Knowledge Base.", style: TextStyle(color: Colors.white.withValues(alpha: 0.5))),
                         ],
                       )
                     );
@@ -69,7 +69,7 @@ class DocumentsView extends ConsumerWidget {
                   return ListView.separated(
                     padding: const EdgeInsets.all(16),
                     itemCount: docs.length,
-                    separatorBuilder: (_, __) => Divider(color: Colors.white.withOpacity(0.05), height: 1),
+                    separatorBuilder: (_, __) => Divider(color: Colors.white.withValues(alpha: 0.05), height: 1),
                     itemBuilder: (context, index) {
                       final title = docs[index]['filename'] ?? docs[index]['name'] ?? 'Document File';
                       return _DocItemCard(index, title, 'Ready', Icons.description);
@@ -119,9 +119,9 @@ class _DocItemCardState extends State<_DocItemCard> {
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 decoration: BoxDecoration(
-                  color: _isHovered ? Colors.white.withOpacity(0.04) : Colors.transparent,
+                  color: _isHovered ? Colors.white.withValues(alpha: 0.04) : Colors.transparent,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: _isHovered ? Colors.white.withOpacity(0.1) : Colors.transparent),
+                  border: Border.all(color: _isHovered ? Colors.white.withValues(alpha: 0.1) : Colors.transparent),
                 ),
                 child: Material(
                   color: Colors.transparent,
@@ -134,7 +134,7 @@ class _DocItemCardState extends State<_DocItemCard> {
                         children: [
                           Container(
                             padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
                             child: Icon(widget.icon, color: Colors.white, size: 24),
                           ),
                           const SizedBox(width: 16),
@@ -148,7 +148,7 @@ class _DocItemCardState extends State<_DocItemCard> {
                                   children: [
                                     Container(width: 8, height: 8, decoration: BoxDecoration(color: isReady ? Colors.greenAccent : Colors.orangeAccent, shape: BoxShape.circle)),
                                     const SizedBox(width: 6),
-                                    Text(widget.status, style: TextStyle(color: isReady ? Colors.white.withOpacity(0.6) : Colors.orangeAccent, fontSize: 13)),
+                                    Text(widget.status, style: TextStyle(color: isReady ? Colors.white.withValues(alpha: 0.6) : Colors.orangeAccent, fontSize: 13)),
                                   ],
                                 ),
                               ],
@@ -156,8 +156,8 @@ class _DocItemCardState extends State<_DocItemCard> {
                           ),
                           IconButton(
                             icon: const Icon(Icons.chat_bubble_outline, size: 20),
-                            color: Colors.white.withOpacity(0.6),
-                            hoverColor: Colors.white.withOpacity(0.1),
+                            color: Colors.white.withValues(alpha: 0.6),
+                            hoverColor: Colors.white.withValues(alpha: 0.1),
                             tooltip: 'Chat with Document',
                             onPressed: () {},
                           ),
