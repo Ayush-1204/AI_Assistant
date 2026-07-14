@@ -1,13 +1,15 @@
 import asyncio
-import logging
 import json
+import logging
+import random
+
 from fastapi import WebSocket, WebSocketDisconnect
 
-from app.services.ai.planner.planner import Planner
 from app.services.ai.planner.executor import AgentExecutor
-from app.services.voice.session import VoiceSession, StreamingState
+from app.services.ai.planner.planner import Planner
 from app.services.voice.providers.base_stt import BaseSTTProvider
 from app.services.voice.providers.base_tts import BaseTTSProvider
+from app.services.voice.session import StreamingState, VoiceSession
 
 logger = logging.getLogger(__name__)
 
@@ -67,10 +69,19 @@ class StreamingCoordinator:
                     logger.info("[Voice] Interruption detected! Barge-in triggered.")
                 
                 # Execute agent on transcript aggregation.
-                # In real scenario, STT provides an 'is_final' flag, assuming final here.
                 self.session.partial_transcript += transcript + " "
                 
+                # Instantly transmit phrase chunks down to the frontend for Real-Time UI display
+                try:
+                    await self.websocket.send_text(json.dumps({
+                        "type": "stt",
+                        "text": self.session.partial_transcript
+                    }))
+                except Exception as e:
+                    logger.warning(f"[Voice] failed to stream text: {e}")
+                
                 if self.active_generation_task is None or self.active_generation_task.done():
+                    logger.info(f"[Voice Streaming] User phrase breakpoint reached. Dispatching to agent: '{self.session.partial_transcript.strip()}'")
                     self.active_generation_task = asyncio.create_task(
                         self._trigger_agent_and_tts(self.session.partial_transcript)
                     )
@@ -78,6 +89,27 @@ class StreamingCoordinator:
 
     async def _trigger_agent_and_tts(self, user_text: str) -> None:
         self.session.ai_starts_speaking()
+        try:
+            await self.websocket.send_text(json.dumps({
+                "type": "stt_agent_clear",
+                "text": "AI: "
+            }))
+        except:
+            pass
+        
+        # Fast Brain Preemptive Audio Injection
+        # We instantly fill the async WebSockets channel with TTS bytes to drop Time-To-First-Audio to ~0ms.
+        # This completely masks the ~3-5 seconds of RAG and DB operations.
+        conversational_fillers = [
+            "Let me check on that...",
+            "Hmm, let me see...",
+            "One moment...",
+            "Looking into it...",
+            "Give me a second...",
+        ]
+        filler_task = asyncio.create_task(
+            self.tts.process_text(random.choice(conversational_fillers))
+        )
         
         messages, _ = await self.context_builder.build(
             user_id=self.session.user_id, 
@@ -88,13 +120,33 @@ class StreamingCoordinator:
         tools_payload = self.agent.strategy.get_tools_for_provider()
         
         try:
+            logger.info("[Voice Streaming] Invoking LLM Agent via streaming router for live text token derivation...")
             # We use stream_run to get text tokens real-time and push them to TTS
+            sentence_buffer = ""
             async for chunk in self.agent.stream_run(user_text, context, messages, tools_payload):
                 if chunk.startswith("data: ") and '"delta"' in chunk:
                     delta_data = json.loads(chunk[6:])
                     if 'delta' in delta_data:
-                        await self.tts.process_text(delta_data['delta'])
+                        text_tok = delta_data['delta']
+                        sentence_buffer += text_tok
+                        
+                        try:
+                            await self.websocket.send_text(json.dumps({
+                                "type": "stt_agent",
+                                "text": text_tok
+                            }))
+                        except:
+                            pass
+                            
+                        # Flush when we hit boundary punctuation to ensure smooth sentence synthesis
+                        if any(p in text_tok for p in ['.', '!', '?', '\n']):
+                            await self.tts.process_text(sentence_buffer)
+                            sentence_buffer = ""
             
+            # Flush any remaining buffer
+            if sentence_buffer:
+                await self.tts.process_text(sentence_buffer)
+                
             # Flush TTS processing
             await self.tts.flush()
         except asyncio.CancelledError:

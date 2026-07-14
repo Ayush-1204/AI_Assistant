@@ -4,7 +4,6 @@ from app.dependencies import (
     get_current_user,
     get_retrieval_service,
 )
-
 from app.services.retrieval.retrieval_service import RetrievalService
 
 

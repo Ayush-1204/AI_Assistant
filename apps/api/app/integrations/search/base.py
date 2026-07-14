@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
+
 from app.schemas.search import SearchResult
+
 
 class SearchProvider(ABC):
     @property

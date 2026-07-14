@@ -113,10 +113,10 @@ async def _run(args: argparse.Namespace) -> int:
         RetrievalEvaluationConfig,
         evaluate_dataset,
         evaluate_grid,
-        format_detailed_case_report,
         format_case_report,
-        format_summary_report,
+        format_detailed_case_report,
         format_scoring_rules,
+        format_summary_report,
         load_dataset,
     )
 

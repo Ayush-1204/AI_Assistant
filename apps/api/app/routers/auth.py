@@ -1,31 +1,30 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+import secrets
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import RedirectResponse, Response
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import (
     InvalidCredentialsException,
     UserAlreadyExistsException,
 )
-from app.dependencies import get_auth_service
+from app.db.models.user import User
+from app.dependencies import get_auth_service, get_current_user, get_db
+from app.integrations.google.auth import GoogleAuthService
+from app.repositories.oauth_repository import OAuthRepository
+from app.repositories.user_repository import UserRepository
 from app.schemas.user import (
     TokenResponse,
     UserCreate,
     UserResponse,
 )
 from app.services.auth_service import AuthService
-from fastapi.responses import RedirectResponse, Response
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.dependencies import get_db, get_current_user
-from app.integrations.google.auth import GoogleAuthService
-from app.repositories.oauth_repository import OAuthRepository
-from app.repositories.user_repository import UserRepository
-from app.utils.security import hash_password
 from app.utils.jwt import create_access_token
-from app.db.models.user import User
-import secrets
-from typing import Dict
+from app.utils.security import hash_password
 
 # In-memory store for transferring volatile OAuth frontend ports across the redirect sequence
-OAUTH_METADATA: Dict[str, str] = {}
+OAUTH_METADATA: dict[str, str] = {}
 
 
 router = APIRouter(
@@ -173,8 +172,9 @@ async def google_auth_callback(
     returns a JWT — completing the Google login flow.
     """
     try:
-        from app.repositories.oauth_state_repository import OAuthStateRepository
         import httpx
+
+        from app.repositories.oauth_state_repository import OAuthStateRepository
 
         state_repo = OAuthStateRepository(db)
         is_valid, marker_id = await state_repo.consume_state(state)

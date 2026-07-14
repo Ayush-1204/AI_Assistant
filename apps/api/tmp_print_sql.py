@@ -1,10 +1,11 @@
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "Documents", "AI_Assistant", "apps", "api")))
 
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
+
 from app.db.models import Document, DocumentChunk, DocumentStatus
 
 user_id = 1
@@ -25,6 +26,7 @@ stmt = (
 )
 
 from sqlalchemy.dialects import postgresql
+
 compiled = stmt.compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True})
 with open("proper_sql.txt", "w", encoding="utf-8") as f:
     f.write(str(compiled))

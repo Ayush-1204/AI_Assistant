@@ -1,6 +1,8 @@
 import json
-from app.services.ai.tools.base import BaseTool
+
 from app.integrations.google.calendar import GoogleCalendarService
+from app.services.ai.tools.base import BaseTool
+
 
 class CalendarTool(BaseTool):
     def __init__(self, service: GoogleCalendarService):

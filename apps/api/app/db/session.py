@@ -10,7 +10,7 @@ settings = get_settings()
 
 engine = create_async_engine(
     settings.DATABASE_URL,
-    echo=settings.DEBUG,
+    echo=False,  # Forcibly disable verbose SQL logs
 )
 
 AsyncSessionLocal = async_sessionmaker(

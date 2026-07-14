@@ -1,10 +1,11 @@
-from typing import Any
-from fastapi import APIRouter, Depends
-from app.dependencies import get_current_user, get_reminder_service
-from app.db.models.user import User
-from app.services.reminders.reminder_service import ReminderService
-from pydantic import BaseModel
 from datetime import datetime
+
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel
+
+from app.db.models.user import User
+from app.dependencies import get_current_user, get_reminder_service
+from app.services.reminders.reminder_service import ReminderService
 
 router = APIRouter(prefix="/reminders", tags=["Reminders"])
 

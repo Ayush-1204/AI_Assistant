@@ -1,6 +1,8 @@
-import logging
 import datetime
+import logging
+
 from googleapiclient.discovery import build
+
 from app.integrations.google.auth import GoogleAuthService
 
 logger = logging.getLogger(__name__)
@@ -18,7 +20,7 @@ class GoogleCalendarService:
     async def get_todays_schedule(self, user_id: int):
         service = await self._get_client(user_id)
         
-        now = datetime.datetime.now(datetime.timezone.utc)
+        now = datetime.datetime.now(datetime.UTC)
         start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat().replace('+00:00', 'Z')
         end_of_day = now.replace(hour=23, minute=59, second=59, microsecond=999999).isoformat().replace('+00:00', 'Z')
         
@@ -33,12 +35,29 @@ class GoogleCalendarService:
 
     async def get_upcoming_events(self, user_id: int, max_results: int = 10):
         service = await self._get_client(user_id)
-        now = datetime.datetime.now(datetime.timezone.utc).isoformat().replace('+00:00', 'Z')
+        now = datetime.datetime.now(datetime.UTC).isoformat().replace('+00:00', 'Z')
         events_result = service.events().list(
             calendarId='primary', 
             timeMin=now,
             maxResults=max_results, 
             singleEvents=True,
+            orderBy='startTime'
+        ).execute()
+        return events_result.get('items', [])
+
+    async def get_monthly_events(self, user_id: int, year: int, month: int):
+        service = await self._get_client(user_id)
+        start_date = datetime.datetime(year, month, 1, tzinfo=datetime.timezone.utc)
+        next_month = month + 1 if month < 12 else 1
+        next_year = year if month < 12 else year + 1
+        end_date = datetime.datetime(next_year, next_month, 1, tzinfo=datetime.timezone.utc)
+        
+        events_result = service.events().list(
+            calendarId='primary', 
+            timeMin=start_date.isoformat().replace('+00:00', 'Z'),
+            timeMax=end_date.isoformat().replace('+00:00', 'Z'),
+            singleEvents=True,
+            maxResults=2500,
             orderBy='startTime'
         ).execute()
         return events_result.get('items', [])

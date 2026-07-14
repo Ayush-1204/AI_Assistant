@@ -1,12 +1,13 @@
-import ollama
-from typing import Any
 from collections.abc import AsyncGenerator
+from typing import Any
 
 import httpx
+import ollama
+
 from app.services.ai.prompts import PromptBuilder
 from app.services.ai.providers.base import BaseLLMProvider
-from app.services.ai.providers.metadata import ProviderMetadata
 from app.services.ai.providers.exceptions import ProviderTransientError
+from app.services.ai.providers.metadata import ProviderMetadata
 
 
 class OllamaProvider(BaseLLMProvider):
@@ -47,13 +48,15 @@ class OllamaProvider(BaseLLMProvider):
         tools: list[dict] | None = None,
         intent: str = "general",
     ) -> str:
-
         try:
+            import re
             response = ollama.chat(
                 model=self.model,
                 messages=messages,
             )
-            return response["message"]["content"]
+            content = response["message"]["content"]
+            content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+            return content
         except Exception as e:
             raise ProviderTransientError(f"Ollama chat error: {str(e)}")
 
@@ -63,7 +66,6 @@ class OllamaProvider(BaseLLMProvider):
         tools: list[dict] | None = None,
         intent: str = "general",
     ) -> AsyncGenerator[Any, None]:
-
         try:
             stream = ollama.chat(
                 model=self.model,
@@ -71,9 +73,26 @@ class OllamaProvider(BaseLLMProvider):
                 stream=True,
             )
 
+            is_thinking = False
             for chunk in stream:
-
-                yield chunk["message"]["content"]
+                text = chunk["message"]["content"]
+                
+                if "<think>" in text:
+                    is_thinking = True
+                    parts = text.split("<think>", 1)
+                    if parts[0].strip():
+                        yield parts[0]
+                    text = parts[1] if len(parts) > 1 else ""
+                    
+                if "</think>" in text:
+                    is_thinking = False
+                    parts = text.split("</think>", 1)
+                    text = parts[1] if len(parts) > 1 else ""
+                    
+                # In case the model generates thinking tags perfectly delimited, the above works. 
+                # If they are chunked partially, Ollama commonly yields them as whole tokens `<think>`.
+                if not is_thinking and text:
+                    yield text
         except Exception as e:
             raise ProviderTransientError(f"Ollama stream error: {str(e)}")
 

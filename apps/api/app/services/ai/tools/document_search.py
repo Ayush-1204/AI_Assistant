@@ -1,6 +1,7 @@
 from app.services.ai.tools.base import BaseTool
 from app.services.retrieval.retrieval_service import RetrievalService
 
+
 class DocumentSearchTool(BaseTool):
     def __init__(self, retrieval_service: RetrievalService):
         self.retrieval_service = retrieval_service

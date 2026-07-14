@@ -4,7 +4,6 @@ from app.config import get_settings
 
 from .base import BaseEmbeddingProvider
 
-
 settings = get_settings()
 
 

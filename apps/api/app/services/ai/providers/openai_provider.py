@@ -1,12 +1,13 @@
 import json
-import httpx
-from typing import Any
 from collections.abc import AsyncGenerator
+from typing import Any
+
+import httpx
 
 from app.services.ai.prompts import PromptBuilder
 from app.services.ai.providers.base import BaseLLMProvider
+from app.services.ai.providers.exceptions import ProviderError, ProviderTransientError
 from app.services.ai.providers.metadata import ProviderMetadata
-from app.services.ai.providers.exceptions import ProviderTransientError
 
 
 class OpenAICompatibleProvider(BaseLLMProvider):
@@ -59,8 +60,9 @@ class OpenAICompatibleProvider(BaseLLMProvider):
             # Normally tool orchestrators output OpenAI compatible json.
             func_dict = t.get("functionDeclarations", [])
             if not func_dict:
-                # Perhaps it's already OpenAI schema
-                openai_tools.append(t)
+                if "type" in t and t["type"] == "function":
+                    # Perhaps it's already OpenAI schema
+                    openai_tools.append(t)
             else:
                 for func in func_dict:
                     openai_tools.append({
@@ -71,7 +73,7 @@ class OpenAICompatibleProvider(BaseLLMProvider):
                             "parameters": func.get("parameters", {})
                         }
                     })
-        return openai_tools
+        return openai_tools if openai_tools else None
 
     async def chat(
         self,
@@ -79,10 +81,58 @@ class OpenAICompatibleProvider(BaseLLMProvider):
         tools: list[dict] | None = None,
         intent: str = "general",
     ):
+        def flatten_openai_msg(m):
+            if "parts" in m:
+                role = "assistant" if m.get("role") == "model" else m.get("role", "user")
+                tool_calls = []
+                content = ""
+                tool_responses = []
+                import json
+                for p in m["parts"]:
+                    if "text" in p:
+                        content += p["text"]
+                    elif "functionCall" in p:
+                        fc = p["functionCall"]
+                        tool_calls.append({
+                            "id": fc.get("name"), 
+                            "type": "function",
+                            "function": {
+                                "name": fc.get("name"),
+                                "arguments": json.dumps(fc.get("args", {}))
+                            }
+                        })
+                    elif "functionResponse" in p:
+                         fr = p["functionResponse"]
+                         resp_data = fr.get("response", "")
+                         if isinstance(resp_data, dict):
+                             content_str = json.dumps(resp_data)
+                         else:
+                             content_str = str(resp_data)
+                         tool_responses.append({
+                             "role": "tool",
+                             "tool_call_id": fr.get("name"),
+                             "content": content_str
+                         })
+                if tool_responses:
+                    return tool_responses
+                msg_dict = {"role": role, "content": content}
+                if tool_calls:
+                     msg_dict["tool_calls"] = tool_calls
+                return msg_dict
+            return m
+            
+        flat_messages = []
+        for msg in messages:
+            res = flatten_openai_msg(msg)
+            if isinstance(res, list):
+                flat_messages.extend(res)
+            else:
+                flat_messages.append(res)
+                
         converted_tools = self._convert_tools(tools)
         payload = {
             "model": self.model,
-            "messages": messages,
+            "messages": flat_messages,
             "stream": False,
         }
         if converted_tools:
@@ -105,10 +155,36 @@ class OpenAICompatibleProvider(BaseLLMProvider):
                 msg = data["choices"][0]["message"]
                 
                 if msg.get("tool_calls"):
-                    # Mocking a structure compatible with whatever parses it
-                    pass 
+                    class MockCall:
+                        def __init__(self, name, args):
+                            self.name = name
+                            self.args = args
+
+                    class MockResponse:
+                        def __init__(self, calls, text):
+                            self.function_calls = calls
+                            self.text = text
+                            
+                    calls = []
+                    for tc in msg.get("tool_calls"):
+                        func = tc.get("function", {})
+                        args_str = func.get("arguments", "{}")
+                        try:
+                             args = json.loads(args_str)
+                        except Exception:
+                             args = {}
+                             
+                        # Map OpenAI tool logic seamlessly to Gemini's expected execution structural properties
+                        calls.append(MockCall(name=func.get("name"), args=args))
+                        
+                    return MockResponse(calls, msg.get("content") or "")
                 
                 return msg.get("content") or ""
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code in (429, 408, 500, 502, 503, 504):
+                raise ProviderTransientError(f"{self.provider_name} API transient failure ({e.response.status_code}): {e.response.text}")
+            else:
+                raise ProviderError(f"{self.provider_name} non-transient API failure ({e.response.status_code}): {e.response.text}")
         except Exception as e:
             raise ProviderTransientError(f"{self.provider_name} API failure: {str(e)}")
 
@@ -132,10 +208,58 @@ class OpenAICompatibleProvider(BaseLLMProvider):
         tools: list[dict] | None = None,
         intent: str = "general",
     ) -> AsyncGenerator[Any, None]:
+        def flatten_openai_msg(m):
+            if "parts" in m:
+                role = "assistant" if m.get("role") == "model" else m.get("role", "user")
+                tool_calls = []
+                content = ""
+                tool_responses = []
+                import json
+                for p in m["parts"]:
+                    if "text" in p:
+                        content += p["text"]
+                    elif "functionCall" in p:
+                        fc = p["functionCall"]
+                        tool_calls.append({
+                            "id": fc.get("name"), 
+                            "type": "function",
+                            "function": {
+                                "name": fc.get("name"),
+                                "arguments": json.dumps(fc.get("args", {}))
+                            }
+                        })
+                    elif "functionResponse" in p:
+                         fr = p["functionResponse"]
+                         resp_data = fr.get("response", "")
+                         if isinstance(resp_data, dict):
+                             content_str = json.dumps(resp_data)
+                         else:
+                             content_str = str(resp_data)
+                         tool_responses.append({
+                             "role": "tool",
+                             "tool_call_id": fr.get("name"),
+                             "content": content_str
+                         })
+                if tool_responses:
+                    return tool_responses
+                msg_dict = {"role": role, "content": content}
+                if tool_calls:
+                     msg_dict["tool_calls"] = tool_calls
+                return msg_dict
+            return m
+            
+        flat_messages = []
+        for msg in messages:
+            res = flatten_openai_msg(msg)
+            if isinstance(res, list):
+                flat_messages.extend(res)
+            else:
+                flat_messages.append(res)
+                
         converted_tools = self._convert_tools(tools)
         payload = {
             "model": self.model,
-            "messages": messages,
+            "messages": flat_messages,
             "stream": True,
         }
         if converted_tools:
@@ -163,5 +287,10 @@ class OpenAICompatibleProvider(BaseLLMProvider):
                                     yield content
                             except Exception:
                                 pass
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code in (429, 408, 500, 502, 503, 504):
+                raise ProviderTransientError(f"{self.provider_name} API transient streaming failure ({e.response.status_code}): {e.response.text}")
+            else:
+                raise ProviderError(f"{self.provider_name} non-transient API streaming failure ({e.response.status_code}): {e.response.text}")
         except Exception as e:
             raise ProviderTransientError(f"{self.provider_name} streaming failure: {str(e)}")

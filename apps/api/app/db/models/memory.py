@@ -1,3 +1,4 @@
+from datetime import datetime
 from sqlalchemy import DateTime, Float, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -41,12 +42,27 @@ class Memory(Base):
         default=1.0,
     )
 
-    created_at: Mapped[DateTime] = mapped_column(
+    previous_value: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
+    )
+
+    valid_from: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
     )
 
-    updated_at: Mapped[DateTime] = mapped_column(
+    valid_to: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         onupdate=func.now(),
@@ -54,5 +70,11 @@ class Memory(Base):
 
     user = relationship(
         "User",
+        back_populates="memories",
+    )
+
+    people = relationship(
+        "Person",
+        secondary="person_memory",
         back_populates="memories",
     )

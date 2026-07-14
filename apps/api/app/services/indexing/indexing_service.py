@@ -1,13 +1,10 @@
+from app.db.models import DocumentStatus
 from app.repositories.document_chunk_repository import (
     DocumentChunkRepository,
 )
-
 from app.repositories.document_repository import (
     DocumentRepository,
 )
-
-from app.db.models import DocumentStatus
-
 from app.services.ai.embeddings import (
     EmbeddingService,
 )

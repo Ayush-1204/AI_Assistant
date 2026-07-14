@@ -1,4 +1,5 @@
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from datetime import datetime
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -33,7 +34,12 @@ class Message(Base):
         nullable=False,
     )
 
-    created_at: Mapped[DateTime] = mapped_column(
+    images: Mapped[list[str] | None] = mapped_column(
+        JSON,
+        nullable=True,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
     )

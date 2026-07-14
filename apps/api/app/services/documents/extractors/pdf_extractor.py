@@ -1,6 +1,6 @@
 from pathlib import Path
 
-import pymupdf # pyright: ignore[reportMissingImports]
+import pymupdf  # pyright: ignore[reportMissingImports]
 
 from app.services.documents.models import (
     ExtractedDocument,

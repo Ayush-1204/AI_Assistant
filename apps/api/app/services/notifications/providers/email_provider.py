@@ -1,5 +1,7 @@
 import logging
+
 from app.services.notifications.providers.base import BaseNotificationProvider
+
 
 class EmailNotificationProvider(BaseNotificationProvider):
     async def send(self, user_id: int, title: str, message: str, **kwargs) -> bool:

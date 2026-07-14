@@ -1,6 +1,8 @@
-from app.repositories.reminder_repository import ReminderRepository
-from app.db.models.reminder import Reminder
 from datetime import datetime
+
+from app.db.models.reminder import Reminder
+from app.repositories.reminder_repository import ReminderRepository
+
 
 class ReminderService:
     def __init__(self, reminder_repository: ReminderRepository):

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
@@ -5,12 +7,22 @@ class ApiClient {
   static const String baseUrl = 'http://localhost:8000';
   final Dio _dio;
   String? _authToken;
+  double? _lat;
+  double? _lon;
+  bool _isLocalOnly = false;
 
   ApiClient() : _dio = Dio(BaseOptions(baseUrl: baseUrl)) {
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) {
         if (_authToken != null) {
           options.headers['Authorization'] = 'Bearer $_authToken';
+        }
+        if (_lat != null && _lon != null) {
+          options.headers['X-User-Lat'] = _lat.toString();
+          options.headers['X-User-Lon'] = _lon.toString();
+        }
+        if (_isLocalOnly) {
+          options.headers['X-Local-Only'] = 'True';
         }
         return handler.next(options);
       },
@@ -21,6 +33,18 @@ class ApiClient {
     _authToken = token;
   }
 
+  String? get token => _authToken;
+
+  void setLocation(double lat, double lon) {
+    _lat = lat;
+    _lon = lon;
+  }
+
+  void setLocalOnly(bool value) {
+    _isLocalOnly = value;
+  }
+
+  bool get isLocalOnly => _isLocalOnly;
   bool get isAuthenticated => _authToken != null;
 
   /// POST /auth/login — uses OAuth2PasswordRequestForm (x-www-form-urlencoded)
@@ -83,6 +107,8 @@ class ApiClient {
     }
   }
 
+
+
   Future<void> uploadDocument(String title, List<int> bytes, String filename) async {
     try {
       final formData = FormData.fromMap({
@@ -116,12 +142,55 @@ class ApiClient {
     }
   }
 
+  Future<Map<String, dynamic>> fetchConversation(int conversationId) async {
+    try {
+      final response = await _dio.get('/conversations/$conversationId');
+      return response.data as Map<String, dynamic>;
+    } catch (_) {
+      return {};
+    }
+  }
+
   Future<List<dynamic>> fetchDashboardWidgets() async {
     try {
       final response = await _dio.get('/dashboard/widgets');
       return response.data['widgets'] ?? [];
     } catch (_) {
       return [];
+    }
+  }
+
+  Future<List<dynamic>> fetchCalendarEvents({int? year, int? month}) async {
+    try {
+      String path = '/dashboard/calendar/events';
+      if (year != null && month != null) {
+        path += '?year=$year&month=$month';
+      }
+      final response = await _dio.get(path);
+      return response.data['events'] ?? [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> createCalendarEvent(String summary, String description, String startTime, String endTime) async {
+    try {
+      await _dio.post('/dashboard/calendar/events', data: {
+        'summary': summary,
+        'description': description,
+        'start_time': startTime,
+        'end_time': endTime,
+      });
+    } on DioException catch (e) {
+      throw Exception(e.response?.data?['detail'] ?? 'Failed to create event');
+    }
+  }
+
+  Future<void> deleteCalendarEvent(String eventId) async {
+    try {
+      await _dio.delete('/dashboard/calendar/events/$eventId');
+    } on DioException catch (e) {
+      throw Exception(e.response?.data?['detail'] ?? 'Failed to delete event');
     }
   }
 
@@ -134,22 +203,85 @@ class ApiClient {
     }
   }
 
+  Future<void> updateConversationTitle(int conversationId, String title) async {
+    try {
+      await _dio.patch('/conversations/$conversationId', data: {'title': title});
+    } on DioException catch (e) {
+      throw Exception(e.response?.data?['detail'] ?? 'Failed to update conversation title');
+    }
+  }
+
+  Future<void> deleteConversation(int conversationId) async {
+    try {
+      await _dio.delete('/conversations/$conversationId');
+    } on DioException catch (e) {
+      throw Exception(e.response?.data?['detail'] ?? 'Failed to delete conversation');
+    }
+  }
+
   WebSocketChannel connectToVoiceStream(String conversationId) {
-    final wsUrl = Uri.parse('ws://localhost:8000/voice/$conversationId');
+    final tokenParam = _authToken != null ? '?token=${Uri.encodeComponent(_authToken!)}' : '';
+    final wsUrl = Uri.parse('ws://localhost:8000/voice/$conversationId$tokenParam');
     return WebSocketChannel.connect(wsUrl);
   }
 
-  Future<String> sendChatMessage(String conversationId, String message) async {
+  WebSocketChannel connectToDictationStream() {
+    final tokenParam = _authToken != null ? '?token=${Uri.encodeComponent(_authToken!)}' : '';
+    final wsUrl = Uri.parse('ws://localhost:8000/voice/dictate$tokenParam');
+    return WebSocketChannel.connect(wsUrl);
+  }
+
+  Future<Uint8List> textToSpeech(String text) async {
+    try {
+      final response = await _dio.post(
+        '/voice/tts',
+        data: {'text': text},
+        options: Options(responseType: ResponseType.bytes),
+      );
+      // Backend returns a fully-buffered MP3 response
+      final data = response.data;
+      if (data is Uint8List) return data;
+      if (data is List<int>) return Uint8List.fromList(data);
+      throw Exception('Unexpected TTS response type: ${data.runtimeType}');
+    } on DioException catch (e) {
+      throw Exception(e.response?.data?['detail'] ?? 'TTS request failed');
+    }
+  }
+
+  Future<String> transcribeAudio(List<int> bytes) async {
+    try {
+      final formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(bytes, filename: 'audio.webm'),
+      });
+      final response = await _dio.post(
+        '/voice/transcribe',
+        data: formData,
+      );
+      return response.data['text'] ?? '';
+    } on DioException catch (e) {
+      throw Exception(e.response?.data?['detail'] ?? 'STT request failed');
+    }
+  }
+
+  Future<Map<String, dynamic>> sendChatMessage(String conversationId, String message, {bool isRegenerate = false, List<String>? images}) async {
     try {
       final intId = int.tryParse(conversationId) ?? (throw Exception("Invalid Conversation ID"));
+      
+      final Map<String, dynamic> data = {
+        'conversation_id': intId, 
+        'message': message,
+        'is_regenerate': isRegenerate,
+      };
+      
+      if (images != null && images.isNotEmpty) {
+         data['images'] = images;
+      }
+      
       final response = await _dio.post(
         '/chat',
-        data: {
-          'conversation_id': intId, 
-          'message': message
-        },
+        data: data,
       );
-      return response.data['response'] ?? '';
+      return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
       throw Exception(e.response?.data?['detail'] ?? 'Chat request failed');
     }

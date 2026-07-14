@@ -1,5 +1,7 @@
 import math
+
 from app.services.ai.tools.base import BaseTool
+
 
 class CalculatorTool(BaseTool):
     @property

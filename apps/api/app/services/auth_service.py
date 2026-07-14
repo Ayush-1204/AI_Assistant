@@ -1,11 +1,9 @@
-from app.core.exceptions import UserAlreadyExistsException
-from app.core.exceptions import InvalidCredentialsException
+from app.core.exceptions import InvalidCredentialsException, UserAlreadyExistsException
 from app.db.models.user import User
 from app.repositories.user_repository import UserRepository
 from app.schemas.user import UserCreate
 from app.utils.jwt import create_access_token
-from app.utils.security import verify_password
-from app.utils.security import hash_password
+from app.utils.security import hash_password, verify_password
 
 
 class AuthService:

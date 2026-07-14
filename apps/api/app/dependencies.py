@@ -4,104 +4,100 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.session import AsyncSessionLocal
 from app.config import settings
-
-# Repositories
-from app.repositories.user_repository import UserRepository
+from app.db.session import AsyncSessionLocal
+from app.integrations.google.auth import GoogleAuthService
+from app.integrations.google.calendar import GoogleCalendarService
+from app.integrations.google.drive import GoogleDriveService
+from app.integrations.google.gmail import GoogleGmailService
+from app.integrations.google.tasks import GoogleTasksService
+from app.integrations.search.tavily import TavilySearchProvider
 from app.repositories.conversation_repository import ConversationRepository
-from app.repositories.message_repository import MessageRepository
-from app.repositories.memory_repository import MemoryRepository
-from app.repositories.document_repository import DocumentRepository
 from app.repositories.document_chunk_repository import (
     DocumentChunkRepository,
 )
+from app.repositories.document_repository import DocumentRepository
+from app.repositories.memory_repository import MemoryRepository
+from app.repositories.message_repository import MessageRepository
 from app.repositories.note_repository import NoteRepository
-from app.repositories.task_repository import TaskRepository
+from app.repositories.oauth_repository import OAuthRepository
 from app.repositories.reminder_repository import ReminderRepository
+from app.repositories.task_repository import TaskRepository
 
-# Services
-from app.services.auth_service import AuthService
-from app.services.conversation_service import ConversationService
-from app.services.message_service import MessageService
-from app.services.document_service import DocumentService
-from app.services.storage_service import StorageService
-from app.services.notes.note_service import NoteService
-from app.services.tasks.task_service import TaskService
-from app.services.reminders.reminder_service import ReminderService
-from app.services.retrieval.retrieval_service import RetrievalService
-from app.services.retrieval.fusion import ResultFusion
-from app.services.retrieval.reranking import Reranker, CrossEncoderReranker
-
+# Repositories
+from app.repositories.user_repository import UserRepository
 
 # AI
 from app.services.ai.ai_service import AIService
-from app.services.ai.providers import GeminiProvider
 from app.services.ai.context import ContextBuilder
-from app.services.ai.providers import OllamaProvider
 
 # Embeddings
 from app.services.ai.embeddings import (
     EmbeddingService,
 )
-
-from app.services.ai.embeddings.providers.gemini import (
-    GeminiEmbeddingProvider,
-)
-
-from app.services.ai.embeddings.providers.ollama import (
-    OllamaEmbeddingProvider,
-)
-
 from app.services.ai.embeddings.providers.base import (
     BaseEmbeddingProvider,
 )
-
-#  Indexing
-from app.services.indexing import IndexingService
+from app.services.ai.embeddings.providers.ollama import (
+    OllamaEmbeddingProvider,
+)
 
 # Memory
 from app.services.ai.memory import (
     MemoryExtractor,
     MemoryService,
 )
+from app.services.ai.providers import GeminiProvider, OllamaProvider
+from app.services.ai.tools.calculator import CalculatorTool
+from app.services.ai.tools.datetime_tool import CurrentTimeTool
+from app.services.ai.tools.document_search import DocumentSearchTool
+from app.services.ai.tools.google_calendar import CalendarTool
+from app.services.ai.tools.google_drive import DriveTool
+from app.services.ai.tools.google_gmail import GmailTool
+from app.services.ai.tools.google_tasks import GoogleTasksTool
+from app.services.ai.tools.implementations.browser import BrowserAXTreeTool
+from app.services.ai.tools.implementations.mcp_adapter import MCPAdapterTool
+from app.services.ai.tools.memory_search import MemorySearchTool
+from app.services.ai.tools.system_control import SystemControlTool
+from app.services.ai.tools.app_launcher import AppLauncherTool
+from app.services.ai.tools.browser_automation import BrowserAutomationTool
+from app.services.ai.tools.computer_control import ComputerControlTool
+from app.services.ai.tools.notes_tool import NotesTool
+from app.services.ai.tools.orchestrator import ToolOrchestrator
 
 # Tools
 from app.services.ai.tools.registry import ToolRegistry
-from app.services.ai.tools.orchestrator import ToolOrchestrator
-from app.services.ai.tools.datetime_tool import CurrentTimeTool
-from app.services.ai.tools.calculator import CalculatorTool
-from app.services.ai.tools.document_search import DocumentSearchTool
-from app.services.ai.tools.memory_search import MemorySearchTool
-from app.services.ai.tools.web_search import WebSearchTool
-from app.services.ai.tools.notes_tool import NotesTool
-from app.services.ai.tools.tasks_tool import TasksTool
 from app.services.ai.tools.reminders_tool import RemindersTool
-from app.integrations.search.tavily import TavilySearchProvider
-from app.services.ai.tools.google_calendar import CalendarTool
-from app.services.ai.tools.google_gmail import GmailTool
-from app.services.ai.tools.google_drive import DriveTool
-from app.services.ai.tools.google_tasks import GoogleTasksTool
-from app.integrations.google.auth import GoogleAuthService
-from app.integrations.google.calendar import GoogleCalendarService
-from app.integrations.google.tasks import GoogleTasksService
-from app.integrations.google.gmail import GoogleGmailService
-from app.integrations.google.drive import GoogleDriveService
-from app.repositories.oauth_repository import OAuthRepository
+from app.services.ai.tools.tasks_tool import TasksTool
+from app.services.ai.tools.web_search import WebSearchTool
 
-# Documents
-from app.services.documents.processor import DocumentProcessor
-from app.services.documents.extractors.registry import (
-    ExtractorRegistry,
-)
+# Services
+from app.services.auth_service import AuthService
+from app.services.conversation_service import ConversationService
+from app.services.document_service import DocumentService
 from app.services.documents.chunking.text_chunker import (
     TextChunker,
 )
+from app.services.documents.extractors.registry import (
+    ExtractorRegistry,
+)
+
+# Documents
+from app.services.documents.processor import DocumentProcessor
+
+#  Indexing
+from app.services.indexing import IndexingService
+from app.services.message_service import MessageService
+from app.services.notes.note_service import NoteService
+from app.services.reminders.reminder_service import ReminderService
+from app.services.retrieval.fusion import ResultFusion
+from app.services.retrieval.reranking import CrossEncoderReranker, Reranker
+from app.services.retrieval.retrieval_service import RetrievalService
+from app.services.storage_service import StorageService
+from app.services.tasks.task_service import TaskService
 
 # Utils
 from app.utils.jwt import decode_access_token
-
-
 
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/auth/login",
@@ -217,36 +213,57 @@ def get_provider_router() -> ProviderRouter:
         from app.services.ai.providers.openai_provider import OpenAICompatibleProvider
         _router_instance = ProviderRouter()
         
-        # 1. Google Gemini Native Providers
+        # 1. Google Gemini Native Providers (only real, available models)
+        _router_instance.register_provider(GeminiProvider(model_name="gemini-3.5-flash", provider_name="gemini-3.5-flash"))
+        _router_instance.register_provider(GeminiProvider(model_name="gemini-3.1-flash-lite", provider_name="gemini-3.1-flash-lite"))
         _router_instance.register_provider(GeminiProvider(model_name="gemini-2.5-flash", provider_name="gemini-2.5-flash"))
         _router_instance.register_provider(GeminiProvider(model_name="gemini-2.5-flash-lite", provider_name="gemini-2.5-flash-lite"))
-        _router_instance.register_provider(GeminiProvider(model_name="gemini-2.5-pro", provider_name="gemini-2.5-pro"))
-        _router_instance.register_provider(GeminiProvider(model_name="gemini-2.0-flash", provider_name="gemini-2.0-flash"))
-        _router_instance.register_provider(GeminiProvider(model_name="gemini-1.5-pro", provider_name="gemini-1.5-pro"))
-        _router_instance.register_provider(GeminiProvider(model_name="gemini-1.5-flash", provider_name="gemini-1.5-flash"))
+        # gemini-flash is the canonical alias used by intent routing strategies
+        _router_instance.register_provider(GeminiProvider(model_name="gemini-3.5-flash", provider_name="gemini-flash"))
         
-        # 2. Local Ollama Native Providers
-        _router_instance.register_provider(OllamaProvider(model_name="qwen2.5-coder:14b", provider_name="ollama-coder"))
-        _router_instance.register_provider(OllamaProvider(model_name="deepseek-r1", provider_name="ollama-reasoning"))
-        _router_instance.register_provider(OllamaProvider(model_name="qwen3:8b", provider_name="ollama-default"))
+        # 2. Local Ollama Native Providers — DISABLED (laptop resource constraints)
+        # Uncomment to re-enable when running on a capable machine
+        # _router_instance.register_provider(OllamaProvider(model_name="qwen2.5-coder:14b", provider_name="ollama-coder"))
+        # _router_instance.register_provider(OllamaProvider(model_name="deepseek-r1", provider_name="ollama-reasoning"))
+        # _router_instance.register_provider(OllamaProvider(model_name="qwen3:8b", provider_name="ollama-default"))
         
         # 3. Groq Fast OpenAI-Compatible Pipeline
         if settings.GROQ_API_KEY:
-            _router_instance.register_provider(OpenAICompatibleProvider(
-                api_key=settings.GROQ_API_KEY, 
-                base_url="https://api.groq.com/openai/v1", 
-                model_name="llama-3.3-70b-versatile",
-                provider_name="groq-llama"
-            ))
+            groq_models = [
+                "llama-3.3-70b-versatile",
+                "llama-3.1-8b-instant",
+                "meta-llama/llama-prompt-guard-2-2",
+                "qwen/qwen3-32b",
+                "qwen/qwen3.6-27b",
+                "groq/compound",
+                "groq/compound-mini"
+            ]
+            for mdl in groq_models:
+                p_name = mdl.split("/")[-1] if "/" in mdl else mdl
+                _router_instance.register_provider(OpenAICompatibleProvider(
+                    api_key=settings.GROQ_API_KEY, 
+                    base_url="https://api.groq.com/openai/v1", 
+                    model_name=mdl,
+                    provider_name=f"groq-{p_name}"
+                ))
             
         # 4. OpenRouter Scalable OpenAI-Compatible Pipeline
         if settings.OPENROUTER_API_KEY:
-            _router_instance.register_provider(OpenAICompatibleProvider(
-                api_key=settings.OPENROUTER_API_KEY,
-                base_url="https://openrouter.ai/api/v1",
-                model_name="meta-llama/llama-3.3-70b-instruct", 
-                provider_name="openrouter"
-            ))
+            openrouter_models = [
+                "meta-llama/llama-3.3-70b-instruct",
+                "openai/gpt-oss-120b",
+                "openai/gpt-oss-20b",
+                "openai/gpt-oss-safeguard-20b",
+                "canopylabs/orpheus-vl-english"
+            ]
+            for mdl in openrouter_models:
+                p_name = mdl.split("/")[-1] if "/" in mdl else mdl
+                _router_instance.register_provider(OpenAICompatibleProvider(
+                    api_key=settings.OPENROUTER_API_KEY,
+                    base_url="https://openrouter.ai/api/v1",
+                    model_name=mdl, 
+                    provider_name=f"openrouter-{p_name}"
+                ))
             
     return _router_instance
 
@@ -485,6 +502,13 @@ def get_tool_orchestrator(
     registry.register(NotesTool(note_service))
     registry.register(TasksTool(task_service))
     registry.register(RemindersTool(reminder_service))
+    registry.register(MCPAdapterTool())
+    registry.register(BrowserAXTreeTool())
+    
+    registry.register(SystemControlTool())
+    registry.register(AppLauncherTool())
+    registry.register(BrowserAutomationTool())
+    registry.register(ComputerControlTool())
     
     if settings.GOOGLE_CLIENT_ID:
         oauth_repo = OAuthRepository(db)
@@ -572,17 +596,23 @@ async def get_current_user(
     return user
 
 def boot_scheduler():
+    from app.db.session import AsyncSessionLocal
+    from app.services.notifications.notification_service import NotificationService
+    from app.services.notifications.providers.database_provider import (
+        DatabaseNotificationProvider,
+    )
+    from app.services.notifications.providers.email_provider import (
+        EmailNotificationProvider,
+    )
+    from app.services.notifications.providers.push_provider import (
+        PushNotificationProvider,
+    )
+    from app.services.scheduler.dispatcher import AgentDispatcher
     from app.services.scheduler.scheduler import BackgroundScheduler
     from app.services.scheduler.worker import SchedulerWorker
-    from app.services.scheduler.dispatcher import AgentDispatcher
-    from app.services.notifications.notification_service import NotificationService
-    from app.services.notifications.providers.database_provider import DatabaseNotificationProvider
-    from app.services.notifications.providers.email_provider import EmailNotificationProvider
-    from app.services.notifications.providers.push_provider import PushNotificationProvider
-    from app.db.session import AsyncSessionLocal
 
-    async def worker_factory():
-        db = AsyncSessionLocal()
+    async def worker_factory(session=None):
+        db = session or AsyncSessionLocal()
         notification_service = NotificationService([
             DatabaseNotificationProvider(db),
             EmailNotificationProvider(),

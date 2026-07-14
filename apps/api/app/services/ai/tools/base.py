@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
+
 class BaseTool(ABC):
     @property
     @abstractmethod
@@ -20,6 +21,16 @@ class BaseTool(ABC):
         """JSON mapping dictating execution properties correctly."""
         pass
         
+    @property
+    def requires_confirmation(self) -> bool:
+        """Indicates whether this tool requires explicit user permission to execute."""
+        return False
+        
+    @property
+    def risk_level(self) -> str:
+        """Risk level categorization: 'safe', 'moderate', 'destructive'."""
+        return "safe"
+
     @abstractmethod
     async def execute(self, execution_context: dict, **kwargs) -> Any:
         """Primary handler evaluating payloads properly over mapped bounds."""

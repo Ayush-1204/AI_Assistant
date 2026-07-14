@@ -1,6 +1,8 @@
-from app.repositories.task_repository import TaskRepository
-from app.db.models.task import Task
 from datetime import datetime
+
+from app.db.models.task import Task
+from app.repositories.task_repository import TaskRepository
+
 
 class TaskService:
     def __init__(self, task_repository: TaskRepository):

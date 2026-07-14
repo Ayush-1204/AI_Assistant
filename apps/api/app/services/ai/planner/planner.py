@@ -1,9 +1,9 @@
 import logging
-from typing import List, Tuple, Any
+from typing import Any
 
+from app.schemas.tool import ToolRequest
 from app.services.ai.providers.base import BaseLLMProvider
 from app.services.ai.tools.strategies import ToolInvocationStrategy
-from app.schemas.tool import ToolRequest
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +13,7 @@ class Planner:
         self.strategy = strategy
         self.intent = intent
 
-    async def plan_step(self, messages: List[dict], tools_payload: List[dict]) -> Tuple[Any, bool, List[ToolRequest], str]:
+    async def plan_step(self, messages: list[dict], tools_payload: list[dict]) -> tuple[Any, bool, list[ToolRequest], str]:
         """
         Determines the next action iteratively based on context.
         Returns: (raw_response_obj, has_tools, tool_requests, direct_text)

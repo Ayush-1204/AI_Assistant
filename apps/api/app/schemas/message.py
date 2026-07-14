@@ -13,6 +13,7 @@ class MessageRole(str, Enum):
 class MessageBase(BaseModel):
     role: MessageRole
     content: str
+    images: list[str] | None = None
 
 
 class MessageCreate(MessageBase):
@@ -21,6 +22,7 @@ class MessageCreate(MessageBase):
 
 class MessageUpdate(BaseModel):
     content: str | None = None
+    images: list[str] | None = None
 
 
 class MessageResponse(MessageBase):

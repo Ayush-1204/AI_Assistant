@@ -1,21 +1,70 @@
-import time
 import asyncio
 import logging
+import time
 from collections.abc import AsyncGenerator
 from typing import Any
 
 from app.config import get_settings
 from app.services.ai.providers.base import BaseLLMProvider
 from app.services.ai.providers.exceptions import (
-    ProviderTransientError, AllProvidersFailedError, ProviderError
-)
-from app.services.ai.providers.strategies import (
-    FixedProviderStrategy, PriorityStrategy, RoundRobinStrategy, LeastRecentlyUsedStrategy,
-    RoutingStrategy, LoadBalancingStrategy, IntentBasedRoutingStrategy
+    AllProvidersFailedError,
+    ProviderError,
+    ProviderTransientError,
 )
 from app.services.ai.providers.metadata import ProviderMetadata
+from app.services.ai.providers.strategies import (
+    FixedProviderStrategy,
+    IntentBasedRoutingStrategy,
+    LeastRecentlyUsedStrategy,
+    LoadBalancingStrategy,
+    PriorityStrategy,
+    RoundRobinStrategy,
+    RoutingStrategy,
+)
 
 logger = logging.getLogger(__name__)
+
+class TokenBucket:
+    def __init__(self, capacity: int, refill_period: float):
+        self.capacity = capacity
+        self.tokens = capacity
+        self.refill_period = refill_period
+        self.last_refill = time.time()
+        
+    def check_capacity(self, amount: int) -> bool:
+        now = time.time()
+        time_passed = now - self.last_refill
+        if time_passed >= self.refill_period:
+            self.tokens = self.capacity
+            self.last_refill = now
+        else:
+            refill_amount = int((time_passed / self.refill_period) * self.capacity)
+            if refill_amount > 0:
+                self.tokens = min(self.capacity, self.tokens + refill_amount)
+                self.last_refill = now
+        return self.tokens >= amount
+
+    def consume(self, amount: int):
+        self.tokens -= amount
+
+class ProviderBudget:
+    def __init__(self, rpm: int, tpm: int, cost_per_m_input: float = 0.0, cost_per_m_output: float = 0.0):
+        self.rpm_bucket = TokenBucket(rpm, 60.0)
+        self.tpm_bucket = TokenBucket(tpm, 60.0)
+        self.cost_per_m_input = cost_per_m_input
+        self.cost_per_m_output = cost_per_m_output
+        self.total_cost = 0.0
+        
+    def can_call(self, estimated_tokens: int) -> bool:
+        return self.rpm_bucket.check_capacity(1) and self.tpm_bucket.check_capacity(estimated_tokens)
+
+    def consume(self, estimated_tokens: int):
+        self.rpm_bucket.consume(1)
+        self.tpm_bucket.consume(estimated_tokens)
+
+    def track_usage(self, input_tokens: int, output_tokens: int):
+        self.total_cost += (input_tokens / 1_000_000.0) * self.cost_per_m_input
+        self.total_cost += (output_tokens / 1_000_000.0) * self.cost_per_m_output
 
 class ProviderRouter(BaseLLMProvider):
     def __init__(self):
@@ -24,6 +73,7 @@ class ProviderRouter(BaseLLMProvider):
         
         # Health cache tracking internal up-states independently scaling away from requests payloads
         self._health_cache: dict[str, dict] = {}
+        self.budgets: dict[str, ProviderBudget] = {}
         
         self.strategy_type = self.settings.routing_strategy
         self.strategy: RoutingStrategy
@@ -33,12 +83,13 @@ class ProviderRouter(BaseLLMProvider):
             self.strategy = FixedProviderStrategy(self.settings.default_provider)
             
         self.intent_strategy = IntentBasedRoutingStrategy({
-            "voice": ["groq-llama", "gemini-flash", "ollama-default"],
-            "long_doc": ["gemini-pro", "gemini-flash"],
-            "coding": ["ollama-coder", "gemini-flash"],
-            "reasoning": ["ollama-reasoning", "gemini-pro"],
-            "vision": ["gemini-flash"],
-            "general": ["gemini-flash", "groq-llama", "ollama-default"]
+            "voice": ["groq-llama-3.1-8b-instant", "gemini-3.1-flash-lite", "gemini-2.5-flash-lite", "ollama-default"],
+            "dashboard": ["groq-llama-3.1-8b-instant", "groq-qwen3-32b", "gemini-3.1-flash-lite", "gemini-2.5-flash"],
+            "long_doc": ["openrouter-gpt-oss-120b", "gemini-3.5-flash", "gemini-2.5-flash"],
+            "coding": ["groq-qwen3.6-27b", "groq-qwen3-32b", "ollama-coder", "gemini-3.5-flash"],
+            "reasoning": ["groq-compound", "groq-compound-mini", "openrouter-gpt-oss-safeguard-20b", "gemini-3.5-flash"],
+            "vision": ["openrouter-orpheus-vl-english", "gemini-3.5-flash"],
+            "general": ["groq-llama-3.3-70b-versatile", "gemini-flash", "groq-qwen3-32b", "ollama-default"]
         })
             
         self.lb_type = self.settings.load_balancing_strategy
@@ -52,6 +103,18 @@ class ProviderRouter(BaseLLMProvider):
         name = provider.name
         self.providers[name] = provider
         self._health_cache[name] = {"is_healthy": True, "last_checked": 0.0}
+        
+        if "groq-llama" in name.lower():
+            # Groq Llama 3.3 70B: $0.59 / $0.79 per 1M tokens
+            self.budgets[name] = ProviderBudget(rpm=30, tpm=6000, cost_per_m_input=0.59, cost_per_m_output=0.79)
+        elif "gemini-3.1-flash-lite" in name.lower():
+            self.budgets[name] = ProviderBudget(rpm=500, tpm=250000, cost_per_m_input=0.075, cost_per_m_output=0.3)
+        elif "gemini-3.5-flash" in name.lower():
+            self.budgets[name] = ProviderBudget(rpm=20, tpm=250000, cost_per_m_input=0.1, cost_per_m_output=0.4)
+        elif "gemini" in name.lower():
+            self.budgets[name] = ProviderBudget(rpm=20, tpm=250000, cost_per_m_input=0.075, cost_per_m_output=0.3)
+        else:
+            self.budgets[name] = ProviderBudget(rpm=1000, tpm=10000000, cost_per_m_input=0.0, cost_per_m_output=0.0)
 
     @property
     def name(self) -> str:
@@ -88,8 +151,13 @@ class ProviderRouter(BaseLLMProvider):
         return cache["is_healthy"]
 
     async def _get_available_providers(self) -> list[str]:
+        local_override = getattr(self.settings, "LOCAL_ONLY_MODE", False)
+        
         available = []
         for name in self.providers:
+            if local_override and "ollama" not in name.lower():
+                continue
+                
             if await self._is_provider_healthy(name):
                 available.append(name)
         return available
@@ -105,20 +173,39 @@ class ProviderRouter(BaseLLMProvider):
         else:
             selected_name = self.strategy.select_provider(available)
             
-        logger.info("Provider selected successfully", extra={"provider": selected_name, "strategy": "intent"})
+        if intent not in ("dashboard", "dashboard_auto_refresh"):
+            logger.info(f"[ProviderRouter] Routed '{intent}' intent successfully to physical model '{selected_name}'")
+            
         return self.providers[selected_name]
+
+    def _estimate_tokens(self, operation: str, args: tuple) -> int:
+        tokens = 100
+        if operation == "chat" or operation == "stream_chat":
+            if args and isinstance(args[0], list):
+                for msg in args[0]:
+                    if isinstance(msg, dict) and "content" in msg and isinstance(msg["content"], str):
+                        tokens += len(msg["content"]) // 4
+        elif operation == "generate_title" or operation == "extract_memory":
+            if args and isinstance(args[0], str):
+                tokens += len(args[0]) // 4
+        return tokens
 
     async def _execute_with_router(self, operation: str, *args, intent: str = "general", **kwargs):
         available_at_start = await self._get_available_providers()
         tried_providers = set()
+        estimated_tokens = self._estimate_tokens(operation, args)
         
         for _ in range(len(self.providers)):
-            current_available = [p for p in available_at_start if p not in tried_providers]
+            current_available = [
+                p for p in available_at_start 
+                if p not in tried_providers and self.budgets[p].can_call(estimated_tokens)
+            ]
             if not current_available:
                 break
                 
             provider = self._select_provider(current_available, intent=intent)
             tried_providers.add(provider.name)
+            self.budgets[provider.name].consume(estimated_tokens)
             
             for attempt in range(self.settings.retry_count):
                 try:
@@ -131,8 +218,21 @@ class ProviderRouter(BaseLLMProvider):
                     elif operation == "extract_memory":
                         result = await provider.extract_memory(*args, **kwargs)
                         
+                    # Calculate live proxy token usage
+                    if isinstance(result, str):
+                        output_tokens = len(result) // 4
+                    elif isinstance(result, dict) and "text" in result:
+                        output_tokens = len(result["text"]) // 4
+                    else:
+                        output_tokens = 50
+                        
+                    self.budgets[provider.name].track_usage(estimated_tokens, output_tokens)
+                        
                     latency = (time.perf_counter() - start_time) * 1000.0
-                    logger.info(f"Provider {operation} successful", extra={"provider": provider.name, "latency_ms": latency})
+                    
+                    if intent not in ("dashboard", "dashboard_auto_refresh"):
+                        logger.info(f"Provider {operation} successful", extra={"provider": provider.name, "latency_ms": latency})
+                        
                     return result
                     
                 except ProviderTransientError as e:
@@ -159,14 +259,19 @@ class ProviderRouter(BaseLLMProvider):
     async def stream_chat(self, messages: list[dict], tools: list[dict] | None = None, intent: str = "general") -> AsyncGenerator[Any, None]:
         available_at_start = await self._get_available_providers()
         tried_providers = set()
+        estimated_tokens = self._estimate_tokens("stream_chat", (messages,))
         
         for _ in range(len(self.providers)):
-            current_available = [p for p in available_at_start if p not in tried_providers]
+            current_available = [
+                p for p in available_at_start 
+                if p not in tried_providers and self.budgets[p].can_call(estimated_tokens)
+            ]
             if not current_available:
                 break
                 
             provider = self._select_provider(current_available, intent=intent)
             tried_providers.add(provider.name)
+            self.budgets[provider.name].consume(estimated_tokens)
             
             for attempt in range(self.settings.retry_count):
                 try:
@@ -174,11 +279,15 @@ class ProviderRouter(BaseLLMProvider):
                     stream = provider.stream_chat(messages, tools=tools, intent=intent)
                     
                     found_first_chunk = False
+                    output_tokens = 0
                     async for chunk in stream:
                         found_first_chunk = True
+                        if isinstance(chunk, str):
+                            output_tokens += len(chunk) // 4
                         yield chunk
                     
                     if found_first_chunk:
+                        self.budgets[provider.name].track_usage(estimated_tokens, output_tokens)
                         latency = (time.perf_counter() - start_time) * 1000.0
                         logger.info("Provider stream_chat successfully completed generation", extra={"provider": provider.name, "latency_ms": latency})
                         return

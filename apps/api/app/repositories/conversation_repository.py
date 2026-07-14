@@ -4,6 +4,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import Conversation
 
 
+from sqlalchemy.orm import selectinload
+
 class ConversationRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -16,7 +18,9 @@ class ConversationRepository:
 
     async def get_by_id(self, conversation_id: int) -> Conversation | None:
         result = await self.db.execute(
-            select(Conversation).where(
+            select(Conversation)
+            .options(selectinload(Conversation.messages))
+            .where(
                 Conversation.id == conversation_id
             )
         )

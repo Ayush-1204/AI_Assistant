@@ -1,11 +1,12 @@
-import logging
 import json
-from typing import AsyncGenerator
+import logging
+from collections.abc import AsyncGenerator
 
 from app.config import settings
-from app.schemas.tool import ToolRequest, ToolResponse
+from app.schemas.tool import ToolResponse
 from app.services.ai.tools.orchestrator import ToolOrchestrator
 from app.services.ai.tools.strategies import ToolInvocationStrategy
+
 from .planner import Planner
 from .state import ExecutionStateManager
 
@@ -50,6 +51,13 @@ class AgentExecutor:
                         tool_responses.append(cached_res)
                         state_mgr.record_skip(req)
                         continue
+                
+                tool_instance = self.orchestrator.registry.get_tool(req.name)
+                if tool_instance and tool_instance.requires_confirmation:
+                     # Halt bulk execution in non-streaming mode if it encounters unapproved tasks
+                     err_res = ToolResponse(id=req.id, name=req.name, content="ERROR: Requires user confirmation. Use Plan Approval workflow.", is_error=True)
+                     tool_responses.append(err_res)
+                     continue
                 
                 try:
                     res = await self.orchestrator.execute_tool(req, context)
@@ -101,6 +109,19 @@ class AgentExecutor:
             
             if not has_tool:
                 final_answer = full_text
+                break
+                
+            requires_approval = False
+            for req in tool_requests:
+                tool_instance = self.orchestrator.registry.get_tool(req.name)
+                if tool_instance and tool_instance.requires_confirmation:
+                    requires_approval = True
+                    break
+                    
+            if requires_approval:
+                plan_payload = [{"id": r.id, "name": r.name, "arguments": r.arguments} for r in tool_requests]
+                yield f"data: {json.dumps({'type': 'plan_approval', 'plan': plan_payload})}\n\n"
+                state_mgr.terminate("Awaiting plan approval")
                 break
 
             yield f"data: {json.dumps({'type': 'tool', 'name': 'Executing tools...'})}\n\n"

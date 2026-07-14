@@ -1,8 +1,9 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Text
-from sqlalchemy.orm import relationship
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import relationship
 
 from app.db.base import Base
+
 
 class Note(Base):
     __tablename__ = "notes"
@@ -23,3 +24,4 @@ class Note(Base):
 
     user = relationship("User")
     document = relationship("Document")
+    people = relationship("Person", secondary="person_note", back_populates="notes")

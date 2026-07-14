@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 
+
 class ProviderMetadata(BaseModel):
     name: str
     supported_models: list[str]

@@ -1,4 +1,4 @@
-from sqlalchemy import select, case, func
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 

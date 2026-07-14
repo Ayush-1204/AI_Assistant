@@ -1,6 +1,8 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.db.models.task import Task
+
 
 class TaskRepository:
     def __init__(self, session: AsyncSession):

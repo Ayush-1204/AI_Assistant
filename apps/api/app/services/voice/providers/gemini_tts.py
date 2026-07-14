@@ -1,5 +1,7 @@
+from collections.abc import AsyncGenerator
+
 from .base_tts import BaseTTSProvider
-from typing import AsyncGenerator
+
 
 class GeminiTTSProvider(BaseTTSProvider):
     """

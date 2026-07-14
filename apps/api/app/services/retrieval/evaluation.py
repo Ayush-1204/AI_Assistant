@@ -1,16 +1,15 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
 from time import perf_counter
-from typing import Awaitable
-from typing import Callable
 
-from app.services.retrieval.ranking import RetrievedChunk
-from app.services.retrieval.ranking import document_title
-from app.services.retrieval.ranking import find_expected_rank
-
+from app.services.retrieval.ranking import (
+    RetrievedChunk,
+    find_expected_rank,
+)
 
 RankedChunks = list[RetrievedChunk]
 
@@ -362,21 +361,21 @@ def format_detailed_case_report(case: RetrievalEvaluationCase) -> str:
 
     for row in case.rows:
         lines.append(
-            (
+            
                 f"{row.rank}. document={row.document_title} "
                 f"document_id={row.document_id} "
                 f"chunk_index={row.chunk_index} "
                 f"distance={row.distance:.6f}"
-            )
+            
         )
 
     lines.append(
-        (
+        
             "Scoring compares case-insensitive document title first; "
             "if expected_chunk is provided, chunk_index must match exactly. "
             "Top-1/Top-3/Top-5 are derived from the rank of the first filtered "
             "result that matches those expected fields."
-        )
+        
     )
     lines.append("PASS" if case.top1_correct else "CHECK")
     return "\n".join(lines)

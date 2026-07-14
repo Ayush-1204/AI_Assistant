@@ -1,6 +1,8 @@
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.db.models.notification import Notification
 from app.services.notifications.providers.base import BaseNotificationProvider
+
 
 class DatabaseNotificationProvider(BaseNotificationProvider):
     def __init__(self, db: AsyncSession):

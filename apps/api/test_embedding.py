@@ -3,7 +3,6 @@ import asyncio
 from app.services.ai.embeddings import (
     EmbeddingService,
 )
-
 from app.services.ai.embeddings.providers import (
     GeminiEmbeddingProvider,
 )

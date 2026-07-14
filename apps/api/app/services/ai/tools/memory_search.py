@@ -1,5 +1,6 @@
-from app.services.ai.tools.base import BaseTool
 from app.services.ai.memory.memory_service import MemoryService
+from app.services.ai.tools.base import BaseTool
+
 
 class MemorySearchTool(BaseTool):
     def __init__(self, memory_service: MemoryService):

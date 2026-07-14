@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 
+
 class RoutingStrategy(ABC):
     @abstractmethod
     def select_provider(self, available_providers: list[str]) -> str:
@@ -65,12 +66,12 @@ class IntentBasedRoutingStrategy(RoutingStrategy):
     def __init__(self, fallback_chains: dict[str, list[str]]):
         """
         fallback_chains = {
-            "general": ["gemini-2.5-flash", "groq-llama", "gemini-2.5-flash-lite", "gemini-1.5-flash", "openrouter", "gemini-2.0-flash", "ollama-default"],
-            "long_doc": ["gemini-2.5-pro", "gemini-1.5-pro", "gemini-2.5-flash", "openrouter"],
-            "vision": ["gemini-2.5-pro", "gemini-2.0-flash", "gemini-1.5-pro"],
-            "coding": ["ollama-coder", "gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-pro"],
-            "reasoning": ["ollama-reasoning", "gemini-2.5-pro", "gemini-1.5-pro"],
-            "voice": ["groq-llama", "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-1.5-flash", "ollama-default"]
+            "general": ["gemini-3.1-flash-lite", "groq-llama", "gemini-3.5-flash", "openrouter", "ollama-default"],
+            "long_doc": ["gemini-3.5-flash", "openrouter"],
+            "vision": ["gemini-3.5-flash", "gemini-2.5-flash"],
+            "coding": ["ollama-coder", "gemini-3.5-flash"],
+            "reasoning": ["ollama-reasoning", "gemini-3.5-flash"],
+            "voice": ["groq-llama", "gemini-3.1-flash-lite", "gemini-2.5-flash-lite", "ollama-default"]
         }
         """
         self.fallback_chains = fallback_chains

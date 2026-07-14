@@ -1,14 +1,15 @@
-from typing import Optional
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.oauth_credential import OAuthCredential
 
+
 class OAuthRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_by_user_id(self, user_id: int, provider: str = "google") -> Optional[OAuthCredential]:
+    async def get_by_user_id(self, user_id: int, provider: str = "google") -> OAuthCredential | None:
         stmt = select(OAuthCredential).where(
             OAuthCredential.user_id == user_id,
             OAuthCredential.provider == provider
@@ -20,8 +21,8 @@ class OAuthRepository:
         self,
         user_id: int,
         access_token: str,
-        refresh_token: Optional[str] = None,
-        scopes: Optional[str] = None,
+        refresh_token: str | None = None,
+        scopes: str | None = None,
         expires_at=None,
         provider: str = "google"
     ) -> OAuthCredential:

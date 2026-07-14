@@ -56,3 +56,7 @@ dist/
 # Browser Profiles
 .chrome_profile
 .chrome_progile
+
+# Jarvis Research & OpenJarvis
+jarvis_research/
+openjarvis/

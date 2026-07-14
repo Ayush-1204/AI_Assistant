@@ -1,6 +1,8 @@
 import asyncio
 import logging
+
 from app.config import settings
+
 
 class BackgroundScheduler:
     def __init__(self, worker_factory):

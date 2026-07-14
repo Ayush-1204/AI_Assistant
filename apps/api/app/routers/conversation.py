@@ -9,6 +9,7 @@ from app.schemas.conversation import (
     ConversationCreate,
     ConversationResponse,
     ConversationUpdate,
+    ConversationDetailResponse
 )
 from app.services.conversation_service import ConversationService
 
@@ -53,7 +54,7 @@ async def list_conversations(
 
 @router.get(
     "/{conversation_id}",
-    response_model=ConversationResponse,
+    response_model=ConversationDetailResponse,
 )
 async def get_conversation(
     conversation_id: int,

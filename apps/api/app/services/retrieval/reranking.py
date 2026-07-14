@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional, Any
+from typing import Any
 
 from app.services.retrieval.models import RetrievalResult
 
@@ -28,7 +28,7 @@ class CrossEncoderReranker(Reranker):
 
     def __init__(self, model_name: str = "cross-encoder/ms-marco-TinyBERT-L-2-v2"):
         self.model_name = model_name
-        self.encoder: Optional[Any] = None
+        self.encoder: Any | None = None
         self._initialized = False
         self._disabled = False
 

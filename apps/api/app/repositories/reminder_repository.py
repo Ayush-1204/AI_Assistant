@@ -1,6 +1,8 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.db.models.reminder import Reminder
+
 
 class ReminderRepository:
     def __init__(self, session: AsyncSession):

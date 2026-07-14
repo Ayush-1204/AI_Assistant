@@ -1,12 +1,12 @@
-import os
 import asyncio
 from pathlib import Path
 
-from app.repositories.note_repository import NoteRepository
-from app.repositories.document_repository import DocumentRepository
-from app.services.documents.processor import DocumentProcessor
-from app.db.models.note import Note
 from app.db.models.document import Document, DocumentStatus
+from app.db.models.note import Note
+from app.repositories.document_repository import DocumentRepository
+from app.repositories.note_repository import NoteRepository
+from app.services.documents.processor import DocumentProcessor
+
 
 class NoteService:
     def __init__(
