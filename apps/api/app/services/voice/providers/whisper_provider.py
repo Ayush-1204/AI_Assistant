@@ -23,7 +23,7 @@ class WhisperProvider(BaseSTTProvider):
             api_key=self.api_key,
         )
 
-    def _create_wav_buffer(self, pcm_data: bytes, sample_rate: int = 16000, channels: int = 1, sample_width: int = 2) -> io.BytesIO:
+    def _create_wav_buffer(self, pcm_data: bytes, sample_rate: int = 48000, channels: int = 1, sample_width: int = 2) -> io.BytesIO:
         wav_io = io.BytesIO()
         with wave.open(wav_io, 'wb') as wav_file:
             wav_file.setnchannels(channels)
@@ -54,11 +54,11 @@ class WhisperProvider(BaseSTTProvider):
                         audio_buffer.extend(chunk)
                     except (asyncio.TimeoutError, TimeoutError):
                         break # End of this audio phrase
-                if len(audio_buffer) < 16000:
-                    continue # Drop sub-500ms audio phrases (pure noise) to prevent Whisper hallucinations
+                if len(audio_buffer) < 48000:
+                    continue # Drop sub-1sec audio phrases (pure noise) to prevent Whisper hallucinations
                     
                 logger.info(f"[WhisperProvider] Submitting audio chunk ({len(audio_buffer)} bytes) to 'whisper-large-v3-turbo'...")
-                file_io = self._create_wav_buffer(bytes(audio_buffer), sample_rate=16000)
+                file_io = self._create_wav_buffer(bytes(audio_buffer), sample_rate=48000)
                 res = await self.client.audio.transcriptions.create(
                     file=("audio.wav", file_io.read()),
                     model="whisper-large-v3-turbo",
@@ -95,7 +95,7 @@ class WhisperProvider(BaseSTTProvider):
 
     async def transcribe_file(self, audio_data: bytes) -> str:
         logger.info(f"[WhisperProvider] Direct file transcription requested: {len(audio_data)} bytes using 'whisper-large-v3-turbo'")
-        file_io = self._create_wav_buffer(audio_data, sample_rate=16000)
+        file_io = self._create_wav_buffer(audio_data, sample_rate=48000)
         try:
             res = await self.client.audio.transcriptions.create(
                 file=("audio.wav", file_io.read()),

@@ -18,6 +18,7 @@ class ChatState {
   final List<dynamic> sessions;
   final Map<int, Map<String, dynamic>> messageMetadata;
   final List<String> pendingImages;
+  final double currentAmplitude;
 
   ChatState({
     this.conversationId,
@@ -29,18 +30,9 @@ class ChatState {
     this.sessions = const [],
     this.messageMetadata = const {},
     this.pendingImages = const [],
-  }) : messages = messages ?? [_getRandomGreeting()];
+    this.currentAmplitude = -160.0,
+  }) : messages = messages ?? [];
 
-  static String _getRandomGreeting() {
-    final greetings = [
-      "Assistant: Hello! I am your Second Brain. I can access your notes, fetch files, manage your calendar, or search the web.\n\n*How can I assist you today?*",
-      "Assistant: Greetings! I'm ready to help you orchestrate your workspace. What's on the agenda?",
-      "Assistant: Welcome back! System memory is synced. What shall we tackle first?",
-      "Assistant: Hello there! The agentic loop is active and waiting for your commands. How can I pull up context for you today?",
-      "Assistant: Hey Ayush! All context modules stream verified. Need me to run any commands or review your active documentation?"
-    ];
-    return greetings[DateTime.now().microsecond % greetings.length];
-  }
   ChatState copyWith({
     int? conversationId,
     List<String>? messages,
@@ -51,6 +43,7 @@ class ChatState {
     List<dynamic>? sessions,
     Map<int, Map<String, dynamic>>? messageMetadata,
     List<String>? pendingImages,
+    double? currentAmplitude,
   }) {
     return ChatState(
       conversationId: conversationId ?? this.conversationId,
@@ -62,6 +55,7 @@ class ChatState {
       sessions: sessions ?? this.sessions,
       messageMetadata: messageMetadata ?? this.messageMetadata,
       pendingImages: pendingImages ?? this.pendingImages,
+      currentAmplitude: currentAmplitude ?? this.currentAmplitude,
     );
   }
 }
@@ -96,29 +90,13 @@ class ChatNotifier extends StateNotifier<ChatState> {
     try {
       final conversations = await _apiClient.fetchConversations();
       if (conversations.isNotEmpty) {
-        final firstId = conversations.first['id'] as int;
         state = state.copyWith(
-          conversationId: firstId,
+          conversationId: null, // Force empty state on startup
           sessions: conversations,
+          messages: [],
         );
-        
-        final detail = await _apiClient.fetchConversation(firstId);
-        if (detail.isNotEmpty && detail.containsKey('messages')) {
-          final List<dynamic> msgData = detail['messages'];
-          final parsed = msgData.map((m) {
-             final role = m['role'] == 'user' ? 'User' : 'Assistant';
-             return "$role: ${m['content']}";
-          }).toList();
-          
-          if (parsed.isEmpty) parsed.add(ChatState._getRandomGreeting());
-          state = state.copyWith(messages: parsed);
-        } else {
-          state = state.copyWith(messages: [ChatState._getRandomGreeting()]);
-        }
-        
-        _initWebSocket();
       } else {
-        state = state.copyWith(sessions: []);
+        state = state.copyWith(sessions: [], messages: [], conversationId: null);
       }
     } catch (e) {
       debugPrint("Failed to load conversation: $e");
@@ -145,7 +123,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
     state = state.copyWith(
        conversationId: id,
-       messages: ["Assistant: Loading conversation history..."],
+       messages: [],
     );
     
     final detail = await _apiClient.fetchConversation(id);
@@ -156,10 +134,9 @@ class ChatNotifier extends StateNotifier<ChatState> {
          return "$role: ${m['content']}";
       }).toList();
       
-      if (parsed.isEmpty) parsed.add(ChatState._getRandomGreeting());
       state = state.copyWith(messages: parsed);
     } else {
-      state = state.copyWith(messages: [ChatState._getRandomGreeting()]);
+      state = state.copyWith(messages: []);
     }
 
     _initWebSocket();
@@ -183,7 +160,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
         conversationId: newId,
         sessions: updatedSessions,
         messageMetadata: const {},
-        messages: [ChatState._getRandomGreeting()],
+        messages: [],
       );
       
       _wsStreamSub?.cancel();
@@ -264,24 +241,32 @@ class ChatNotifier extends StateNotifier<ChatState> {
   Future<void> toggleListening() async {
     if (state.isListening) {
       _voiceStreamSub?.cancel();
+      _ampSub?.cancel();
       await _audioRecorder.stop();
-      state = state.copyWith(isListening: false, liveTranscript: "");
+      state = state.copyWith(isListening: false, liveTranscript: "", currentAmplitude: -160.0);
     } else {
       if (await _audioRecorder.hasPermission()) {
-        state = state.copyWith(isListening: true, liveTranscript: "Listening...");
         // Use pcm16bits encoder — universally supported on Windows, Web, Android, iOS.
         final stream = await _audioRecorder.startStream(const RecordConfig(
           encoder: AudioEncoder.pcm16bits,
-          sampleRate: 16000,
+          sampleRate: 48000,
           numChannels: 1,
           echoCancel: true,
           autoGain: true,
           noiseSuppress: true,
         ));
+        
+        state = state.copyWith(isListening: true, liveTranscript: "Listening...");
         _voiceStreamSub = stream.listen((data) {
           if (state.isListening && _channel != null) {
             _channel!.sink.add(data);
           }
+        });
+        
+        _ampSub = _audioRecorder.onAmplitudeChanged(const Duration(milliseconds: 50)).listen((amp) {
+           if (state.isListening) {
+             state = state.copyWith(currentAmplitude: amp.current);
+           }
         });
       }
     }
@@ -316,18 +301,18 @@ class ChatNotifier extends StateNotifier<ChatState> {
       await _stopVoiceTypingProcess();
     } else {
       if (await _audioRecorder.hasPermission()) {
-        state = state.copyWith(isVoiceTyping: true, liveTranscript: "Listening...");
-        _voiceTypingBuffer.clear();
-
         // Use pcm16bits encoder — universally supported on Windows, Web, Android, iOS.
         final stream = await _audioRecorder.startStream(const RecordConfig(
           encoder: AudioEncoder.pcm16bits,
-          sampleRate: 16000,
+          sampleRate: 48000,
           numChannels: 1,
           echoCancel: true,
           autoGain: true,
           noiseSuppress: true,
         ));
+        
+        state = state.copyWith(isVoiceTyping: true, liveTranscript: "Listening...");
+        _voiceTypingBuffer.clear();
         
         _voiceStreamSub = stream.listen((data) {
           if (state.isVoiceTyping) {
@@ -335,7 +320,8 @@ class ChatNotifier extends StateNotifier<ChatState> {
           }
         });
         
-        _ampSub = _audioRecorder.onAmplitudeChanged(const Duration(milliseconds: 500)).listen((amp) {
+        _ampSub = _audioRecorder.onAmplitudeChanged(const Duration(milliseconds: 50)).listen((amp) {
+           state = state.copyWith(currentAmplitude: amp.current);
            if (amp.current < -35.0) {
               if (_silenceTimer == null || !_silenceTimer!.isActive) {
                  _silenceTimer = Timer(const Duration(seconds: 3), () async {

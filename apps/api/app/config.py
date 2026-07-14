@@ -111,9 +111,12 @@ class Settings(BaseSettings):
     # Voice Configuration
     ENABLE_VOICE: bool = True
     DEFAULT_STT_PROVIDER: str = "whisper"
-    DEFAULT_TTS_PROVIDER: str = "edge_tts"
+    DEFAULT_TTS_PROVIDER: str = "deepgram"
     MAX_AUDIO_DURATION: int = 60
     STREAMING_CHUNK_MS: int = 100
+    
+    DEEPGRAM_API_KEY: str | None = None
+    ELEVENLABS_API_KEY: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",

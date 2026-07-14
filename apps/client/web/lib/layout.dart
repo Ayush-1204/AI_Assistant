@@ -10,6 +10,7 @@ import 'life_metrics_view.dart';
 import 'calendar_view.dart';
 import 'people_view.dart';
 import 'memory_view.dart';
+import 'audio_debug_view.dart';
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -33,6 +34,7 @@ class _MainLayoutState extends State<MainLayout> {
     const LifeMetricsView(),
     const PeopleView(),
     const MemoryView(),
+    const AudioDebugView(),
     const SettingsView(),
   ];
 
@@ -45,6 +47,7 @@ class _MainLayoutState extends State<MainLayout> {
     _NavItem(icon: Icons.track_changes_outlined, activeIcon: Icons.track_changes, label: 'Life Metrics'),
     _NavItem(icon: Icons.people_outline, activeIcon: Icons.people, label: 'People CRM'),
     _NavItem(icon: Icons.psychology_outlined, activeIcon: Icons.psychology, label: 'Memories'),
+    _NavItem(icon: Icons.bug_report_outlined, activeIcon: Icons.bug_report, label: 'Audio Sandbox'),
   ];
 
   @override
@@ -152,11 +155,11 @@ class _MainLayoutState extends State<MainLayout> {
                       ] else const Spacer(),
                       Container(height: 1, color: Colors.white.withValues(alpha: 0.06)),
                       _SidebarTile(
-                        icon: _selectedIndex == 8 ? Icons.settings : Icons.settings_outlined,
+                        icon: _selectedIndex == 9 ? Icons.settings : Icons.settings_outlined,
                         label: 'Settings',
-                        selected: _selectedIndex == 8,
+                        selected: _selectedIndex == 9,
                         isExpanded: _isSidebarOpen,
-                        onTap: () => setState(() => _selectedIndex = 8),
+                        onTap: () => setState(() => _selectedIndex = 9),
                       ),
                       const SizedBox(height: 12),
                       ],

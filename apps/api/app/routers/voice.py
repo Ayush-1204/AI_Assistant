@@ -45,42 +45,108 @@ class TTSRequest(BaseModel):
 @router.post("/tts")
 async def tts_endpoint(request: TTSRequest):
     """
-    Collect full MP3 audio from Groq and return it as a single buffered response.
-    Flutter Web's audioplayers requires the complete bytes blob — streaming chunks
-    are not compatible with BytesSource on the web platform.
+    Multi-tiered Fallback TTS Orchestrator:
+    Priority: Deepgram -> ElevenLabs -> Edge TTS
     """
-    chunks: list[bytes] = []
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        async with client.stream(
-            "POST",
-            "https://api.groq.com/openai/v1/audio/speech",
-            headers={"Authorization": f"Bearer {settings.GROQ_API_KEY}"},
-            json={
-                "model": "canopylabs/orpheus-v1-english",
-                "input": request.text,
-                "voice": "diana",
-                "response_format": "wav",
-            },
-        ) as response:
-            async for chunk in response.aiter_bytes():
-                chunks.append(chunk)
-
-    audio_bytes = b"".join(chunks)
+    audio_bytes = None
+    target_text = request.text
     
-    # Do not attempt to amplify if it's an error JSON payload instead of a valid WAV RIFF header
-    if audio_bytes.startswith(b"RIFF"):
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        # 1. DEEPGRAM (aura-2-thalia-en)
+        if settings.DEEPGRAM_API_KEY:
+            try:
+                logger.info(f"[TTS Orchestrator] Attempting Deepgram TTS for: '{target_text[:30]}...'")
+                url = "https://api.deepgram.com/v1/speak?model=aura-2-thalia-en&encoding=linear16&sample_rate=16000"
+                resp = await client.post(
+                    url,
+                    headers={
+                        "Authorization": f"Token {settings.DEEPGRAM_API_KEY}",
+                        "Content-Type": "application/json"
+                    },
+                    json={"text": target_text}
+                )
+                resp.raise_for_status()
+                audio_bytes = resp.content
+                logger.info("[TTS Orchestrator] Deepgram complete.")
+            except Exception as e:
+                logger.warning(f"[TTS Orchestrator] Deepgram failed: {e}. Falling back to ElevenLabs.")
+        
+        # 2. ELEVENLABS (eleven_flash_v2_5, Anika)
+        if not audio_bytes and settings.ELEVENLABS_API_KEY:
+            try:
+                logger.info(f"[TTS Orchestrator] Attempting ElevenLabs TTS for: '{target_text[:30]}...'")
+                # Using Anika's general voice fallback or a standard id
+                voice_id = "piTKgcLEGmPE4e6mJC13"  
+                url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}?output_format=pcm_16000"
+                resp = await client.post(
+                    url,
+                    headers={
+                        "xi-api-key": settings.ELEVENLABS_API_KEY,
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "text": target_text,
+                        "model_id": "eleven_flash_v2_5"
+                    }
+                )
+                resp.raise_for_status()
+                audio_bytes = resp.content
+                logger.info("[TTS Orchestrator] ElevenLabs complete.")
+            except Exception as e:
+                logger.warning(f"[TTS Orchestrator] ElevenLabs failed: {e}. Falling back to Edge TTS.")
+                
+        # 3. GROQ (canopylabs/orpheus-v1-english)
+        if not audio_bytes and settings.GROQ_API_KEY:
+            try:
+                logger.info(f"[TTS Orchestrator] Attempting Groq TTS (Orpheus) for: '{target_text[:30]}...'")
+                url = "https://api.groq.com/openai/v1/audio/speech"
+                resp = await client.post(
+                    url,
+                    headers={
+                        "Authorization": f"Bearer {settings.GROQ_API_KEY}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": "canopylabs/orpheus-v1-english",
+                        "voice": "diana",
+                        "input": target_text,
+                        "response_format": "wav"
+                    }
+                )
+                resp.raise_for_status()
+                audio_bytes = resp.content
+                logger.info("[TTS Orchestrator] Groq (Orpheus) complete.")
+            except Exception as e:
+                logger.warning(f"[TTS Orchestrator] Groq TTS failed: {e}. Falling back to Edge TTS.")
+                
+        # 4. EDGE TTS (Fallback Native Free)
+        if not audio_bytes:
+            try:
+                logger.info(f"[TTS Orchestrator] Attempting Edge TTS fallback for: '{target_text[:30]}...'")
+                import edge_tts
+                communicate = edge_tts.Communicate(target_text, "en-US-AriaNeural")
+                chunks = []
+                async for chunk in communicate.stream():
+                    if chunk["type"] == "audio":
+                        chunks.append(chunk["data"])
+                audio_bytes = b"".join(chunks)
+                logger.info("[TTS Orchestrator] Edge TTS complete.")
+            except Exception as e:
+                logger.error(f"[TTS Orchestrator] Edge TTS failed: {e}")
+                return Response(status_code=500, content="All TTS Providers Failed.")
+
+    # Apply PyDub +12dB volume gain natively 
+    if audio_bytes and audio_bytes.startswith(b"RIFF"):
         try:
             from pydub import AudioSegment
-            audio_segment = AudioSegment.from_file(io.BytesIO(audio_bytes), format="wav")
+            audio_segment = AudioSegment.from_file(io.BytesIO(audio_bytes), format="raw" if "pcm" in str(audio_bytes[:10]) else "wav")
             louder_audio = audio_segment + 12.0  # Boost volume by 12 dB
             out_f = io.BytesIO()
             louder_audio.export(out_f, format="wav")
             audio_bytes = out_f.getvalue()
         except Exception as e:
             logger.error(f"Failed to amplify TTS volume natively: {e}")
-    else:
-        logger.error(f"Groq API returned invalid audio payload: {audio_bytes[:100]}")
-        
+            
     return Response(content=audio_bytes, media_type="audio/wav")
 
 
@@ -159,7 +225,20 @@ async def voice_websocket(
     )
 
     stt = WhisperProvider()
-    tts = GroqTTSProvider()
+    
+    # Priority TTS Orchestration for Live WebSockets
+    if settings.DEEPGRAM_API_KEY:
+        from app.services.voice.providers.deepgram_tts_provider import DeepgramTTSProvider
+        tts = DeepgramTTSProvider()
+    elif settings.ELEVENLABS_API_KEY:
+        from app.services.voice.providers.elevenlabs_tts_provider import ElevenLabsTTSProvider
+        tts = ElevenLabsTTSProvider()
+    elif settings.GROQ_API_KEY:
+        from app.services.voice.providers.groq_tts_provider import GroqTTSProvider
+        tts = GroqTTSProvider(voice="diana")
+    else:
+        from app.services.voice.providers.edge_tts_provider import EdgeTTSProvider
+        tts = EdgeTTSProvider()
 
     coordinator = StreamingCoordinator(
         session=session,
