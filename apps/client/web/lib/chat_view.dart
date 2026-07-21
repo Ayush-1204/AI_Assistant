@@ -17,6 +17,193 @@ import 'api_client.dart';
 import 'providers/auth_provider.dart';
 import 'providers/chat_provider.dart';
 import 'voice_view.dart';
+import 'package:markdown/markdown.dart' as md;
+
+class CollageSyntax extends md.InlineSyntax {
+  CollageSyntax() : super(r'\[COLLAGE:(.*?)\]');
+
+  @override
+  bool onMatch(md.InlineParser parser, Match match) {
+    if (match.group(1) == null) return false;
+    final element = md.Element.text('collage', match.group(1)!);
+    parser.addNode(element);
+    return true;
+  }
+}
+
+class CollageElementBuilder extends MarkdownElementBuilder {
+  final BuildContext context;
+  CollageElementBuilder(this.context);
+
+  @override
+  Widget visitElementAfter(md.Element element, TextStyle? preferredStyle) {
+    final urls = element.textContent.split('||');
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        children: urls.asMap().entries.map((entry) {
+          final index = entry.key;
+          final url = entry.value;
+          final proxyUrl = '${ApiClient.baseUrl}/media/proxy?url=${Uri.encodeComponent(url)}';
+          
+          return GestureDetector(
+            onTap: () {
+              Navigator.of(context).push(
+                PageRouteBuilder(
+                  opaque: false,
+                  pageBuilder: (BuildContext context, _, __) {
+                    return _GalleryView(urls: urls, initialIndex: index);
+                  },
+                ),
+              );
+            },
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 300, maxHeight: 300),
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.2),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4))
+                ],
+              ),
+              child: Image.network(
+                proxyUrl,
+                fit: BoxFit.contain,
+                headers: const {'Accept': 'image/*'},
+                errorBuilder: (context, error, stackTrace) {
+                   return Image.network(url, fit: BoxFit.contain, 
+                        errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              height: 120,
+                              width: 120,
+                              color: Colors.grey.withValues(alpha: 0.1),
+                              child: const Center(
+                                child: Icon(Icons.image_not_supported_outlined, color: Colors.white54, size: 32)
+                              )
+                            );
+                        });
+                },
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+class _GalleryView extends StatefulWidget {
+  final List<String> urls;
+  final int initialIndex;
+
+  const _GalleryView({required this.urls, required this.initialIndex});
+
+  @override
+  State<_GalleryView> createState() => _GalleryViewState();
+}
+
+class _GalleryViewState extends State<_GalleryView> {
+  late PageController _pageController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black87,
+      body: Stack(
+        children: [
+          PageView.builder(
+            controller: _pageController,
+            itemCount: widget.urls.length,
+            itemBuilder: (context, index) {
+              final url = widget.urls[index];
+              final proxyUrl = '${ApiClient.baseUrl}/media/proxy?url=${Uri.encodeComponent(url)}';
+              return InteractiveViewer(
+                minScale: 1.0,
+                maxScale: 4.0,
+                child: Center(
+                  child: Image.network(
+                    proxyUrl,
+                    fit: BoxFit.contain,
+                    headers: const {'Accept': 'image/*'},
+                    errorBuilder: (context, error, stackTrace) {
+                      return Image.network(url, fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Center(child: Icon(Icons.broken_image, color: Colors.white54, size: 64));
+                        },
+                      );
+                    },
+                  ),
+                ),
+              );
+            },
+          ),
+          Positioned(
+            top: 40,
+            left: 20,
+            child: IconButton(
+              icon: const Icon(Icons.close, color: Colors.white, size: 30),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ),
+          Positioned(
+            bottom: 40,
+            left: 0,
+            right: 0,
+            child: Center(
+                child: GestureDetector(
+                  onTap: () async {
+                    final currentUrl = widget.urls[_pageController.hasClients ? _pageController.page!.round() : widget.initialIndex];
+                    try {
+                      await launchUrlString(currentUrl, mode: LaunchMode.externalApplication);
+                    } catch (_) {
+                      try { await launchUrlString(currentUrl); } catch (_) {}
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.white24),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.link, color: Colors.white70, size: 16),
+                        const SizedBox(width: 8),
+                        Text(
+                          "Source Image",
+                          style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class LoadingDots extends StatefulWidget {
   const LoadingDots({super.key});
@@ -469,7 +656,14 @@ class _ChatViewState extends ConsumerState<ChatView> {
                                         color: Colors.white
                                             .withValues(alpha: 0.05)),
                                   ),
-                                  child: const LoadingDots(),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(chatState.loadingText, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 14)),
+                                      const SizedBox(width: 8),
+                                      const LoadingDots(),
+                                    ],
+                                  ),
                                 ),
                               ],
                             ),
@@ -504,6 +698,16 @@ class _ChatViewState extends ConsumerState<ChatView> {
                     bool isLatestAssistant = isAssistant &&
                         (index - 1 == chatState.messages.length - 1) &&
                         !chatState.isSending;
+
+                    // Extract markdown images to build collages natively
+                    String processedMsg = displayMsg;
+                    final consecutiveImagesRegex = RegExp(r'(?:!\[.*?\]\(.*?\)\s*){2,}');
+                    processedMsg = processedMsg.replaceAllMapped(consecutiveImagesRegex, (match) {
+                      final block = match.group(0)!;
+                      final urlRegex = RegExp(r'!\[.*?\]\((.*?)\)');
+                      final urls = urlRegex.allMatches(block).map((m) => m.group(1)!).toList();
+                      return '\n\n[COLLAGE:${urls.join('||')}]\n\n';
+                    });
 
                     return TweenAnimationBuilder<double>(
                       key: ValueKey("msg_${chatState.messages.length}_$index"),
@@ -583,7 +787,62 @@ class _ChatViewState extends ConsumerState<ChatView> {
                                           CrossAxisAlignment.start,
                                       children: [
                                         MarkdownBody(
-                                                data: displayMsg,
+                                                data: processedMsg,
+                                                extensionSet: md.ExtensionSet.gitHubFlavored,
+                                                inlineSyntaxes: [CollageSyntax()],
+                                                builders: {'collage': CollageElementBuilder(context)},
+                                                imageBuilder: (uri, title, alt) {
+                                                  final url = uri.toString();
+                                                  final proxyUrl = '${ApiClient.baseUrl}/media/proxy?url=${Uri.encodeComponent(url)}';
+                                                  return GestureDetector(
+                                                    onTap: () {
+                                                      Navigator.of(context).push(
+                                                        PageRouteBuilder(
+                                                          opaque: false,
+                                                          pageBuilder: (context, _, __) {
+                                                            return _GalleryView(urls: [url], initialIndex: 0);
+                                                          },
+                                                        ),
+                                                      );
+                                                    },
+                                                    child: Container(
+                                                      margin: const EdgeInsets.symmetric(vertical: 8),
+                                                      constraints: const BoxConstraints(maxWidth: 400, maxHeight: 400),
+                                                      clipBehavior: Clip.antiAlias,
+                                                      decoration: BoxDecoration(
+                                                        borderRadius: BorderRadius.circular(16),
+                                                        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                                                        boxShadow: [
+                                                          BoxShadow(
+                                                            color: Colors.black.withValues(alpha: 0.2),
+                                                            blurRadius: 10,
+                                                            offset: const Offset(0, 4),
+                                                          )
+                                                        ]
+                                                      ),
+                                                      child: InteractiveViewer(
+                                                        child: Image.network(
+                                                          proxyUrl,
+                                                          fit: BoxFit.contain,
+                                                          headers: const {'Accept': 'image/*'},
+                                                          errorBuilder: (context, error, stackTrace) => Image.network(
+                                                            url,
+                                                            errorBuilder: (context, error, stackTrace) {
+                                                              return Container(
+                                                                height: 120,
+                                                                width: 120,
+                                                                color: Colors.grey.withValues(alpha: 0.1),
+                                                                child: const Center(
+                                                                  child: Icon(Icons.image_not_supported_outlined, color: Colors.white54, size: 32)
+                                                                )
+                                                              );
+                                                            }
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  );
+                                                },
                                                 selectable: true,
                                                 onTapLink: (text, href, title) async {
                                                   if (href != null) {
@@ -595,46 +854,6 @@ class _ChatViewState extends ConsumerState<ChatView> {
                                                       } catch (_) {}
                                                     }
                                                   }
-                                                },
-                                                imageBuilder: (uri, title, alt) {
-                                                  final rawUrl = uri.toString();
-                                                  final proxyUrl = '${ApiClient.baseUrl}/media/proxy?url=${Uri.encodeComponent(rawUrl)}';
-                                                  return Container(
-                                                    margin: const EdgeInsets.symmetric(vertical: 12),
-                                                    constraints: const BoxConstraints(maxHeight: 400),
-                                                    clipBehavior: Clip.antiAlias,
-                                                    decoration: BoxDecoration(
-                                                      borderRadius: BorderRadius.circular(16),
-                                                      border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                                                      boxShadow: [
-                                                        BoxShadow(
-                                                            color: Colors.black.withValues(alpha: 0.2),
-                                                            blurRadius: 10,
-                                                            offset: const Offset(0, 4))
-                                                      ],
-                                                    ),
-                                                    child: Image.network(
-                                                      proxyUrl,
-                                                      fit: BoxFit.contain,
-                                                      headers: const {'Accept': 'image/*'},
-                                                      errorBuilder: (context, error, stackTrace) {
-                                                        // Fallback: try the original URL directly
-                                                        return Image.network(
-                                                          rawUrl,
-                                                          fit: BoxFit.contain,
-                                                          errorBuilder: (context2, error2, stackTrace2) =>
-                                                            Container(
-                                                              height: 100,
-                                                              width: double.infinity,
-                                                              decoration: BoxDecoration(
-                                                                color: Colors.white.withValues(alpha: 0.05),
-                                                                borderRadius: BorderRadius.circular(12),
-                                                              ),
-                                                              child: const Icon(Icons.image_not_supported_outlined, color: Colors.white24, size: 40)),
-                                                        );
-                                                      },
-                                                    ),
-                                                  );
                                                 },
                                                 styleSheet: MarkdownStyleSheet(
                                                   pPadding: const EdgeInsets.only(bottom: 12),
@@ -703,6 +922,9 @@ class _ChatViewState extends ConsumerState<ChatView> {
                                                           .underline),
                                                 ),
                                               ),
+                                              
+
+                                        
                                         if (isAssistant &&
                                             chatState.messageMetadata[
                                                     index - 1] !=

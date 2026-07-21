@@ -23,6 +23,7 @@ class ChatState {
   final bool isContinuousVoiceMode;
   final bool isProcessing;
   final bool shouldAutoExitVoiceMode;
+  final String loadingText;
 
   ChatState({
     this.conversationId,
@@ -39,6 +40,7 @@ class ChatState {
     this.isContinuousVoiceMode = false,
     this.isProcessing = false,
     this.shouldAutoExitVoiceMode = false,
+    this.loadingText = "Thinking...",
   }) : messages = messages ?? [];
 
   ChatState copyWith({
@@ -56,6 +58,7 @@ class ChatState {
     bool? isContinuousVoiceMode,
     bool? isProcessing,
     bool? shouldAutoExitVoiceMode,
+    String? loadingText,
   }) {
     return ChatState(
       conversationId: conversationId ?? this.conversationId,
@@ -72,6 +75,7 @@ class ChatState {
       isContinuousVoiceMode: isContinuousVoiceMode ?? this.isContinuousVoiceMode,
       isProcessing: isProcessing ?? this.isProcessing,
       shouldAutoExitVoiceMode: shouldAutoExitVoiceMode ?? this.shouldAutoExitVoiceMode,
+      loadingText: loadingText ?? this.loadingText,
     );
   }
 }
@@ -506,7 +510,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
          _initWebSocket();
       }
       
-      state = state.copyWith(isProcessing: true);
+      state = state.copyWith(isProcessing: true, loadingText: "Thinking...");
       
       String accumulated = "";
       bool firstChunkReceived = false;
@@ -549,6 +553,9 @@ class ChatNotifier extends StateNotifier<ChatState> {
                   newMeta[msgIndex] = data;
                   state = state.copyWith(messageMetadata: newMeta);
               }
+           } else if (data['type'] == 'tool') {
+              final name = data['name'] as String? ?? 'Executing tools...';
+              state = state.copyWith(loadingText: name.contains('Searching') ? 'Searching the web...' : name);
            }
          } catch (_) {}
       }

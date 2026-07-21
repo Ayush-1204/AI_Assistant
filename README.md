@@ -85,6 +85,8 @@ Current capabilities:
 - **Tavily Web Search** [Native API]
 - **Google Calendar/OAuth** [Native API]
 - **Proactive Planners & Dispatchers** [Database-backed]
+- **Interactive Markdown Collages** [Flutter Custom Syntax Renderer w/ Lightbox Gallery]
+- **Universal Memory Extractors** [RAG Ingestion for TXT/MD/JSON/PDF]
 
 ---
 

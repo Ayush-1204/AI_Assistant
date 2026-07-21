@@ -2,6 +2,7 @@ from pathlib import Path
 
 from .base import BaseExtractor
 from .pdf_extractor import PDFExtractor
+from .text_extractor import TextExtractor
 
 
 class ExtractorRegistry:
@@ -11,6 +12,9 @@ class ExtractorRegistry:
         self.extractors: dict[str, BaseExtractor] = {
 
             ".pdf": PDFExtractor(),
+            ".txt": TextExtractor(),
+            ".md": TextExtractor(),
+            ".json": TextExtractor(),
 
         }
 
