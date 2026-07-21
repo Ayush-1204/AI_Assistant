@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:dio/dio.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
@@ -142,6 +144,40 @@ class ApiClient {
     }
   }
 
+  Future<List<dynamic>> fetchTasks() async {
+    try {
+      final response = await _dio.get('/tasks');
+      return response.data as List<dynamic>;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<dynamic> createTask(Map<String, dynamic> data) async {
+    try {
+      final response = await _dio.post('/tasks', data: data);
+      return response.data;
+    } on DioException catch (e) {
+      throw Exception(e.response?.data?['detail'] ?? 'Create task failed');
+    }
+  }
+
+  Future<void> updateTaskStatus(String taskId, String status) async {
+    try {
+      await _dio.put('/tasks/$taskId', data: {'status': status});
+    } on DioException catch (e) {
+      throw Exception(e.response?.data?['detail'] ?? 'Update task failed');
+    }
+  }
+
+  Future<void> deleteTask(String taskId) async {
+    try {
+      await _dio.delete('/tasks/$taskId');
+    } on DioException catch (e) {
+      throw Exception(e.response?.data?['detail'] ?? 'Delete task failed');
+    }
+  }
+
   Future<Map<String, dynamic>> fetchConversation(int conversationId) async {
     try {
       final response = await _dio.get('/conversations/$conversationId');
@@ -208,6 +244,14 @@ class ApiClient {
       await _dio.patch('/conversations/$conversationId', data: {'title': title});
     } on DioException catch (e) {
       throw Exception(e.response?.data?['detail'] ?? 'Failed to update conversation title');
+    }
+  }
+
+  Future<void> updateConversationPin(int conversationId, bool isPinned) async {
+    try {
+      await _dio.patch('/conversations/$conversationId', data: {'is_pinned': isPinned});
+    } on DioException catch (e) {
+      throw Exception(e.response?.data?['detail'] ?? 'Failed to update conversation pin');
     }
   }
 
@@ -284,6 +328,54 @@ class ApiClient {
       return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
       throw Exception(e.response?.data?['detail'] ?? 'Chat request failed');
+    }
+  }
+
+  Stream<String> sendChatMessageStream(String conversationId, String message, {bool isRegenerate = false, List<String>? images}) async* {
+    final intId = int.tryParse(conversationId) ?? (throw Exception("Invalid Conversation ID"));
+    
+    final Map<String, dynamic> payload = {
+      'conversation_id': intId, 
+      'message': message,
+      'is_regenerate': isRegenerate,
+    };
+    
+    if (images != null && images.isNotEmpty) {
+       payload['images'] = images;
+    }
+    
+    final request = http.Request('POST', Uri.parse('$baseUrl/chat/stream'));
+    if (_authToken != null) {
+       request.headers['Authorization'] = 'Bearer $_authToken';
+    }
+    if (_lat != null) request.headers['X-User-Lat'] = _lat.toString();
+    if (_lon != null) request.headers['X-User-Lon'] = _lon.toString();
+    request.headers['Content-Type'] = 'application/json';
+    request.headers['Accept'] = 'text/event-stream';
+    request.headers['Cache-Control'] = 'no-cache';
+    request.body = jsonEncode(payload);
+
+    final response = await http.Client().send(request);
+    if (response.statusCode != 200) {
+        final err = await response.stream.bytesToString();
+        throw Exception("Stream failed: $err");
+    }
+
+    String buffer = "";
+    await for (final chunk in response.stream) {
+      buffer += utf8.decode(chunk, allowMalformed: true);
+      while (buffer.contains('\n\n')) {
+        int index = buffer.indexOf('\n\n');
+        String block = buffer.substring(0, index).trim();
+        buffer = buffer.substring(index + 2);
+        
+        for (var line in block.split('\n')) {
+           line = line.trim();
+           if (line.startsWith('data: ')) {
+               yield line.substring(6);
+           }
+        }
+      }
     }
   }
 }

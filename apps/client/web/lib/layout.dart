@@ -11,6 +11,7 @@ import 'calendar_view.dart';
 import 'people_view.dart';
 import 'memory_view.dart';
 import 'audio_debug_view.dart';
+import 'tasks_view.dart';
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -28,6 +29,7 @@ class _MainLayoutState extends State<MainLayout> {
   final List<Widget> _views = [
     const ChatView(),
     const NotesView(),
+    const TasksView(),
     const DocumentsView(),
     const CalendarView(),
     const TokenUsageView(),
@@ -41,6 +43,7 @@ class _MainLayoutState extends State<MainLayout> {
   static const List<_NavItem> _navItems = [
     _NavItem(icon: Icons.dashboard_outlined, activeIcon: Icons.dashboard, label: 'Workspace'),
     _NavItem(icon: Icons.note_outlined, activeIcon: Icons.note, label: 'Notes'),
+    _NavItem(icon: Icons.check_circle_outline, activeIcon: Icons.check_circle, label: 'Tasks'),
     _NavItem(icon: Icons.folder_outlined, activeIcon: Icons.folder, label: 'Knowledge Base'),
     _NavItem(icon: Icons.calendar_month_outlined, activeIcon: Icons.calendar_month, label: 'Calendar'),
     _NavItem(icon: Icons.speed_outlined, activeIcon: Icons.speed, label: 'Token Limits'),
@@ -111,55 +114,47 @@ class _MainLayoutState extends State<MainLayout> {
                       }),
                       
                       if (_selectedIndex == 0 && _isSidebarOpen) ...[
-                        const SizedBox(height: 16),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: Align(alignment: Alignment.centerLeft, child: Text('CHAT HISTORY', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white.withValues(alpha: 0.3), letterSpacing: 1.2))),
-                        ),
-                        const SizedBox(height: 8),
                         Expanded(
                           child: Consumer(
                             builder: (context, ref, child) {
                                final sessions = ref.watch(chatProvider).sessions;
                                if (sessions.isEmpty) return const SizedBox();
-                               return ListView.builder(
-                                  padding: EdgeInsets.zero,
-                                  itemCount: sessions.length,
-                                  itemBuilder: (context, i) {
-                                     final title = sessions[i]['title']?.toString() ?? 'Session ${sessions[i]['id']}';
-                                     final sessionId = sessions[i]['id'] as int;
-                                     bool isActive = ref.watch(chatProvider).conversationId == sessionId;
-                                     return Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                                        child: InkWell(
-                                          borderRadius: BorderRadius.circular(8),
-                                          onTap: () {
-                                             ref.read(chatProvider.notifier).switchSession(sessionId);
-                                          },
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                            decoration: BoxDecoration(color: isActive ? Colors.white.withValues(alpha: 0.05) : Colors.transparent, borderRadius: BorderRadius.circular(8)),
-                                            child: Row(children: [
-                                              Icon(Icons.chat_bubble_outline, size: 14, color: isActive ? Colors.white.withValues(alpha: 0.8) : Colors.white.withValues(alpha: 0.4)),
-                                              const SizedBox(width: 12),
-                                              Expanded(child: Text(title, style: TextStyle(fontSize: 13, color: isActive ? Colors.white.withValues(alpha: 0.9) : Colors.white.withValues(alpha: 0.6)), maxLines: 1, overflow: TextOverflow.clip)),
-                                            ]),
-                                          )
+                               
+                               final pinned = sessions.where((s) => s['is_pinned'] == true).toList();
+                               final recent = sessions.where((s) => s['is_pinned'] != true).toList();
+                               
+                               return ListView(
+                                  padding: const EdgeInsets.only(top: 16),
+                                  children: [
+                                     if (pinned.isNotEmpty) ...[
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                                          child: Align(alignment: Alignment.centerLeft, child: Text('PINNED', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white.withValues(alpha: 0.3), letterSpacing: 1.2))),
                                         ),
-                                     );
-                                  }
+                                        const SizedBox(height: 8),
+                                        ...pinned.map((s) => _SidebarHistoryItem(key: ValueKey('pinned_${s['id']}'), session: s)),
+                                        const SizedBox(height: 16),
+                                     ],
+                                     Padding(
+                                       padding: const EdgeInsets.symmetric(horizontal: 20),
+                                       child: Align(alignment: Alignment.centerLeft, child: Text('RECENTS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white.withValues(alpha: 0.3), letterSpacing: 1.2))),
+                                     ),
+                                     const SizedBox(height: 8),
+                                     ...recent.map((s) => _SidebarHistoryItem(key: ValueKey('recent_${s['id']}'), session: s)),
+                                  ]
                                );
                             }
                           )
                         ),
                       ] else const Spacer(),
                       Container(height: 1, color: Colors.white.withValues(alpha: 0.06)),
+
                       _SidebarTile(
-                        icon: _selectedIndex == 9 ? Icons.settings : Icons.settings_outlined,
+                        icon: _selectedIndex == 10 ? Icons.settings : Icons.settings_outlined,
                         label: 'Settings',
-                        selected: _selectedIndex == 9,
+                        selected: _selectedIndex == 10,
                         isExpanded: _isSidebarOpen,
-                        onTap: () => setState(() => _selectedIndex = 9),
+                        onTap: () => setState(() => _selectedIndex = 10),
                       ),
                       const SizedBox(height: 12),
                       ],
@@ -189,6 +184,109 @@ class _MainLayoutState extends State<MainLayout> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SidebarHistoryItem extends ConsumerStatefulWidget {
+  final dynamic session;
+  const _SidebarHistoryItem({super.key, required this.session});
+  @override
+  _SidebarHistoryItemState createState() => _SidebarHistoryItemState();
+}
+
+class _SidebarHistoryItemState extends ConsumerState<_SidebarHistoryItem> {
+  bool _isHovered = false;
+  bool _menuOpen = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = widget.session['title']?.toString() ?? 'Session ${widget.session['id']}';
+    final sessionId = widget.session['id'] as int;
+    final bool isPinned = widget.session['is_pinned'] == true;
+    bool isActive = ref.watch(chatProvider).conversationId == sessionId;
+    final bool showActions = _isHovered || _menuOpen;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          decoration: BoxDecoration(
+            color: isActive 
+                ? Colors.white.withValues(alpha: 0.08) 
+                : showActions 
+                    ? Colors.white.withValues(alpha: 0.03) 
+                    : Colors.transparent,
+            borderRadius: BorderRadius.circular(8)
+          ),
+          child: Row(children: [
+            Expanded(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () {
+                   ref.read(chatProvider.notifier).switchSession(sessionId);
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  child: Row(
+                    children: [
+                      Icon(Icons.chat_bubble_outline, size: 14, color: isActive ? Colors.white.withValues(alpha: 0.8) : Colors.white.withValues(alpha: 0.4)),
+                      const SizedBox(width: 12),
+                      Expanded(child: Text(title, style: TextStyle(fontSize: 13, color: isActive ? Colors.white.withValues(alpha: 0.9) : Colors.white.withValues(alpha: 0.6)), maxLines: 1, overflow: TextOverflow.clip)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            if (showActions)
+              Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: SizedBox(
+                  height: 24,
+                  width: 24,
+                  child: PopupMenuButton<String>(
+                     padding: EdgeInsets.zero,
+                     icon: Icon(Icons.more_vert, size: 16, color: Colors.white.withValues(alpha: 0.5)),
+                     color: const Color(0xFF2C2C2E),
+                     onOpened: () => setState(() => _menuOpen = true),
+                     onCanceled: () => setState(() => _menuOpen = false),
+                     onSelected: (val) {
+                        setState(() => _menuOpen = false);
+                        if (val == 'pin') {
+                           ref.read(chatProvider.notifier).pinChat(sessionId, !isPinned);
+                        } else if (val == 'delete') {
+                           ref.read(chatProvider.notifier).deleteChat(sessionId);
+                        }
+                     },
+                     itemBuilder: (context) => [
+                        PopupMenuItem(
+                           value: 'pin',
+                           height: 36,
+                           child: Row(children: [
+                             Icon(isPinned ? Icons.push_pin_outlined : Icons.push_pin, size: 15, color: Colors.white70),
+                             const SizedBox(width: 10),
+                             Text(isPinned ? 'Unpin' : 'Pin', style: const TextStyle(color: Colors.white, fontSize: 13)),
+                           ]),
+                        ),
+                        PopupMenuItem(
+                           value: 'delete',
+                           height: 36,
+                           child: const Row(children: [
+                             Icon(Icons.delete_outline, size: 15, color: Colors.redAccent),
+                             SizedBox(width: 10),
+                             Text('Delete', style: TextStyle(color: Colors.redAccent, fontSize: 13)),
+                           ]),
+                        ),
+                     ],
+                  ),
+                ),
+              ),
+          ]),
         ),
       ),
     );

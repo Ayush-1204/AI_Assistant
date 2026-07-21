@@ -232,11 +232,11 @@ def get_provider_router() -> ProviderRouter:
             groq_models = [
                 "llama-3.3-70b-versatile",
                 "llama-3.1-8b-instant",
-                "meta-llama/llama-prompt-guard-2-2",
-                "qwen/qwen3-32b",
-                "qwen/qwen3.6-27b",
-                "groq/compound",
-                "groq/compound-mini"
+                "llama-guard-3-8b",
+                "qwen-2.5-32b",
+                "qwen-2.5-coder-32b",
+                "mixtral-8x7b-32768",
+                "gemma2-9b-it"
             ]
             for mdl in groq_models:
                 p_name = mdl.split("/")[-1] if "/" in mdl else mdl
@@ -478,6 +478,11 @@ def get_task_service(repo: TaskRepository = Depends(get_task_repository)) -> Tas
 
 def get_reminder_service(repo: ReminderRepository = Depends(get_reminder_repository)) -> ReminderService:
     return ReminderService(repo)
+
+def get_google_tasks_service(db: AsyncSession = Depends(get_db)) -> GoogleTasksService:
+    oauth_repo = OAuthRepository(db)
+    auth_service = GoogleAuthService(oauth_repo)
+    return GoogleTasksService(auth_service)
 
 
 # ==========================================================

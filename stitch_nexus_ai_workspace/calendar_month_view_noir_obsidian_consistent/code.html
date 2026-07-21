@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Aura AI - Calendar</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        @import url('https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=JetBrains+Mono:wght@100..800&display=swap');
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary": "#ffffff",
+                        "surface-container-high": "#2a2a2a",
+                        "on-secondary-container": "#b5b4ba",
+                        "outline-variant": "#444748",
+                        "surface-container-highest": "#353535",
+                        "primary-fixed-dim": "#c6c6c7",
+                        "inverse-surface": "#e2e2e2",
+                        "surface-container": "#1f1f1f",
+                        "on-primary-container": "#636565",
+                        "secondary-fixed-dim": "#c6c6cb",
+                        "tertiary-fixed-dim": "#c8c6c5",
+                        "primary-container": "#e2e2e2",
+                        "secondary-container": "#46464b",
+                        "on-error-container": "#ffdad6",
+                        "surface-dim": "#131313",
+                        "secondary": "#c6c6cb",
+                        "on-tertiary-fixed": "#1c1b1b",
+                        "on-tertiary": "#313030",
+                        "primary-fixed": "#e2e2e2",
+                        "surface-bright": "#393939",
+                        "on-secondary-fixed": "#1a1b1f",
+                        "on-error": "#690005",
+                        "tertiary-container": "#e5e2e1",
+                        "on-primary-fixed": "#1a1c1c",
+                        "outline": "#8e9192",
+                        "secondary-fixed": "#e3e2e7",
+                        "error": "#ffb4ab",
+                        "background": "#131313",
+                        "tertiary-fixed": "#e5e2e1",
+                        "surface-container-low": "#1b1b1b",
+                        "on-secondary-fixed-variant": "#46464b",
+                        "surface-tint": "#c6c6c7",
+                        "on-surface": "#e2e2e2",
+                        "on-background": "#e2e2e2",
+                        "surface-container-lowest": "#0e0e0e",
+                        "surface": "#131313",
+                        "on-tertiary-fixed-variant": "#474746",
+                        "on-surface-variant": "#c4c7c8",
+                        "surface-variant": "#353535",
+                        "on-tertiary-container": "#656464",
+                        "error-container": "#93000a",
+                        "primary": "#ffffff",
+                        "on-secondary": "#2f3034",
+                        "on-primary-fixed-variant": "#454747",
+                        "on-primary": "#2f3131",
+                        "inverse-primary": "#5d5f5f",
+                        "inverse-on-surface": "#303030"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px",
+                        "inner": "16px",
+                        "main": "24px"
+                    },
+                    "spacing": {
+                        "stack-sm": "4px",
+                        "gutter": "16px",
+                        "stack-lg": "32px",
+                        "base": "8px",
+                        "container-padding": "24px",
+                        "stack-md": "12px",
+                        "radius-main": "24px",
+                        "sidebar-width": "280px",
+                        "radius-inner": "16px",
+                        "container-margin": "24px",
+                        "inspector-width": "320px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Geist"],
+                        "label-sm": ["Geist"],
+                        "headline-lg-mobile": ["Geist"],
+                        "headline-lg": ["Geist"],
+                        "display-lg": ["Geist"],
+                        "headline-md": ["Geist"],
+                        "body-lg": ["Geist"],
+                        "label-md": ["Geist"],
+                        "code-sm": ["JetBrains Mono"]
+                    },
+                    "fontSize": {
+                        "body-md": ["16px", { "lineHeight": "24px", "letterSpacing": "0em", "fontWeight": "400" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+                        "display-lg": ["64px", { "lineHeight": "72px", "letterSpacing": "-0.04em", "fontWeight": "700" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "label-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "500" }],
+                        "code-sm": ["13px", { "lineHeight": "20px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style type="text/tailwindcss">
+        @layer utilities {
+            .glass-panel {
+                @apply backdrop-blur-[16px] bg-white/[0.02] border border-white/5;
+            }
+            .glass-card {
+                @apply backdrop-blur-[32px] bg-white/[0.06] border border-white/10;
+            }
+            .glass-button {
+                @apply backdrop-blur-md bg-white/[0.05] border border-white/10 text-on-surface hover:bg-white/10 transition-all duration-200;
+            }
+            .primary-gradient-btn {
+                @apply bg-primary/10 backdrop-blur-md border border-t-primary/30 border-primary/10 text-primary hover:bg-primary/20 transition-all duration-200;
+            }
+            .text-glow {
+                text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+            }
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface h-screen overflow-hidden flex font-body-md relative selection:bg-primary/30">
+<!-- SideNavBar -->
+<nav class="hidden md:flex flex-col h-full py-6 w-[280px] sticky left-0 top-0 border-r border-white/5 shadow-none bg-surface/20 backdrop-blur-lg z-20">
+<!-- Header -->
+<div class="px-6 mb-8 flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20">
+<span class="material-symbols-outlined text-primary" style='font-variation-settings: "FILL" 1;'>psychology</span>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary">Aura AI</h1>
+<p class="font-label-md text-label-md text-on-surface-variant">Pro Workspace</p>
+</div>
+</div>
+<!-- CTA -->
+<div class="px-6 mb-6">
+<button class="w-full py-2.5 rounded-lg primary-gradient-btn flex items-center justify-center gap-2 font-label-md text-label-md group relative overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-500"></div>
+<span class="material-symbols-outlined text-[18px]">add</span>
+                New Session
+            </button>
+</div>
+<!-- Navigation Tabs -->
+<div class="flex-1 overflow-y-auto px-4 space-y-1">
+<a class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-on-surface-variant font-normal hover:bg-white/5 transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="chat">chat</span>
+                Chats
+            </a>
+<a class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-on-surface-variant font-normal hover:bg-white/5 transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="notes">notes</span>
+                Notes
+            </a>
+<a class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-on-surface-variant font-normal hover:bg-white/5 transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="check_circle">check_circle</span>
+                Tasks
+            </a>
+<a class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-on-surface-variant font-normal hover:bg-white/5 transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="description">description</span>
+                Docs
+            </a>
+<a class="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-white/5 text-primary font-bold border-r-2 border-primary hover:bg-white/5 transition-colors font-label-md text-label-md relative" href="#">
+<div class="absolute inset-0 bg-primary/5 rounded-lg"></div>
+<span class="material-symbols-outlined text-[20px] text-primary" data-icon="calendar_today" style="font-variation-settings: 'FILL' 1;">calendar_today</span>
+<span class="relative z-10 text-glow">Cal</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-on-surface-variant font-normal hover:bg-white/5 transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="mail">mail</span>
+                Mail
+            </a>
+<a class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-on-surface-variant font-normal hover:bg-white/5 transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="cloud_queue">cloud_queue</span>
+                Drive
+            </a>
+</div>
+<!-- Footer Tabs -->
+<div class="px-4 mt-auto pt-4 border-t border-white/5 space-y-1">
+<a class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="settings">settings</span>
+                Settings
+            </a>
+<a class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="help_outline">help_outline</span>
+                Support
+            </a>
+</div>
+</nav>
+<!-- Main Content Area -->
+<div class="flex-1 flex flex-col min-w-0 relative z-10 h-full">
+<!-- TopAppBar -->
+<header class="flex justify-between items-center px-container-margin w-full h-16 sticky top-0 z-50 border-b border-white/10 shadow-sm bg-surface/5 backdrop-blur-xl">
+<!-- Mobile Menu & Title -->
+<div class="flex items-center gap-4">
+<button class="md:hidden text-on-surface-variant hover:text-on-surface">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<div class="hidden md:flex items-center gap-6">
+<!-- Left nav items placeholder to match structure -->
+<a class="font-label-md text-label-md text-on-surface-variant hover:text-primary transition-all" href="#">Dashboard</a>
+<a class="font-label-md text-label-md text-on-surface-variant hover:text-primary transition-all" href="#">Workspaces</a>
+<a class="font-label-md text-label-md text-on-surface-variant hover:text-primary transition-all" href="#">History</a>
+</div>
+</div>
+<!-- Actions -->
+<div class="flex items-center gap-4">
+<div class="flex items-center bg-black/20 border border-white/10 rounded-full p-1 mr-4">
+<button class="px-4 py-1 rounded-full text-xs font-label-md text-on-surface-variant hover:text-on-surface transition-colors">Day</button>
+<button class="px-4 py-1 rounded-full text-xs font-label-md text-on-surface-variant hover:text-on-surface transition-colors">Week</button>
+<button class="px-4 py-1 rounded-full text-xs font-label-md bg-primary/10 text-primary">Month</button>
+</div>
+<div class="hidden md:flex items-center bg-black/20 border border-white/10 rounded-full px-3 py-1.5 focus-within:border-primary/50 focus-within:ring-2 ring-primary/20 transition-all">
+<span class="material-symbols-outlined text-on-surface-variant text-[18px] mr-2">search</span>
+<input class="bg-transparent border-none text-on-surface font-label-md text-label-md focus:outline-none focus:ring-0 placeholder:text-on-surface-variant/50 w-48" placeholder="Search events..." type="text"/>
+<span class="text-xs text-on-surface-variant/50 border border-white/10 rounded px-1.5 py-0.5 ml-2 font-code-sm">⌘K</span>
+</div>
+<button class="flex items-center gap-2 px-3 py-1.5 rounded-full primary-gradient-btn font-label-md text-label-md">
+<span class="material-symbols-outlined text-[18px]">mic</span>
+                    Voice Mode
+                </button>
+<div class="flex items-center gap-2 border-l border-white/10 pl-4 ml-2">
+<button class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-white/5 transition-all">
+<span class="material-symbols-outlined text-[20px]" data-icon="notifications">notifications</span>
+</button>
+<button class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-white/5 transition-all">
+<span class="material-symbols-outlined text-[20px]" data-icon="account_circle">account_circle</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Calendar Canvas -->
+<main class="flex-1 flex overflow-hidden p-container-margin gap-6 h-[calc(100vh-64px)]">
+<!-- Left Panel: Main Cal Grid (now takes up the left/center space) -->
+<div class="flex-1 glass-panel rounded-main flex flex-col overflow-hidden relative">
+<div class="flex items-center justify-between p-4 border-b border-white/5 bg-black/20">
+<div class="flex items-center gap-4">
+<h2 class="font-headline-md text-headline-md text-primary font-semibold">November 2023</h2>
+<div class="flex items-center gap-1">
+<button class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-white/10 transition-colors">
+<span class="material-symbols-outlined text-[20px]">chevron_left</span>
+</button>
+<button class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-white/10 transition-colors">
+<span class="material-symbols-outlined text-[20px]">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Grid Header (Days) -->
+<div class="grid grid-cols-7 border-b border-white/5 bg-black/20 z-10 sticky top-0">
+<div class="p-3 text-center border-r border-white/5 font-label-md text-xs text-on-surface-variant uppercase tracking-wider">Sun</div>
+<div class="p-3 text-center border-r border-white/5 font-label-md text-xs text-on-surface-variant uppercase tracking-wider">Mon</div>
+<div class="p-3 text-center border-r border-white/5 font-label-md text-xs text-on-surface-variant uppercase tracking-wider">Tue</div>
+<div class="p-3 text-center border-r border-white/5 font-label-md text-xs text-on-surface-variant uppercase tracking-wider">Wed</div>
+<div class="p-3 text-center border-r border-white/5 font-label-md text-xs text-on-surface-variant uppercase tracking-wider">Thu</div>
+<div class="p-3 text-center border-r border-white/5 font-label-md text-xs text-on-surface-variant uppercase tracking-wider">Fri</div>
+<div class="p-3 text-center font-label-md text-xs text-on-surface-variant uppercase tracking-wider">Sat</div>
+</div>
+<!-- Grid Body (Month View) -->
+<div class="flex-1 overflow-y-auto custom-scrollbar">
+<div class="grid grid-cols-7 h-full min-h-[600px] border-l border-t border-white/5">
+<!-- Row 1 -->
+<div class="border-r border-b border-white/5 p-2 min-h-[120px] bg-black/10 flex flex-col">
+<span class="text-on-surface-variant/50 text-sm self-end font-code-sm">29</span>
+</div>
+<div class="border-r border-b border-white/5 p-2 min-h-[120px] bg-black/10 flex flex-col">
+<span class="text-on-surface-variant/50 text-sm self-end font-code-sm">30</span>
+</div>
+<div class="border-r border-b border-white/5 p-2 min-h-[120px] bg-black/10 flex flex-col">
+<span class="text-on-surface-variant/50 text-sm self-end font-code-sm">31</span>
+</div>
+<div class="border-r border-b border-white/5 p-2 min-h-[120px] hover:bg-white/5 transition-colors flex flex-col gap-1 relative group cursor-pointer">
+<span class="text-on-surface-variant text-sm self-end font-code-sm">1</span>
+<div class="glass-card w-full rounded p-1.5 border-l-2 text-xs truncate" style="border-left-color: #B39DDB; background: rgba(179, 157, 219, 0.1);">
+<span class="text-white">Design Sync</span>
+</div>
+</div>
+<div class="border-r border-b border-white/5 p-2 min-h-[120px] hover:bg-white/5 transition-colors flex flex-col gap-1 relative group cursor-pointer">
+<span class="text-on-surface-variant text-sm self-end font-code-sm">2</span>
+</div>
+<div class="border-r border-b border-white/5 p-2 min-h-[120px] hover:bg-white/5 transition-colors flex flex-col gap-1 relative group cursor-pointer">
+<span class="text-on-surface-variant text-sm self-end font-code-sm">3</span>
+<div class="glass-card w-full rounded p-1.5 border-l-2 text-xs truncate" style="border-left-color: #FFB300; background: rgba(255, 179, 0, 0.1);">
+<span class="text-primary font-semibold">Product Review</span>
+</div>
+<div class="glass-card w-full rounded p-1.5 border-l-2 border-outline-variant text-[10px] truncate text-on-surface-variant">
+                                1:1 with Alex
+                            </div>
+</div>
+<div class="border-b border-white/5 p-2 min-h-[120px] hover:bg-white/5 transition-colors flex flex-col relative group cursor-pointer">
+<span class="text-on-surface-variant/70 text-sm self-end font-code-sm">4</span>
+</div>
+<!-- Row 2 -->
+<div class="border-r border-b border-white/5 p-2 min-h-[120px] hover:bg-white/5 transition-colors flex flex-col relative group cursor-pointer">
+<span class="text-on-surface-variant/70 text-sm self-end font-code-sm">5</span>
+</div>
+<div class="border-r border-b border-white/5 p-2 min-h-[120px] hover:bg-white/5 transition-colors flex flex-col gap-1 relative group cursor-pointer">
+<span class="text-on-surface-variant text-sm self-end font-code-sm">6</span>
+<div class="w-2 h-2 rounded-full bg-primary mb-0.5 ml-1 mt-1"></div>
+</div>
+<div class="border-r border-b border-white/5 p-2 min-h-[120px] hover:bg-white/5 transition-colors flex flex-col relative group cursor-pointer">
+<span class="text-on-surface-variant text-sm self-end font-code-sm">7</span>
+</div>
+<div class="border-r border-b border-white/5 p-2 min-h-[120px] bg-primary/5 hover:bg-primary/10 transition-colors flex flex-col gap-1 relative group cursor-pointer">
+<!-- Current Day -->
+<div class="absolute inset-0 border border-primary/20 pointer-events-none rounded"></div>
+<div class="self-end bg-primary text-surface-container-lowest w-7 h-7 flex items-center justify-center rounded-full text-sm font-bold mb-1 shadow-[0_0_10px_rgba(255,255,255,0.5)] font-code-sm">8</div>
+<div class="glass-card w-full rounded p-1.5 border-l-2 text-xs truncate" style="border-left-color: #2979FF; background: rgba(41, 121, 255, 0.1);">
+<span class="text-primary font-semibold">Client Presentation</span>
+</div>
+<div class="glass-card w-full rounded p-1.5 border-l-2 border-outline-variant text-[10px] truncate text-on-surface-variant">
+                                Engineering Standup
+                            </div>
+</div>
+<div class="border-r border-b border-white/5 p-2 min-h-[120px] hover:bg-white/5 transition-colors flex flex-col gap-1 relative group cursor-pointer">
+<span class="text-on-surface-variant text-sm self-end font-code-sm">9</span>
+<div class="w-2 h-2 rounded-full bg-on-surface-variant mb-0.5 ml-1 mt-1"></div>
+<div class="w-2 h-2 rounded-full bg-on-surface-variant mb-0.5 ml-1"></div>
+</div>
+<div class="border-r border-b border-white/5 p-2 min-h-[120px] hover:bg-white/5 transition-colors flex flex-col relative group cursor-pointer">
+<span class="text-on-surface-variant text-sm self-end font-code-sm">10</span>
+</div>
+<div class="border-b border-white/5 p-2 min-h-[120px] hover:bg-white/5 transition-colors flex flex-col relative group cursor-pointer">
+<span class="text-on-surface-variant/70 text-sm self-end font-code-sm">11</span>
+</div>
+<!-- Row 3 -->
+<div class="border-r border-b border-white/5 p-2 min-h-[120px] hover:bg-white/5 transition-colors flex flex-col relative group cursor-pointer"><span class="text-on-surface-variant/70 text-sm self-end font-code-sm">12</span></div>
+<div class="border-r border-b border-white/5 p-2 min-h-[120px] hover:bg-white/5 transition-colors flex flex-col relative group cursor-pointer"><span class="text-on-surface-variant text-sm self-end font-code-sm">13</span></div>
+<div class="border-r border-b border-white/5 p-2 min-h-[120px] hover:bg-white/5 transition-colors flex flex-col gap-1 relative group cursor-pointer">
+<span class="text-on-surface-variant text-sm self-end font-code-sm">14</span>
+<div class="glass-card w-full rounded p-1.5 border-l-2 border-outline-variant text-[10px] truncate text-on-surface-variant">
+                                Marketing Sync
+                            </div>
+</div>
+<div class="border-r border-b border-white/5 p-2 min-h-[120px] hover:bg-white/5 transition-colors flex flex-col relative group cursor-pointer"><span class="text-on-surface-variant text-sm self-end font-code-sm">15</span></div>
+<div class="border-r border-b border-white/5 p-2 min-h-[120px] hover:bg-white/5 transition-colors flex flex-col relative group cursor-pointer"><span class="text-on-surface-variant text-sm self-end font-code-sm">16</span></div>
+<div class="border-r border-b border-white/5 p-2 min-h-[120px] hover:bg-white/5 transition-colors flex flex-col relative group cursor-pointer"><span class="text-on-surface-variant text-sm self-end font-code-sm">17</span></div>
+<div class="border-b border-white/5 p-2 min-h-[120px] hover:bg-white/5 transition-colors flex flex-col relative group cursor-pointer"><span class="text-on-surface-variant/70 text-sm self-end font-code-sm">18</span></div>
+<!-- Row 4 -->
+<div class="border-r border-b border-white/5 p-2 min-h-[120px] hover:bg-white/5 transition-colors flex flex-col relative group cursor-pointer"><span class="text-on-surface-variant/70 text-sm self-end font-code-sm">19</span></div>
+<div class="border-r border-b border-white/5 p-2 min-h-[120px] hover:bg-white/5 transition-colors flex flex-col relative group cursor-pointer"><span class="text-on-surface-variant text-sm self-end font-code-sm">20</span></div>
+<div class="border-r border-b border-white/5 p-2 min-h-[120px] hover:bg-white/5 transition-colors flex flex-col relative group cursor-pointer"><span class="text-on-surface-variant text-sm self-end font-code-sm">21</span></div>
+<div class="border-r border-b border-white/5 p-2 min-h-[120px] hover:bg-white/5 transition-colors flex flex-col relative group cursor-pointer"><span class="text-on-surface-variant text-sm self-end font-code-sm">22</span></div>
+<div class="border-r border-b border-white/5 p-2 min-h-[120px] hover:bg-white/5 transition-colors flex flex-col gap-1 relative group cursor-pointer">
+<span class="text-on-surface-variant text-sm self-end font-code-sm">23</span>
+<div class="w-2 h-2 rounded-full bg-primary mb-0.5 ml-1 mt-1"></div>
+</div>
+<div class="border-r border-b border-white/5 p-2 min-h-[120px] hover:bg-white/5 transition-colors flex flex-col relative group cursor-pointer"><span class="text-on-surface-variant text-sm self-end font-code-sm">24</span></div>
+<div class="border-b border-white/5 p-2 min-h-[120px] hover:bg-white/5 transition-colors flex flex-col relative group cursor-pointer"><span class="text-on-surface-variant/70 text-sm self-end font-code-sm">25</span></div>
+<!-- Row 5 -->
+<div class="border-r border-white/5 p-2 min-h-[120px] hover:bg-white/5 transition-colors flex flex-col relative group cursor-pointer"><span class="text-on-surface-variant/70 text-sm self-end font-code-sm">26</span></div>
+<div class="border-r border-white/5 p-2 min-h-[120px] hover:bg-white/5 transition-colors flex flex-col relative group cursor-pointer"><span class="text-on-surface-variant text-sm self-end font-code-sm">27</span></div>
+<div class="border-r border-white/5 p-2 min-h-[120px] hover:bg-white/5 transition-colors flex flex-col relative group cursor-pointer"><span class="text-on-surface-variant text-sm self-end font-code-sm">28</span></div>
+<div class="border-r border-white/5 p-2 min-h-[120px] hover:bg-white/5 transition-colors flex flex-col relative group cursor-pointer"><span class="text-on-surface-variant text-sm self-end font-code-sm">29</span></div>
+<div class="border-r border-white/5 p-2 min-h-[120px] hover:bg-white/5 transition-colors flex flex-col relative group cursor-pointer"><span class="text-on-surface-variant text-sm self-end font-code-sm">30</span></div>
+<div class="border-r border-white/5 p-2 min-h-[120px] bg-black/10 flex flex-col"><span class="text-on-surface-variant/50 text-sm self-end font-code-sm">1</span></div>
+<div class="p-2 min-h-[120px] bg-black/10 flex flex-col"><span class="text-on-surface-variant/50 text-sm self-end font-code-sm">2</span></div>
+</div>
+</div>
+</div>
+<!-- Right Sidebar: Retractable Details Panel -->
+<aside class="hidden lg:flex w-64 flex-col gap-6 border-l border-white/5 pl-6 transition-all duration-300 relative h-full overflow-y-auto custom-scrollbar pb-6" id="right-sidebar">
+<button class="absolute -left-3 top-4 w-6 h-6 rounded-full glass-card flex items-center justify-center text-on-surface-variant hover:text-primary z-50">
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+</button>
+<div class="glass-panel rounded-xl p-4">
+<div class="flex justify-between items-center mb-4">
+<h3 class="font-label-md text-label-md font-semibold">November 2023</h3>
+<div class="flex gap-1">
+<button class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined text-[18px]">chevron_left</span></button>
+<button class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined text-[18px]">chevron_right</span></button>
+</div>
+</div>
+<div class="grid grid-cols-7 gap-1 text-center font-code-sm text-[10px] text-on-surface-variant mb-2">
+<div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div><div>S</div>
+</div>
+<div class="grid grid-cols-7 gap-1 text-center font-code-sm text-xs">
+<div class="text-on-surface-variant/30 py-1">30</div>
+<div class="text-on-surface-variant/30 py-1">31</div>
+<div class="py-1 hover:bg-white/10 rounded cursor-pointer">1</div>
+<div class="py-1 hover:bg-white/10 rounded cursor-pointer">2</div>
+<div class="py-1 hover:bg-white/10 rounded cursor-pointer">3</div>
+<div class="py-1 hover:bg-white/10 rounded cursor-pointer">4</div>
+<div class="py-1 hover:bg-white/10 rounded cursor-pointer">5</div>
+<div class="py-1 hover:bg-white/10 rounded cursor-pointer relative">6<div class="w-1 h-1 bg-white rounded-full absolute bottom-0 left-1/2 -translate-x-1/2"></div></div>
+<div class="py-1 hover:bg-white/10 rounded cursor-pointer">7</div>
+<div class="py-1 bg-primary/10 text-primary font-bold rounded cursor-pointer border border-primary/20">8</div>
+<div class="py-1 hover:bg-white/10 rounded cursor-pointer relative">9<div class="w-1 h-1 bg-white rounded-full absolute bottom-0 left-1/2 -translate-x-1/2"></div></div>
+<div class="py-1 hover:bg-white/10 rounded cursor-pointer">10</div>
+<div class="py-1 hover:bg-white/10 rounded cursor-pointer">11</div>
+<div class="py-1 hover:bg-white/10 rounded cursor-pointer">12</div>
+<div class="py-1 hover:bg-white/10 rounded cursor-pointer">13</div>
+<div class="py-1 hover:bg-white/10 rounded cursor-pointer">14</div>
+<div class="py-1 hover:bg-white/10 rounded cursor-pointer">15</div>
+</div>
+</div>
+<div class="glass-panel rounded-xl p-4">
+<h3 class="font-label-md text-label-md font-semibold mb-4 text-on-surface-variant flex justify-between items-center">
+                        Today's Agenda
+                        <span class="text-on-surface-variant/50 text-xs font-normal">Nov 8</span>
+</h3>
+<div class="space-y-3 mt-2">
+<!-- Event Card 1 -->
+<div class="bg-surface-container-highest/30 border border-white/5 p-3 rounded-lg hover:bg-surface-container-highest/50 transition-colors cursor-pointer group">
+<div class="flex justify-between items-start mb-1">
+<h4 class="text-sm font-medium text-primary group-hover:text-white transition-colors">Client Presentation</h4>
+<span class="text-[10px] text-on-surface-variant px-1.5 py-0.5 rounded bg-white/5 border border-white/10">High Priority</span>
+</div>
+<p class="text-xs text-on-surface-variant mb-3">10:00 AM - 11:30 AM</p>
+<div class="flex -space-x-2">
+<img alt="Participant" class="w-6 h-6 rounded-full border border-surface-container-lowest object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDSVu3_b1Mn61_ZEE0wr8epnavMAozmgrA8ehSFD-RZkuXjRAYB5OEbsmxp1upKVVhycwqrNEw_kDOPM6iXvrbELy1VrvYl4TYt6t4Gp5i_f-zSRkKSa7SMZorh4ZA2zXIH3pdr0GH0AN6JLQV_DS7A-FpxRaQtnNMVVudMJdrFAyjh9hf9FprDWMBSesfTIEvCsTJ47tpkkAolPvNL6yLO425P4gaOyzGfmAvb2YmxmfTn6A4mVIoa"/>
+<img alt="Participant" class="w-6 h-6 rounded-full border border-surface-container-lowest object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAKYxyIB9DjY6zMa60Zm_Jc6iGxrw7MNvuyMyEzlOJInJ2pHeX3ljaLkOL1o22wON_VDVvK2mKQa411XsSSLfUia5wkvWgqC6NNnrQ4hTDP-um4ielxlePkiviuxIWbEE61NaNHFd5rLEIJNFZXuCN1CkBhDYTtCtcEx8pl8CuH3Yy4pAWuSivfgh3qZ1aF5GHKqUaLQrWbOA64GwYEtVDAyGs5lF42XLQ7lWsu_h6RVgDqZnjOPV8N"/>
+</div>
+</div>
+<!-- Event Card 2 -->
+<div class="bg-surface-container-highest/10 border border-white/5 p-3 rounded-lg hover:bg-surface-container-highest/30 transition-colors cursor-pointer group">
+<div class="flex justify-between items-start mb-1">
+<h4 class="text-sm font-medium text-on-surface-variant group-hover:text-primary transition-colors">Engineering Standup</h4>
+</div>
+<p class="text-xs text-on-surface-variant/70 mb-3">1:00 PM - 1:30 PM</p>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[14px] text-on-surface-variant/50">videocam</span>
+<span class="text-xs text-on-surface-variant/70">Meet link attached</span>
+</div>
+</div>
+</div>
+</div>
+<div class="glass-panel rounded-xl p-4 flex-1 min-h-[150px]">
+<h3 class="font-label-md text-label-md font-semibold mb-4 text-on-surface-variant uppercase tracking-wider text-xs">Calendars</h3>
+<ul class="space-y-3 font-label-md text-label-md">
+<li class="flex items-center gap-3 cursor-pointer group">
+<div class="w-3 h-3 rounded-full transition-shadow" style="background-color: #B39DDB;"></div>
+<span class="text-on-surface group-hover:text-white transition-colors">Personal</span>
+</li>
+<li class="flex items-center gap-3 cursor-pointer group">
+<div class="w-3 h-3 rounded-full transition-shadow" style="background-color: #2979FF;"></div>
+<span class="text-on-surface group-hover:text-white transition-colors">Team Sync</span>
+</li>
+<li class="flex items-center gap-3 cursor-pointer group">
+<div class="w-3 h-3 rounded-full transition-shadow" style="background-color: #FFB300;"></div>
+<span class="text-on-surface group-hover:text-white transition-colors">Deadlines</span>
+</li>
+</ul>
+</div>
+</aside>
+</main>
+</div>
+<style>
+        /* Custom Scrollbar for the calendar grid to maintain sleek look */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</body></html>

@@ -150,16 +150,26 @@ class ProviderRouter(BaseLLMProvider):
                 
         return cache["is_healthy"]
 
-    async def _get_available_providers(self) -> list[str]:
+    async def _get_available_providers(self, requires_vision: bool = False) -> list[str]:
         local_override = getattr(self.settings, "LOCAL_ONLY_MODE", False)
         
         available = []
+        vision_available = []
         for name in self.providers:
             if local_override and "ollama" not in name.lower():
                 continue
                 
             if await self._is_provider_healthy(name):
                 available.append(name)
+                # Cache checking
+                meta = await self.providers[name].get_metadata()
+                if meta.supports_vision:
+                    vision_available.append(name)
+                    
+        # Give preference to vision models if requested. Fallback linearly if all vision orchestrators are down.
+        if requires_vision and vision_available:
+            return vision_available
+            
         return available
 
     def _select_provider(self, available: list[str], intent: str = "general") -> BaseLLMProvider:
@@ -191,7 +201,12 @@ class ProviderRouter(BaseLLMProvider):
         return tokens
 
     async def _execute_with_router(self, operation: str, *args, intent: str = "general", **kwargs):
-        available_at_start = await self._get_available_providers()
+        # Determine if payload requires vision capability natively
+        requires_vision = False
+        if operation in ("chat", "stream_chat") and len(args) > 0 and isinstance(args[0], list):
+            requires_vision = any("images" in m and bool(m.get("images")) for m in args[0])
+            
+        available_at_start = await self._get_available_providers(requires_vision)
         tried_providers = set()
         estimated_tokens = self._estimate_tokens(operation, args)
         
@@ -257,7 +272,8 @@ class ProviderRouter(BaseLLMProvider):
         return await self._execute_with_router("extract_memory", message)
 
     async def stream_chat(self, messages: list[dict], tools: list[dict] | None = None, intent: str = "general") -> AsyncGenerator[Any, None]:
-        available_at_start = await self._get_available_providers()
+        requires_vision = any("images" in m and bool(m.get("images")) for m in messages)
+        available_at_start = await self._get_available_providers(requires_vision)
         tried_providers = set()
         estimated_tokens = self._estimate_tokens("stream_chat", (messages,))
         

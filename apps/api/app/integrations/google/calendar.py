@@ -20,7 +20,7 @@ class GoogleCalendarService:
     async def get_todays_schedule(self, user_id: int):
         service = await self._get_client(user_id)
         
-        now = datetime.datetime.now(datetime.UTC)
+        now = datetime.datetime.now(datetime.timezone.utc)
         start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat().replace('+00:00', 'Z')
         end_of_day = now.replace(hour=23, minute=59, second=59, microsecond=999999).isoformat().replace('+00:00', 'Z')
         
@@ -35,7 +35,7 @@ class GoogleCalendarService:
 
     async def get_upcoming_events(self, user_id: int, max_results: int = 10):
         service = await self._get_client(user_id)
-        now = datetime.datetime.now(datetime.UTC).isoformat().replace('+00:00', 'Z')
+        now = datetime.datetime.now(datetime.timezone.utc).isoformat().replace('+00:00', 'Z')
         events_result = service.events().list(
             calendarId='primary', 
             timeMin=now,
@@ -67,8 +67,8 @@ class GoogleCalendarService:
         event = {
             'summary': summary,
             'description': description,
-            'start': {'dateTime': start_time, 'timeZone': 'UTC'},
-            'end': {'dateTime': end_time, 'timeZone': 'UTC'},
+            'start': {'dateTime': start_time},
+            'end': {'dateTime': end_time},
         }
         event_result = service.events().insert(calendarId='primary', body=event).execute()
         return event_result
@@ -78,7 +78,7 @@ class GoogleCalendarService:
         event = service.events().get(calendarId='primary', eventId=event_id).execute()
         for key, value in updates.items():
             if key in ['start', 'end'] and isinstance(value, str):
-                event[key] = {'dateTime': value, 'timeZone': 'UTC'}
+                event[key] = {'dateTime': value}
             else:
                 event[key] = value
         updated_event = service.events().update(calendarId='primary', eventId=event_id, body=event).execute()

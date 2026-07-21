@@ -24,7 +24,7 @@ class TavilySearchProvider(SearchProvider):
     def name(self) -> str:
         return "tavily"
 
-    async def search(self, query: str, max_results: int = 5) -> list[SearchResult]:
+    async def search(self, query: str, max_results: int = 5) -> tuple[list[SearchResult], list[str]]:
         if not self.api_key:
             raise ValueError("Tavily API key not configured")
             
@@ -33,7 +33,7 @@ class TavilySearchProvider(SearchProvider):
             "query": query,
             "search_depth": "basic",
             "include_answer": False,
-            "include_images": False,
+            "include_images": True,
             "include_raw_content": False,
             "max_results": max_results,
             "include_domains": [],
@@ -55,7 +55,7 @@ class TavilySearchProvider(SearchProvider):
                             snippet=item.get("content", "")
                         )
                     )
-                return results
+                return results, data.get("images", [])
                 
             except httpx.HTTPStatusError as e:
                 logger.error(f"Tavily search API error [{e.response.status_code}]: {e.response.text}")

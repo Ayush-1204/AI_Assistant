@@ -11,6 +11,6 @@ class SearchProvider(ABC):
         pass
 
     @abstractmethod
-    async def search(self, query: str, max_results: int = 5) -> list[SearchResult]:
-        """Execute a search query and return a list of SearchResults"""
+    async def search(self, query: str, max_results: int = 5) -> tuple[list[SearchResult], list[str]]:
+        """Execute a search query and return a list of SearchResults alongside matched Image URLs"""
         pass

@@ -6,6 +6,7 @@ from app.schemas.message import MessageResponse
 
 class ConversationBase(BaseModel):
     title: str
+    is_pinned: bool = False
 
 
 class ConversationCreate(ConversationBase):
@@ -14,6 +15,7 @@ class ConversationCreate(ConversationBase):
 
 class ConversationUpdate(BaseModel):
     title: str | None = None
+    is_pinned: bool | None = None
 
 
 class ConversationResponse(ConversationBase):

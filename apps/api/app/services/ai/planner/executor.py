@@ -94,14 +94,19 @@ class AgentExecutor:
                     continue
                     
                 full_text += chunk
+                # Suppress only strict XML tool call fragments from being streamed to the client
                 if "<tool_call" in full_text:
                     is_tool_call_predicted = True
                     continue
-                    
+
                 yield f"data: {json.dumps({'type': 'content', 'delta': chunk})}\n\n"
 
             if not is_tool_call_predicted:
-                final_answer = full_text
+                # Final safety: strip any leaked tool XML from the streamed output
+                import re
+                clean_text = re.sub(r'<tool[\s\S]*?</tool[^>]*>', '', full_text).strip()
+                clean_text = re.sub(r'<tool[^>]*>[\s\S]*', '', clean_text).strip()
+                final_answer = clean_text
                 break
                 
             source_payload = collected_response_obj if collected_response_obj else full_text

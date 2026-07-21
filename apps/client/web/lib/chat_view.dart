@@ -11,9 +11,12 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 import 'api_client.dart';
 import 'providers/auth_provider.dart';
 import 'providers/chat_provider.dart';
+import 'voice_view.dart';
 
 class LoadingDots extends StatefulWidget {
   const LoadingDots({super.key});
@@ -177,87 +180,7 @@ class _ActiveVoiceBarState extends ConsumerState<ActiveVoiceBar>
   }
 }
 
-class TypewriterMarkdown extends StatefulWidget {
-  final String text;
-  const TypewriterMarkdown({super.key, required this.text});
-  @override
-  State<TypewriterMarkdown> createState() => _TypewriterMarkdownState();
-}
 
-class _TypewriterMarkdownState extends State<TypewriterMarkdown> {
-  String displayedText = '';
-  Timer? _timer;
-  @override
-  void initState() {
-    super.initState();
-    _animateText();
-  }
-
-  @override
-  void didUpdateWidget(covariant TypewriterMarkdown oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.text != widget.text) _animateText();
-  }
-
-  void _animateText() {
-    _timer?.cancel();
-    displayedText = '';
-    int index = 0;
-    _timer = Timer.periodic(const Duration(milliseconds: 10), (timer) {
-      if (index < widget.text.length) {
-        setState(() {
-          displayedText += widget.text[index];
-          index++;
-        });
-      } else {
-        timer.cancel();
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return MarkdownBody(
-      data: displayedText,
-      selectable: true,
-      styleSheet: MarkdownStyleSheet(
-        p: TextStyle(
-            fontSize: 15,
-            height: 1.5,
-            color: Colors.white.withValues(alpha: 0.9)),
-        code: TextStyle(
-            fontSize: 14,
-            fontFamily: 'monospace',
-            color: Colors.orangeAccent,
-            backgroundColor: Colors.transparent),
-        codeblockPadding: const EdgeInsets.all(16),
-        codeblockDecoration: BoxDecoration(
-          color: const Color(0xFF131313),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-        ),
-        blockquote: TextStyle(
-            fontSize: 15,
-            fontStyle: FontStyle.italic,
-            color: Colors.white.withValues(alpha: 0.7)),
-        blockquoteDecoration: BoxDecoration(
-          border: Border(
-              left: BorderSide(
-                  color: Theme.of(context).colorScheme.primary, width: 4)),
-        ),
-        a: TextStyle(
-            color: Theme.of(context).colorScheme.primary,
-            decoration: TextDecoration.underline),
-      ),
-    );
-  }
-}
 
 class ChatView extends ConsumerStatefulWidget {
   const ChatView({super.key});
@@ -269,11 +192,13 @@ class ChatView extends ConsumerStatefulWidget {
 class _ChatViewState extends ConsumerState<ChatView> {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  Future<List<dynamic>>? _dashboardFuture;
 
   @override
   void initState() {
     super.initState();
     _initLocation();
+    _dashboardFuture = ref.read(apiClientProvider).fetchDashboardWidgets();
   }
 
   Future<void> _initLocation() async {
@@ -385,7 +310,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
     int crossAxisCount = screenWidth > 1200 ? 3 : (screenWidth > 800 ? 2 : 1);
 
     return FutureBuilder<List<dynamic>>(
-      future: ref.read(apiClientProvider).fetchDashboardWidgets(),
+      future: _dashboardFuture,
       builder: (context, snapshot) {
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return GridView.count(
@@ -470,75 +395,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
                   ),
                   const SizedBox(width: 16),
                   _buildHeaderAction(Icons.search, "Search"),
-                  _buildHeaderDivider(),
-                  Consumer(builder: (context, ref, _) {
-                    final sessions = ref.watch(chatProvider).sessions;
-                    return PopupMenuButton<int>(
-                      offset: const Offset(0, 40),
-                      color: const Color(0xFF1F1F1F),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                      onSelected: (id) =>
-                          ref.read(chatProvider.notifier).switchSession(id),
-                      itemBuilder: (context) => sessions.map((s) {
-                        final isActive =
-                            ref.watch(chatProvider).conversationId == s['id'];
-                        return PopupMenuItem<int>(
-                          value: s['id'] as int,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  s['title']?.toString() ??
-                                      'Session ${s['id']}',
-                                  style: TextStyle(
-                                      color: isActive
-                                          ? Theme.of(context)
-                                              .colorScheme
-                                              .primary
-                                          : Colors.white70),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Row(mainAxisSize: MainAxisSize.min, children: [
-                                InkWell(
-                                  onTap: () {
-                                    Navigator.pop(
-                                        context); // Close dropdown organically
-                                    _showEditTitleDialog(s['id'] as int,
-                                        s['title']?.toString() ?? '');
-                                  },
-                                  child: Icon(Icons.edit,
-                                      size: 14,
-                                      color:
-                                          Colors.white.withValues(alpha: 0.5)),
-                                ),
-                                const SizedBox(width: 8),
-                                InkWell(
-                                  onTap: () {
-                                    Navigator.pop(
-                                        context); // Close dropdown organically
-                                    ref
-                                        .read(chatProvider.notifier)
-                                        .deleteChat(s['id'] as int);
-                                  },
-                                  child: Icon(Icons.delete_outline,
-                                      size: 14,
-                                      color: Colors.redAccent
-                                          .withValues(alpha: 0.8)),
-                                ),
-                              ])
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                      child: _buildHeaderAction(Icons.history, "Recent",
-                          active: true),
-                    );
-                  }),
-                  _buildHeaderDivider(),
+
                   _buildHeaderAction(Icons.push_pin, "Pinned"),
                   const SizedBox(width: 16),
                   IconButton(
@@ -557,7 +414,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
                   padding: const EdgeInsets.all(24),
                   itemCount: chatState.messages.length +
                       1 +
-                      (chatState.isSending ? 1 : 0),
+                      (chatState.isProcessing ? 1 : 0),
                   itemBuilder: (context, index) {
                     if (index == 0) {
                       return Padding(
@@ -567,7 +424,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
                     }
 
                     // Loading indicator logic
-                    if (chatState.isSending &&
+                    if (chatState.isProcessing &&
                         index == chatState.messages.length + 1) {
                       return Center(
                         child: ConstrainedBox(
@@ -622,10 +479,26 @@ class _ChatViewState extends ConsumerState<ChatView> {
                     }
 
                     final msg = chatState.messages[index - 1];
+                    
+                    if (msg.startsWith("System:")) {
+                       return Center(
+                         child: Padding(
+                           padding: const EdgeInsets.symmetric(vertical: 24),
+                           child: Column(
+                             children: [
+                               Container(height: 1, width: 120, color: Colors.white.withValues(alpha: 0.15)),
+                               const SizedBox(height: 8),
+                               Text(msg.replaceFirst("System:", "").trim().toUpperCase(), style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                             ]
+                           )
+                         )
+                       );
+                    }
+
                     final isAssistant = msg.startsWith("Assistant:");
                     final displayMsg = isAssistant
                         ? msg.replaceFirst("Assistant:", "").trim()
-                        : msg;
+                        : msg.replaceFirst("User:", "").trim();
 
                     // Only animate the very last assistant message if it just arrived
                     bool isLatestAssistant = isAssistant &&
@@ -709,19 +582,81 @@ class _ChatViewState extends ConsumerState<ChatView> {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        isLatestAssistant
-                                            ? TypewriterMarkdown(
-                                                text: displayMsg)
-                                            : MarkdownBody(
+                                        MarkdownBody(
                                                 data: displayMsg,
                                                 selectable: true,
+                                                onTapLink: (text, href, title) async {
+                                                  if (href != null) {
+                                                    try {
+                                                      await launchUrlString(href, mode: LaunchMode.externalApplication);
+                                                    } catch (_) {
+                                                      try {
+                                                        await launchUrlString(href);
+                                                      } catch (_) {}
+                                                    }
+                                                  }
+                                                },
+                                                imageBuilder: (uri, title, alt) {
+                                                  final rawUrl = uri.toString();
+                                                  final proxyUrl = '${ApiClient.baseUrl}/media/proxy?url=${Uri.encodeComponent(rawUrl)}';
+                                                  return Container(
+                                                    margin: const EdgeInsets.symmetric(vertical: 12),
+                                                    constraints: const BoxConstraints(maxHeight: 400),
+                                                    clipBehavior: Clip.antiAlias,
+                                                    decoration: BoxDecoration(
+                                                      borderRadius: BorderRadius.circular(16),
+                                                      border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                                                      boxShadow: [
+                                                        BoxShadow(
+                                                            color: Colors.black.withValues(alpha: 0.2),
+                                                            blurRadius: 10,
+                                                            offset: const Offset(0, 4))
+                                                      ],
+                                                    ),
+                                                    child: Image.network(
+                                                      proxyUrl,
+                                                      fit: BoxFit.contain,
+                                                      headers: const {'Accept': 'image/*'},
+                                                      errorBuilder: (context, error, stackTrace) {
+                                                        // Fallback: try the original URL directly
+                                                        return Image.network(
+                                                          rawUrl,
+                                                          fit: BoxFit.contain,
+                                                          errorBuilder: (context2, error2, stackTrace2) =>
+                                                            Container(
+                                                              height: 100,
+                                                              width: double.infinity,
+                                                              decoration: BoxDecoration(
+                                                                color: Colors.white.withValues(alpha: 0.05),
+                                                                borderRadius: BorderRadius.circular(12),
+                                                              ),
+                                                              child: const Icon(Icons.image_not_supported_outlined, color: Colors.white24, size: 40)),
+                                                        );
+                                                      },
+                                                    ),
+                                                  );
+                                                },
                                                 styleSheet: MarkdownStyleSheet(
+                                                  pPadding: const EdgeInsets.only(bottom: 12),
+                                                  listBulletPadding: const EdgeInsets.only(right: 8),
                                                   p: TextStyle(
                                                       fontSize: 15,
-                                                      height: 1.5,
+                                                      height: 1.6,
                                                       color: Colors.white
                                                           .withValues(
                                                               alpha: 0.9)),
+                                                  h1: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, height: 1.4, color: Colors.white),
+                                                  h2: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, height: 1.4, color: Colors.white),
+                                                  h3: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, height: 1.4, color: Colors.white),
+                                                  h4: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, height: 1.4, color: Colors.white),
+                                                  horizontalRuleDecoration: BoxDecoration(
+                                                    border: Border(
+                                                      top: BorderSide(
+                                                        color: Colors.white.withValues(alpha: 0.1),
+                                                        width: 1,
+                                                      )
+                                                    )
+                                                  ),
                                                   code: TextStyle(
                                                       fontSize: 14,
                                                       fontFamily: 'monospace',
@@ -1138,57 +1073,70 @@ class _ChatViewState extends ConsumerState<ChatView> {
                                                 .toggleVoiceTyping();
                                           },
                                         ),
-                                        IconButton(
-                                          tooltip: 'Live Voice Mode',
-                                          constraints: const BoxConstraints(
-                                              minWidth: 36, minHeight: 36),
-                                          padding: EdgeInsets.zero,
-                                          icon: Icon(
-                                              isListening
-                                                  ? Icons.phone_disabled
-                                                  : Icons.phone_in_talk,
-                                              size: 20),
-                                          color: isListening
-                                              ? Colors.redAccent
-                                              : Colors.blueAccent
-                                                  .withValues(alpha: 0.8),
-                                          onPressed: () {
-                                            ref
-                                                .read(chatProvider.notifier)
-                                                .toggleListening();
+                                        ValueListenableBuilder<TextEditingValue>(
+                                          valueListenable: _controller,
+                                          builder: (context, value, child) {
+                                            bool isEmpty = value.text.trim().isEmpty;
+                                            if (isEmpty) {
+                                              return IconButton(
+                                                tooltip: 'Live Voice Mode',
+                                                constraints: const BoxConstraints(
+                                                    minWidth: 36, minHeight: 36),
+                                                padding: EdgeInsets.zero,
+                                                icon: const WaveformCircleIcon(),
+                                                onPressed: () {
+                                                  Navigator.of(context).push(PageRouteBuilder(
+                                                    pageBuilder: (context, animation, secondaryAnimation) => const VoiceModeView(),
+                                                    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                                      return FadeTransition(
+                                                        opacity: animation,
+                                                        child: ScaleTransition(
+                                                          scale: Tween<double>(begin: 0.9, end: 1.0).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+                                                          child: child,
+                                                        ),
+                                                      );
+                                                    },
+                                                    transitionDuration: const Duration(milliseconds: 500),
+                                                  )).then((_) {
+                                                     ref.read(chatProvider.notifier).addMessage("System: — Voice Mode Ended —");
+                                                  });
+                                                },
+                                              );
+                                            } else {
+                                              return Container(
+                                                width: 36,
+                                                height: 36,
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white,
+                                                  borderRadius:
+                                                      BorderRadius.circular(18),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                        color: Colors.white
+                                                            .withValues(alpha: 0.2),
+                                                        blurRadius: 8)
+                                                  ],
+                                                ),
+                                                child: IconButton(
+                                                  padding: EdgeInsets.zero,
+                                                  icon: isSending
+                                                      ? const SizedBox(
+                                                          width: 14,
+                                                          height: 14,
+                                                          child:
+                                                              CircularProgressIndicator(
+                                                                  strokeWidth: 2,
+                                                                  color:
+                                                                      Colors.black))
+                                                      : const Icon(Icons.arrow_upward,
+                                                          size: 20),
+                                                  color: Colors.black,
+                                                  onPressed: () =>
+                                                      _handleSend(_controller.text),
+                                                ),
+                                              );
+                                            }
                                           },
-                                        ),
-                                        Container(
-                                          width: 36,
-                                          height: 36,
-                                          decoration: BoxDecoration(
-                                            color: Colors.white,
-                                            borderRadius:
-                                                BorderRadius.circular(18),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                  color: Colors.white
-                                                      .withValues(alpha: 0.2),
-                                                  blurRadius: 8)
-                                            ],
-                                          ),
-                                          child: IconButton(
-                                            padding: EdgeInsets.zero,
-                                            icon: isSending
-                                                ? const SizedBox(
-                                                    width: 14,
-                                                    height: 14,
-                                                    child:
-                                                        CircularProgressIndicator(
-                                                            strokeWidth: 2,
-                                                            color:
-                                                                Colors.black))
-                                                : const Icon(Icons.arrow_upward,
-                                                    size: 20),
-                                            color: Colors.black,
-                                            onPressed: () =>
-                                                _handleSend(_controller.text),
-                                          ),
                                         ),
                                       ],
                                     ), // End Action buttons row
@@ -1507,36 +1455,194 @@ class _SkeletonDashboardCardState extends State<_SkeletonDashboardCard>
 }
 
 class AnimatedWeatherIcon extends StatefulWidget {
-  const AnimatedWeatherIcon({super.key});
+  final String condition;
+  final double size;
+  const AnimatedWeatherIcon({super.key, required this.condition, this.size = 48});
   @override
   State<AnimatedWeatherIcon> createState() => _AnimatedWeatherIconState();
 }
 
 class _AnimatedWeatherIconState extends State<AnimatedWeatherIcon>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller =
-      AnimationController(vsync: this, duration: const Duration(seconds: 3))
-        ..repeat(reverse: true);
-  late final Animation<double> _anim = Tween<double>(begin: -8.0, end: 8.0)
-      .animate(
-          CurvedAnimation(parent: _controller, curve: Curves.easeInOutSine));
+    with TickerProviderStateMixin {
+  late final AnimationController _pulseCtrl;
+  late final AnimationController _spinCtrl;
+  late final AnimationController _driftCtrl;
+  late final AnimationController _rainCtrl;
+  
+  @override
+  void initState() {
+    super.initState();
+    _pulseCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
+    _spinCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 15))..repeat();
+    _driftCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 4))..repeat(reverse: true);
+    _rainCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 1))..repeat();
+  }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _pulseCtrl.dispose();
+    _spinCtrl.dispose();
+    _driftCtrl.dispose();
+    _rainCtrl.dispose();
     super.dispose();
+  }
+
+  Widget _buildSun() {
+    return AnimatedBuilder(
+      animation: Listenable.merge([_spinCtrl, _pulseCtrl]),
+      builder: (ctx, _) => Transform.scale(
+        scale: 0.95 + (_pulseCtrl.value * 0.05),
+        child: Transform.rotate(
+          angle: _spinCtrl.value * 2 * 3.14159,
+          child: Icon(Icons.wb_sunny, size: widget.size, color: Colors.orangeAccent),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMoon() {
+    return AnimatedBuilder(
+      animation: _pulseCtrl,
+      builder: (ctx, _) => Stack(
+        children: [
+          Positioned(
+            top: widget.size * 0.1, right: widget.size * 0.1,
+            child: Icon(Icons.nights_stay, size: widget.size * 0.8, color: Colors.blueAccent.shade100),
+          ),
+          Positioned(
+            top: widget.size * 0.05, left: widget.size * 0.1,
+            child: Opacity(opacity: _pulseCtrl.value, child: Icon(Icons.star, size: widget.size * 0.3, color: Colors.yellowAccent)),
+          ),
+          Positioned(
+            left: widget.size * 0.5, bottom: widget.size * 0.15,
+            child: Opacity(opacity: 1.0 - _pulseCtrl.value, child: Icon(Icons.star, size: widget.size * 0.2, color: Colors.yellowAccent)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCloud({Color color = Colors.white70}) {
+    return AnimatedBuilder(
+      animation: _driftCtrl,
+      builder: (ctx, _) => Transform.translate(
+        offset: Offset((_driftCtrl.value - 0.5) * widget.size * 0.15, 0),
+        child: Icon(Icons.cloud, size: widget.size, color: color),
+      ),
+    );
+  }
+
+  Widget _buildRain() {
+    return Stack(
+      children: [
+        _buildCloud(color: Colors.white54),
+        Positioned.fill(
+          child: AnimatedBuilder(
+            animation: _rainCtrl,
+            builder: (ctx, _) => CustomPaint(
+              painter: _RainPainter(progress: _rainCtrl.value, color: Colors.lightBlueAccent, density: 4),
+            ),
+          ),
+        )
+      ],
+    );
+  }
+
+  Widget _buildFog() {
+    return Stack(
+      children: [
+        _buildCloud(color: Colors.white24),
+        AnimatedBuilder(
+          animation: _pulseCtrl,
+          builder: (ctx, _) => Opacity(
+            opacity: 0.5 + (_pulseCtrl.value * 0.3),
+            child: Icon(Icons.dehaze, size: widget.size, color: Colors.white54),
+          ),
+        )
+      ],
+    );
+  }
+
+  Widget _buildPartlyCloudy() {
+    return Stack(
+      children: [
+        Positioned(
+          top: 0, right: 0,
+          child: AnimatedBuilder(
+            animation: _spinCtrl,
+            builder: (ctx, _) => Transform.rotate(
+              angle: _spinCtrl.value * 2 * 3.14159,
+              child: Icon(Icons.wb_sunny, size: widget.size * 0.6, color: Colors.orangeAccent),
+            ),
+          ),
+        ),
+        Positioned(
+            bottom: widget.size * 0.05, left: widget.size * 0.05,
+            child: AnimatedBuilder(
+              animation: _driftCtrl,
+              builder: (ctx, _) => Transform.translate(
+                offset: Offset((_driftCtrl.value - 0.5) * widget.size * 0.15, 0),
+                child: Icon(Icons.cloud, size: widget.size * 0.75, color: Colors.white70),
+              ),
+            ),
+        ),
+      ],
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _anim,
-      builder: (context, child) => Transform.translate(
-        offset: Offset(0, _anim.value),
-        child: const Icon(Icons.cloud, size: 48, color: Colors.amberAccent),
-      ),
-    );
+    final c = widget.condition.toLowerCase();
+    
+    if (c.contains('rain') || c.contains('storm') || c.contains('drizzle') || c.contains('shower')) {
+      return SizedBox(width: widget.size, height: widget.size, child: _buildRain());
+    } else if (c.contains('fog') || c.contains('mist') || c.contains('haze')) {
+      return SizedBox(width: widget.size, height: widget.size, child: _buildFog());
+    } else if (c.contains('partly') || c.contains('few') || (c.contains('sun') && c.contains('cloud'))) {
+      return SizedBox(width: widget.size, height: widget.size, child: _buildPartlyCloudy());
+    } else if (c.contains('cloud') || c.contains('overcast')) {
+      return SizedBox(width: widget.size, height: widget.size, child: _buildCloud());
+    } else if (c.contains('sun') || c.contains('clear')) {
+      return SizedBox(width: widget.size, height: widget.size, child: _buildSun());
+    } else if (c.contains('night') || c.contains('moon')) {
+      return SizedBox(width: widget.size, height: widget.size, child: _buildMoon());
+    }
+    
+    // Default fallback
+    return SizedBox(width: widget.size, height: widget.size, child: _buildPartlyCloudy());
   }
+}
+
+class _RainPainter extends CustomPainter {
+  final double progress;
+  final Color color;
+  final int density;
+  
+  _RainPainter({required this.progress, required this.color, required this.density});
+  
+  @override
+  void paint(Canvas canvas, Size size) {
+    final p = Paint()
+      ..color = color
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round;
+      
+    final w = size.width;
+    final h = size.height;
+    
+    for (int i = 0; i < density; i++) {
+      final offset = (i / density);
+      final yProgress = (progress + offset) % 1.0;
+      
+      final x = w * (0.2 + (0.6 * (i / (density - 1))));
+      final y = h * 0.4 + (h * 0.6 * yProgress); 
+      
+      canvas.drawLine(Offset(x, y), Offset(x, y + (h * 0.15)), p);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _RainPainter oldDelegate) => true;
 }
 
 class _DashboardWidgetCard extends StatefulWidget {
@@ -1567,36 +1673,62 @@ class _DashboardWidgetCardState extends State<_DashboardWidgetCard>
     super.dispose();
   }
 
+  IconData _getStaticWeatherIcon(String condition) {
+    final c = condition.toLowerCase();
+    if (c.contains('storm') || c.contains('thunder')) return Icons.thunderstorm;
+    if (c.contains('rain') || c.contains('drizzle') || c.contains('shower')) return Icons.water_drop;
+    if (c.contains('snow')) return Icons.ac_unit;
+    if (c.contains('fog') || c.contains('mist') || c.contains('haze')) return Icons.foggy;
+    if (c.contains('partly') || c.contains('few') || (c.contains('sun') && c.contains('cloud'))) return Icons.cloud_queue;
+    if (c.contains('cloud') || c.contains('overcast')) return Icons.cloud;
+    if (c.contains('night') || c.contains('moon')) return Icons.nights_stay;
+    return Icons.wb_sunny;
+  }
+
   Widget _buildWeatherInner() {
     final w = widget.data;
     final forecast = w['forecast'] as List<dynamic>? ?? [];
+    final cond = w['condition']?.toString() ?? w['subtitle']?.toString() ?? 'Sunny';
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(w['title'] ?? '',
                     style: const TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 48,
+                        fontWeight: FontWeight.w400,
                         color: Colors.white,
+                        letterSpacing: -1.0,
                         height: 1.0)),
+                const SizedBox(width: 12),
+                AnimatedWeatherIcon(condition: cond, size: 42),
+              ]
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(cond,
+                    style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white)),
                 const SizedBox(height: 4),
-                Text(w['subtitle'] ?? '',
+                Text('Feels like ${(double.tryParse((w['title'] ?? '0').replaceAll('°C', '')) ?? 0) + 2}°',
                     style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 12,
                         color: Colors.white.withValues(alpha: 0.5))),
               ],
             ),
-            const AnimatedWeatherIcon(),
           ],
         ),
-        if (w['ai_summary'] != null &&
-            w['ai_summary'].toString().isNotEmpty) ...[
+        if (w['ai_summary'] != null && w['ai_summary'].toString().isNotEmpty) ...[
           const SizedBox(height: 16),
           Expanded(
             child: Text(w['ai_summary'] ?? '',
@@ -1618,10 +1750,10 @@ class _DashboardWidgetCardState extends State<_DashboardWidgetCard>
                     style: TextStyle(
                         fontSize: 11,
                         color: Colors.white.withValues(alpha: 0.5))),
-                const SizedBox(height: 4),
-                Icon(Icons.wb_sunny,
-                    size: 16, color: Colors.white.withValues(alpha: 0.8)),
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
+                Icon(_getStaticWeatherIcon(f['condition']?.toString() ?? ''),
+                    size: 20, color: Colors.white.withValues(alpha: 0.85)),
+                const SizedBox(height: 6),
                 Text("${f['high']}°",
                     style: const TextStyle(
                         fontSize: 12,
@@ -1900,6 +2032,37 @@ class _DashboardWidgetCardState extends State<_DashboardWidgetCard>
               ),
             ),
           );
-        });
+    });
+  }
+}
+
+class WaveformCircleIcon extends StatelessWidget {
+  const WaveformCircleIcon({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(color: Colors.white.withValues(alpha: 0.2), blurRadius: 8)
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(width: 2.5, height: 10, decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(2))),
+          const SizedBox(width: 2.5),
+          Container(width: 2.5, height: 18, decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(2))),
+          const SizedBox(width: 2.5),
+          Container(width: 2.5, height: 14, decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(2))),
+          const SizedBox(width: 2.5),
+          Container(width: 2.5, height: 8, decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(2))),
+        ],
+      ),
+    );
   }
 }

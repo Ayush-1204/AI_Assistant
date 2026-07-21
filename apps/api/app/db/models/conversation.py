@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import DateTime, ForeignKey, Integer, String
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -19,6 +19,12 @@ class Conversation(Base):
         String(255),
         nullable=False,
         default="New Conversation",
+    )
+
+    is_pinned: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
     )
 
     user_id: Mapped[int] = mapped_column(
