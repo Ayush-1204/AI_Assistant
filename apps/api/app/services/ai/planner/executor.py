@@ -85,6 +85,7 @@ class AgentExecutor:
             
             collected_response_obj = None
             full_text = ""
+            yielded_text = ""
             is_tool_call_predicted = False
             
             async for chunk in self.planner.provider.stream_chat(messages, tools=tools_payload, intent=self.intent):
@@ -94,26 +95,31 @@ class AgentExecutor:
                     continue
                     
                 full_text += chunk
-                # Suppress only strict XML tool call fragments from being streamed to the client
-                if "<tool_call" in full_text:
+                # Buffer streaming immediately when encountering <tool to prevent UI leakage
+                if "<tool" in full_text:
                     is_tool_call_predicted = True
                     continue
 
+                yielded_text += chunk
                 yield f"data: {json.dumps({'type': 'content', 'delta': chunk})}\n\n"
 
             if not is_tool_call_predicted:
-                # Final safety: strip any leaked tool XML from the streamed output
-                import re
-                clean_text = re.sub(r'<tool[\s\S]*?</tool[^>]*>', '', full_text).strip()
-                clean_text = re.sub(r'<tool[^>]*>[\s\S]*', '', clean_text).strip()
-                final_answer = clean_text
+                final_answer = full_text
                 break
                 
             source_payload = collected_response_obj if collected_response_obj else full_text
             has_tool, tool_requests = self.strategy.extract_requests(source_payload)
             
             if not has_tool:
-                final_answer = full_text
+                # False positive tool call hallucination. Release the withheld buffer safely.
+                import re
+                remaining = full_text[len(yielded_text):]
+                cleaned_remaining = re.sub(r'<tool[\s\S]*?</tool[^>]*>', '', remaining)
+                cleaned_remaining = re.sub(r'<tool[^>]*>[\s\S]*', '', cleaned_remaining).lstrip()
+                if cleaned_remaining:
+                    yield f"data: {json.dumps({'type': 'content', 'delta': cleaned_remaining})}\n\n"
+                    
+                final_answer = yielded_text + cleaned_remaining
                 break
                 
             requires_approval = False

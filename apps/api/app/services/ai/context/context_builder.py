@@ -83,10 +83,11 @@ class ContextBuilder:
             "1. You will be provided with system context (Tool Executions, Coordinates, Memories). "
             "DO NOT explicitly mention, recite, or regurgitate this raw metadata (like 'I see your coordinates are...' or 'The tool executed with...').\n"
             "2. Seamlessly use the provided data to answer the user naturally. Use the following context to answer the user's query.\n"
-            "3. RICH FORMATTING: You MUST use STRCIT markdown image syntax: `![alt text](url)`. WARNING: You MUST place every image on its own dedicated line surrounded by blank lines (`\n\n`). NEVER place images inline with text, inside lists, or output them as bare URLs. Ensure all parenthesis inside URLs are escaped as `%28` and `%29`. Include images when they help visualization:\n"
+            "3. RICH FORMATTING: You MUST use STRCIT markdown image syntax: `![alt text](url)`. WARNING: You MUST place every image on its own dedicated line surrounded by blank lines (`\\n\\n`). NEVER place images inline with text, inside lists, or output them as bare URLs. Ensure all parenthesis inside URLs are escaped as `%28` and `%29`. Include images when they help visualization:\n"
             "- News briefings -> headlines with related images\n"
             "- People -> public figures, athletes, actors\n"
             "CRITICAL: DO NOT hallucinate fake Wikipedia or Amazon image URLs. They will result in 404 broken images! If the user requests pictures of a real person, place, or thing, you MUST execute the `web_search` tool to fetch authentic real-world Image URLs natively. Only render `![alt](url)` using mathematically proven URLs fetched from your active context or tools.\n"
+            "4. FATAL WARNING: NEVER USE CONVERSATIONAL ANGLE BRACKETS! DO NOT use internal monologues, `<thought>` tags, or conversational reasoning bounded by `< >` (e.g., `<It appears...`). Angle brackets are STRICTLY RESERVED for tool invocations and literal markdown code blocks. Any conversational use of angle brackets will instantly crash the rendering pipeline!\n"
         ) + loc_str
         
         current_tokens += _estimate_tokens(system_prompt)
