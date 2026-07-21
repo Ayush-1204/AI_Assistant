@@ -19,7 +19,7 @@ class WebSearchTool(BaseTool):
 
     @property
     def description(self) -> str:
-        return "Search the web for up-to-date and reliable information that is not available in memory or local context (e.g., current events, weather, stock prices, latest news etc)."
+        return "Search the web for up-to-date and reliable information that is not available in memory or local context (e.g., current events, weather, stock prices, latest news etc). IMPORTANT: This tool also returns a list of REAL image URLs matching the query. You MUST use this tool if the user asks for pictures or images of real-world people, places, or entities!"
 
     @property
     def parameters_schema(self) -> dict:
@@ -48,7 +48,7 @@ class WebSearchTool(BaseTool):
         
         try:
             start_time = time.perf_counter()
-            results = await self.provider.search(query, max_results=max_results)
+            results, images = await self.provider.search(query, max_results=max_results)
             latency = (time.perf_counter() - start_time) * 1000.0
             
             logger.info(
@@ -61,7 +61,7 @@ class WebSearchTool(BaseTool):
                 }
             )
             
-            if not results:
+            if not results and not images:
                 return json.dumps({"message": "No relevant search results found."})
                 
             formatted_results = []
@@ -72,7 +72,10 @@ class WebSearchTool(BaseTool):
                     "snippet": r.snippet
                 })
                 
-            return json.dumps({"results": formatted_results})
+            return json.dumps({
+                "results": formatted_results, 
+                "images": images[:10]  # Cap at 10 strictly to preserve LLM token bounds
+            })
             
         except Exception as e:
             logger.error(f"Web search failed gracefully: {str(e)}")

@@ -17,5 +17,5 @@ class CurrentTimeTool(BaseTool):
         return {}
         
     async def execute(self, execution_context: dict, **kwargs) -> str:
-        now = datetime.now()
-        return now.strftime("%Y-%m-%d %H:%M:%S")
+        now = datetime.now().astimezone()
+        return now.isoformat()

@@ -33,34 +33,53 @@ async def get_budgets():
         })
     return budgets_info
 
+def _wmo_to_condition(wmo: int) -> str:
+    if wmo == 0: return "Clear"
+    if wmo in [1]: return "Mostly Clear"
+    if wmo in [2]: return "Partly Cloudy"
+    if wmo in [3]: return "Overcast"
+    if wmo in [45, 48]: return "Fog"
+    if wmo in [51, 53, 55, 56, 57]: return "Drizzle"
+    if wmo in [61, 63, 65, 66, 67, 80, 81, 82]: return "Rain"
+    if wmo in [71, 73, 75, 77, 85, 86]: return "Snow"
+    if wmo >= 95: return "Storm"
+    return "Cloudy"
+
 async def fetch_weather(lat: str = "28.6139", lon: str = "77.2090") -> dict[str, Any]:
     try:
-        # Open-Meteo for real weather + daily forecast
         async with httpx.AsyncClient(timeout=4.0) as client:
-            resp = await client.get(f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m&daily=temperature_2m_max&timezone=auto")
+            resp = await client.get(f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,weather_code&daily=temperature_2m_max,weather_code&timezone=auto")
             if resp.status_code == 200:
                 data = resp.json()
                 temp = data.get("current", {}).get("temperature_2m", "--")
+                current_wmo = data.get("current", {}).get("weather_code", 3)
+                current_condition = _wmo_to_condition(current_wmo)
                 
                 daily_times = data.get("daily", {}).get("time", [])
                 daily_max = data.get("daily", {}).get("temperature_2m_max", [])
+                daily_codes = data.get("daily", {}).get("weather_code", [])
                 
                 forecast = []
                 for idx in range(min(5, len(daily_times))):
                     dt = datetime.datetime.fromisoformat(daily_times[idx])
                     day_str = dt.strftime("%a")
-                    high = int(daily_max[idx]) if daily_max else "--"
-                    forecast.append({"day": day_str, "high": high})
+                    high = int(daily_max[idx]) if daily_max and idx < len(daily_max) else "--"
+                    
+                    dwmo = daily_codes[idx] if daily_codes and idx < len(daily_codes) else 3
+                    dcond = _wmo_to_condition(dwmo)
+                    
+                    forecast.append({"day": day_str, "high": high, "condition": dcond})
                     
                 return {
                     "title": f"{temp}°C", 
-                    "subtitle": "Live Location Context",
+                    "subtitle": current_condition,
+                    "condition": current_condition,
                     "forecast": forecast
                 }
     except Exception:
         pass
         
-    return {"title": "31.8°C", "subtitle": "Live Location Context", "forecast": []}
+    return {"title": "31.8°C", "subtitle": "Partly Cloudy", "condition": "Partly Cloudy", "forecast": []}
 
 @router.get("/calendar/events")
 async def get_calendar_events(
@@ -222,17 +241,17 @@ async def _generate_ai_dashboard_payload(weather_data: dict, today_events_titles
         elif content.startswith("```"):
             content = content[3:-3]
         return json.loads(content)
-    except Exception as e:
+    except (Exception, asyncio.CancelledError) as e:
         print(f"Fallback generation activated due to error: {e}")
         return {
-            "weather_summary": "System optimal, predicting stable climate progression.",
-            "calendar_summary": "Your schedule is relatively light today.",
+            "weather_summary": f"Sensors offline. {weather_data.get('title', 'Local climate')} stabilized.",
+            "calendar_summary": f"Your internal scheduler indicates minimal critical events for {today_dt.split(',')[0]}.",
             "news_articles": [
-                {"domain": "top", "title": "Global Accord Finalized", "summary": "• Pre-launch integrations finalized.\n• Payload launching next month."},
-                {"domain": "tech", "title": "India AI Infrastructure", "summary": "• Government allocates resources for GPU clusters.\n• Startups receive subsidies."},
-                {"domain": "business", "title": "Markets Rally", "summary": "• IT sectors lead breakaway.\n• Institutions increase holdings."},
-                {"domain": "foreign", "title": "EU Policies", "summary": "• New regulations passed.\n• Compliance standards updated."},
-                {"domain": "sports", "title": "Squad Secures Finish", "summary": "• Top order chases down limit.\n• Key players rotated."}
+                {"domain": "top", "title": "System Operating in Autonomous Mode", "summary": "• Cloud synchronicity severed natively.\n• Re-establishing fallback handshakes locally."},
+                {"domain": "tech", "title": "DNS Telemetry Subsystem Failure", "summary": "• Local host disconnected from resolving global LLM edge nodes.\n• Retrying quantum endpoints."},
+                {"domain": "business", "title": "Resource Allocation Offline", "summary": "• Live ticker streams paused.\n• Preserving local battery and compute reserves."},
+                {"domain": "foreign", "title": "International Nodes Unreachable", "summary": "• Global ping requests timing out.\n• Awaiting packet restoration."},
+                {"domain": "sports", "title": "Local Runtimes Operational", "summary": "• While cloud inferences fail, the core UI remains highly performant.\n• No critical runtime loss detected."}
             ]
         }
 

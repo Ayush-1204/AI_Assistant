@@ -19,6 +19,10 @@ class ChatState {
   final Map<int, Map<String, dynamic>> messageMetadata;
   final List<String> pendingImages;
   final double currentAmplitude;
+  final bool isSpeaking;
+  final bool isContinuousVoiceMode;
+  final bool isProcessing;
+  final bool shouldAutoExitVoiceMode;
 
   ChatState({
     this.conversationId,
@@ -31,6 +35,10 @@ class ChatState {
     this.messageMetadata = const {},
     this.pendingImages = const [],
     this.currentAmplitude = -160.0,
+    this.isSpeaking = false,
+    this.isContinuousVoiceMode = false,
+    this.isProcessing = false,
+    this.shouldAutoExitVoiceMode = false,
   }) : messages = messages ?? [];
 
   ChatState copyWith({
@@ -44,6 +52,10 @@ class ChatState {
     Map<int, Map<String, dynamic>>? messageMetadata,
     List<String>? pendingImages,
     double? currentAmplitude,
+    bool? isSpeaking,
+    bool? isContinuousVoiceMode,
+    bool? isProcessing,
+    bool? shouldAutoExitVoiceMode,
   }) {
     return ChatState(
       conversationId: conversationId ?? this.conversationId,
@@ -56,6 +68,10 @@ class ChatState {
       messageMetadata: messageMetadata ?? this.messageMetadata,
       pendingImages: pendingImages ?? this.pendingImages,
       currentAmplitude: currentAmplitude ?? this.currentAmplitude,
+      isSpeaking: isSpeaking ?? this.isSpeaking,
+      isContinuousVoiceMode: isContinuousVoiceMode ?? this.isContinuousVoiceMode,
+      isProcessing: isProcessing ?? this.isProcessing,
+      shouldAutoExitVoiceMode: shouldAutoExitVoiceMode ?? this.shouldAutoExitVoiceMode,
     );
   }
 }
@@ -76,11 +92,22 @@ class ChatNotifier extends StateNotifier<ChatState> {
   bool _isPlayingAudio = false;
   final List<int> _voiceTypingBuffer = [];
 
+  void Function(Uint8List, bool)? _onAudioChunk;
+
   ChatNotifier(this._apiClient) : super(ChatState()) {
     _audioPlayer.onPlayerComplete.listen((_) {
       _isPlayingAudio = false;
       if (_audioQueue.isNotEmpty) {
         _processAudioQueue();
+      } else {
+        state = state.copyWith(isSpeaking: false);
+        if (state.isContinuousVoiceMode) {
+           if (state.shouldAutoExitVoiceMode) {
+              // Wait for voice_view to pick this up, do not toggle voice typing back on.
+           } else {
+              toggleVoiceTyping(); // Auto-restart listening for conversational flow!
+           }
+        }
       }
     });
     _initializeConversation();
@@ -208,6 +235,27 @@ class ChatNotifier extends StateNotifier<ChatState> {
     }
   }
 
+  Future<void> pinChat(int id, bool pin) async {
+    try {
+      await _apiClient.updateConversationPin(id, pin);
+      final newSessions = state.sessions.map((s) {
+        if (s['id'] == id) {
+          final copy = Map<String, dynamic>.from(s as Map<String, dynamic>);
+          copy['is_pinned'] = pin;
+          return copy;
+        }
+        return s;
+      }).toList();
+      state = state.copyWith(sessions: newSessions);
+    } catch (e) {
+      debugPrint("Failed to pin chat: $e");
+    }
+  }
+
+  void resetVoiceExit() {
+     state = state.copyWith(shouldAutoExitVoiceMode: false);
+  }
+
   Future<void> _initWebSocket() async {
     if (state.conversationId == null) return;
     try {
@@ -238,6 +286,18 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
   WebSocketChannel? get channel => _channel;
   
+  Future<void> stopListening() async {
+     if (state.isListening) {
+        _voiceStreamSub?.cancel();
+        _ampSub?.cancel();
+        await _audioRecorder.stop();
+        state = state.copyWith(isListening: false, liveTranscript: "", currentAmplitude: -160.0);
+     }
+     if (state.isVoiceTyping) {
+        await _stopVoiceTypingProcess();
+     }
+  }
+
   Future<void> toggleListening() async {
     if (state.isListening) {
       _voiceStreamSub?.cancel();
@@ -249,7 +309,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
         // Use pcm16bits encoder — universally supported on Windows, Web, Android, iOS.
         final stream = await _audioRecorder.startStream(const RecordConfig(
           encoder: AudioEncoder.pcm16bits,
-          sampleRate: 48000,
+          sampleRate: 16000,
           numChannels: 1,
           echoCancel: true,
           autoGain: true,
@@ -261,6 +321,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
           if (state.isListening && _channel != null) {
             _channel!.sink.add(data);
           }
+          _onAudioChunk?.call(data, false);
         });
         
         _ampSub = _audioRecorder.onAmplitudeChanged(const Duration(milliseconds: 50)).listen((amp) {
@@ -290,8 +351,9 @@ class ChatNotifier extends StateNotifier<ChatState> {
     
     if (payload.isNotEmpty) {
        final transcript = await _apiClient.transcribeAudio(payload);
-       if (transcript.trim().isNotEmpty) {
-          sendMessage(transcript.trim());
+       final cleanTranscript = transcript.trim();
+       if (cleanTranscript.isNotEmpty && cleanTranscript != "." && cleanTranscript != "...") {
+          sendMessage(cleanTranscript);
        }
     }
   }
@@ -304,7 +366,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
         // Use pcm16bits encoder — universally supported on Windows, Web, Android, iOS.
         final stream = await _audioRecorder.startStream(const RecordConfig(
           encoder: AudioEncoder.pcm16bits,
-          sampleRate: 48000,
+          sampleRate: 16000,
           numChannels: 1,
           echoCancel: true,
           autoGain: true,
@@ -317,6 +379,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
         _voiceStreamSub = stream.listen((data) {
           if (state.isVoiceTyping) {
             _voiceTypingBuffer.addAll(data);
+            _onAudioChunk?.call(data, false);
           }
         });
         
@@ -349,9 +412,33 @@ class ChatNotifier extends StateNotifier<ChatState> {
     }
   }
 
+  void setContinuousVoiceMode(bool value) {
+    state = state.copyWith(isContinuousVoiceMode: value);
+    if (!value) {
+      if (state.isListening || state.isVoiceTyping) {
+         stopListening();
+      }
+    }
+  }
+
+  void setAudioChunkCallback(void Function(Uint8List, bool)? callback) {
+    _onAudioChunk = callback;
+  }
+
+  Future<void> stopSpeaking() async {
+    if (state.isSpeaking || _isPlayingAudio) {
+      await _audioPlayer.stop();
+      _isPlayingAudio = false;
+      _audioQueue.clear();
+      state = state.copyWith(isSpeaking: false);
+      if (state.isContinuousVoiceMode && !(await _audioRecorder.isRecording())) {
+         toggleVoiceTyping(); // resume listening if interrupted!
+      }
+    }
+  }
+
   Future<void> _processAudioQueue() async {
-    if (_audioQueue.isEmpty) return;
-    _isPlayingAudio = true;
+    state = state.copyWith(isSpeaking: true); // Mute mic naturally occurs as toggleVoiceTyping is exited before TTS starts
     final bytes = _audioQueue.removeAt(0);
     
     await _audioPlayer.setVolume(1.0);
@@ -406,6 +493,12 @@ class ChatNotifier extends StateNotifier<ChatState> {
     addMessage(text.trim());
     state = state.copyWith(isSending: true);
     
+    final lower = text.toLowerCase();
+    bool triggeredExit = ["bye", "goodbye", "see you soon", "talk to you later", "see ya", "exit voice"].any((p) => lower.contains(p));
+    if (triggeredExit) {
+        state = state.copyWith(shouldAutoExitVoiceMode: true);
+    }
+    
     try {
       if (state.conversationId == null) {
          final newId = await _apiClient.createConversation("New Chat");
@@ -413,31 +506,74 @@ class ChatNotifier extends StateNotifier<ChatState> {
          _initWebSocket();
       }
       
-      final replyData = await _apiClient.sendChatMessage(
+      state = state.copyWith(isProcessing: true);
+      
+      String accumulated = "";
+      bool firstChunkReceived = false;
+      int msgIndex = -1;
+      
+      final stream = _apiClient.sendChatMessageStream(
         state.conversationId.toString(), 
         text, 
         isRegenerate: isRegenerate,
         images: imagesToSend,
       );
-      String assistantReply = replyData['response'] ?? '';
-      addMessage("Assistant: $assistantReply");
+      
+      await for (final payload in stream) {
+         if (payload == "[DONE]") {
+             state = state.copyWith(isProcessing: false);
+             continue;
+         }
+         
+         try {
+           final data = jsonDecode(payload);
+           if (data['type'] == 'content') {
+              if (state.isProcessing) {
+                  state = state.copyWith(isProcessing: false);
+              }
+              if (!firstChunkReceived) {
+                  firstChunkReceived = true;
+                  state = state.copyWith(messages: [...state.messages, "Assistant: "]);
+                  msgIndex = state.messages.length - 1;
+              }
+              accumulated += data['delta'];
+              // Update latest message progressively
+              final newMsgs = List<String>.from(state.messages);
+              if (msgIndex >= 0 && msgIndex < newMsgs.length) {
+                  newMsgs[msgIndex] = "Assistant: " + accumulated;
+                  state = state.copyWith(messages: newMsgs);
+              }
+           } else if (data['type'] == 'metadata') {
+              final newMeta = Map<int, Map<String, dynamic>>.from(state.messageMetadata);
+              if (msgIndex >= 0) {
+                  newMeta[msgIndex] = data;
+                  state = state.copyWith(messageMetadata: newMeta);
+              }
+           }
+         } catch (_) {}
+      }
+      
+      if (state.isContinuousVoiceMode && accumulated.trim().isNotEmpty) {
+         readAloud(accumulated);
+      }
       
       // Auto-edit title on first user/assistant exchange
       if (state.messages.length <= 3) {
-        String cleaned = assistantReply.replaceAll(RegExp(r'\n|#|\*'), ' ').trim();
+        String cleaned = accumulated.replaceAll(RegExp(r'\n|#|\*'), ' ').trim();
         String newTitle = cleaned.length > 25 ? "${cleaned.substring(0, 25).trim()}..." : cleaned;
         if (newTitle.isNotEmpty) {
            await updateChatTitle(state.conversationId!, newTitle);
         }
       }
       
-      if (replyData['metadata'] != null) {
-        final newMeta = Map<int, Map<String, dynamic>>.from(state.messageMetadata);
-        newMeta[state.messages.length - 1] = replyData['metadata'] as Map<String, dynamic>;
-        state = state.copyWith(messageMetadata: newMeta);
-      }
+      state = state.copyWith(isProcessing: false);
     } catch (e) {
-      addMessage("Assistant: Error connecting to backend: $e");
+      final newMsgs = List<String>.from(state.messages);
+      if (newMsgs.isNotEmpty && newMsgs.last == "Assistant: ") {
+        newMsgs.removeLast();
+      }
+      newMsgs.add("Assistant: Error connecting to backend: $e");
+      state = state.copyWith(messages: newMsgs, isProcessing: false);
     } finally {
       state = state.copyWith(isSending: false);
     }

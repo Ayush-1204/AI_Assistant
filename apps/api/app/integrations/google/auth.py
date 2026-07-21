@@ -29,7 +29,8 @@ class GoogleAuthService:
             "https://www.googleapis.com/auth/userinfo.profile",
             "https://www.googleapis.com/auth/calendar",
             "https://www.googleapis.com/auth/gmail.modify",
-            "https://www.googleapis.com/auth/drive"
+            "https://www.googleapis.com/auth/drive",
+            "https://www.googleapis.com/auth/tasks"
         ]
 
         if settings.GOOGLE_CLIENT_ID and settings.GOOGLE_CLIENT_SECRET:

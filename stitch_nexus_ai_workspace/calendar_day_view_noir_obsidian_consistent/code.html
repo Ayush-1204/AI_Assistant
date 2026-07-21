@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Aura AI - Calendar</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        @import url('https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=JetBrains+Mono:wght@100..800&display=swap');
+    </style>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+                "tertiary": "#ffffff",
+                "surface-container-high": "#2a2a2a",
+                "on-secondary-container": "#b5b4ba",
+                "outline-variant": "#444748",
+                "surface-container-highest": "#353535",
+                "primary-fixed-dim": "#c6c6c7",
+                "inverse-surface": "#e2e2e2",
+                "surface-container": "#1f1f1f",
+                "on-primary-container": "#636565",
+                "secondary-fixed-dim": "#c6c6cb",
+                "tertiary-fixed-dim": "#c8c6c5",
+                "primary-container": "#e2e2e2",
+                "secondary-container": "#46464b",
+                "on-error-container": "#ffdad6",
+                "surface-dim": "#131313",
+                "secondary": "#c6c6cb",
+                "on-tertiary-fixed": "#1c1b1b",
+                "on-tertiary": "#313030",
+                "primary-fixed": "#e2e2e2",
+                "surface-bright": "#393939",
+                "on-secondary-fixed": "#1a1b1f",
+                "on-error": "#690005",
+                "tertiary-container": "#e5e2e1",
+                "on-primary-fixed": "#1a1c1c",
+                "outline": "#8e9192",
+                "secondary-fixed": "#e3e2e7",
+                "error": "#ffb4ab",
+                "background": "#131313",
+                "tertiary-fixed": "#e5e2e1",
+                "surface-container-low": "#1b1b1b",
+                "on-secondary-fixed-variant": "#46464b",
+                "surface-tint": "#c6c6c7",
+                "on-surface": "#e2e2e2",
+                "on-background": "#e2e2e2",
+                "surface-container-lowest": "#0e0e0e",
+                "surface": "#131313",
+                "on-tertiary-fixed-variant": "#474746",
+                "on-surface-variant": "#c4c7c8",
+                "surface-variant": "#353535",
+                "on-tertiary-container": "#656464",
+                "error-container": "#93000a",
+                "primary": "#ffffff",
+                "on-secondary": "#2f3034",
+                "on-primary-fixed-variant": "#454747",
+                "on-primary": "#2f3131",
+                "inverse-primary": "#5d5f5f",
+                "inverse-on-surface": "#303030"
+        },
+        "borderRadius": {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "full": "9999px",
+                "inner": "16px",
+                "main": "24px"
+        },
+        "spacing": {
+                "stack-sm": "4px",
+                "gutter": "16px",
+                "stack-lg": "32px",
+                "base": "8px",
+                "container-padding": "24px",
+                "stack-md": "12px",
+                "radius-main": "24px",
+                "sidebar-width": "280px",
+                "radius-inner": "16px",
+                "container-margin": "24px",
+                "inspector-width": "320px"
+        },
+        "fontFamily": {
+                "body-md": [
+                        "Geist"
+                ],
+                "label-sm": [
+                        "Geist"
+                ],
+                "headline-lg-mobile": [
+                        "Geist"
+                ],
+                "headline-lg": [
+                        "Geist"
+                ],
+                "display-lg": [
+                        "Geist"
+                ],
+                "headline-md": ["Geist"],
+                "body-lg": ["Geist"],
+                "label-md": ["Geist"],
+                "code-sm": ["JetBrains Mono"]
+        },
+        "fontSize": {
+                "body-md": [
+                        "16px",
+                        {
+                                "lineHeight": "24px",
+                                "letterSpacing": "0em",
+                                "fontWeight": "400"
+                        }
+                ],
+                "label-sm": [
+                        "12px",
+                        {
+                                "lineHeight": "16px",
+                                "letterSpacing": "0.05em",
+                                "fontWeight": "500"
+                        }
+                ],
+                "headline-lg-mobile": [
+                        "24px",
+                        {
+                                "lineHeight": "32px",
+                                "letterSpacing": "-0.02em",
+                                "fontWeight": "600"
+                        }
+                ],
+                "headline-lg": [
+                        "32px",
+                        {
+                                "lineHeight": "40px",
+                                "letterSpacing": "-0.02em",
+                                "fontWeight": "600"
+                        }
+                ],
+                "display-lg": [
+                        "64px",
+                        {
+                                "lineHeight": "72px",
+                                "letterSpacing": "-0.04em",
+                                "fontWeight": "700"
+                        }
+                ],
+                "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                "label-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "500" }],
+                "code-sm": ["13px", { "lineHeight": "20px", "fontWeight": "400" }]
+        }
+},
+    },
+  }
+</script>
+<style type="text/tailwindcss">
+        @layer utilities {
+            .glass-panel {
+                @apply backdrop-blur-[16px] bg-white/[0.02] border border-white/5;
+            }
+            .glass-card {
+                @apply backdrop-blur-[32px] bg-white/[0.06] border border-white/10;
+            }
+            .glass-button {
+                @apply backdrop-blur-md bg-white/[0.05] border border-white/10 text-on-surface hover:bg-white/10 transition-all duration-200;
+            }
+            .primary-gradient-btn {
+                @apply bg-primary/10 backdrop-blur-md border border-t-primary/30 border-primary/10 text-primary hover:bg-primary/20 transition-all duration-200;
+            }
+            .text-glow {
+                text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+            }
+        }
+    </style>
+<style>*, ::before, ::after{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }::backdrop{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }/* ! tailwindcss v3.4.17 | MIT License | https://tailwindcss.com */*,::after,::before{box-sizing:border-box;border-width:0;border-style:solid;border-color:#e5e7eb}::after,::before{--tw-content:''}:host,html{line-height:1.5;-webkit-text-size-adjust:100%;-moz-tab-size:4;tab-size:4;font-family:ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";font-feature-settings:normal;font-variation-settings:normal;-webkit-tap-highlight-color:transparent}body{margin:0;line-height:inherit}hr{height:0;color:inherit;border-top-width:1px}abbr:where([title]){-webkit-text-decoration:underline dotted;text-decoration:underline dotted}h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit}a{color:inherit;text-decoration:inherit}b,strong{font-weight:bolder}code,kbd,pre,samp{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;font-feature-settings:normal;font-variation-settings:normal;font-size:1em}small{font-size:80%}sub,sup{font-size:75%;line-height:0;position:relative;vertical-align:baseline}sub{bottom:-.25em}sup{top:-.5em}table{text-indent:0;border-color:inherit;border-collapse:collapse}button,input,optgroup,select,textarea{font-family:inherit;font-feature-settings:inherit;font-variation-settings:inherit;font-size:100%;font-weight:inherit;line-height:inherit;letter-spacing:inherit;color:inherit;margin:0;padding:0}button,select{text-transform:none}button,input:where([type=button]),input:where([type=reset]),input:where([type=submit]){-webkit-appearance:button;background-color:transparent;background-image:none}:-moz-focusring{outline:auto}:-moz-ui-invalid{box-shadow:none}progress{vertical-align:baseline}::-webkit-inner-spin-button,::-webkit-outer-spin-button{height:auto}[type=search]{-webkit-appearance:textfield;outline-offset:-2px}::-webkit-search-decoration{-webkit-appearance:none}::-webkit-file-upload-button{-webkit-appearance:button;font:inherit}summary{display:list-item}blockquote,dd,dl,figure,h1,h2,h3,h4,h5,h6,hr,p,pre{margin:0}fieldset{margin:0;padding:0}legend{padding:0}menu,ol,ul{list-style:none;margin:0;padding:0}dialog{padding:0}textarea{resize:vertical}input::placeholder,textarea::placeholder{opacity:1;color:#9ca3af}[role=button],button{cursor:pointer}:disabled{cursor:default}audio,canvas,embed,iframe,img,object,svg,video{display:block;vertical-align:middle}img,video{max-width:100%;height:auto}[hidden]:where(:not([hidden=until-found])){display:none}[type='text'],input:where(:not([type])),[type='email'],[type='url'],[type='password'],[type='number'],[type='date'],[type='datetime-local'],[type='month'],[type='search'],[type='tel'],[type='time'],[type='week'],[multiple],textarea,select{-webkit-appearance:none;appearance:none;background-color:#fff;border-color:#6b7280;border-width:1px;border-radius:0px;padding-top:0.5rem;padding-right:0.75rem;padding-bottom:0.5rem;padding-left:0.75rem;font-size:1rem;line-height:1.5rem;--tw-shadow:0 0 #0000;}[type='text']:focus, input:where(:not([type])):focus, [type='email']:focus, [type='url']:focus, [type='password']:focus, [type='number']:focus, [type='date']:focus, [type='datetime-local']:focus, [type='month']:focus, [type='search']:focus, [type='tel']:focus, [type='time']:focus, [type='week']:focus, [multiple]:focus, textarea:focus, select:focus{outline:2px solid transparent;outline-offset:2px;--tw-ring-inset:var(--tw-empty,/*!*/ /*!*/);--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:#2563eb;--tw-ring-offset-shadow:var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);--tw-ring-shadow:var(--tw-ring-inset) 0 0 0 calc(1px + var(--tw-ring-offset-width)) var(--tw-ring-color);box-shadow:var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);border-color:#2563eb}input::placeholder,textarea::placeholder{color:#6b7280;opacity:1}::-webkit-datetime-edit-fields-wrapper{padding:0}::-webkit-date-and-time-value{min-height:1.5em;text-align:inherit}::-webkit-datetime-edit{display:inline-flex}::-webkit-datetime-edit,::-webkit-datetime-edit-year-field,::-webkit-datetime-edit-month-field,::-webkit-datetime-edit-day-field,::-webkit-datetime-edit-hour-field,::-webkit-datetime-edit-minute-field,::-webkit-datetime-edit-second-field,::-webkit-datetime-edit-millisecond-field,::-webkit-datetime-edit-meridiem-field{padding-top:0;padding-bottom:0}select{background-image:url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");background-position:right 0.5rem center;background-repeat:no-repeat;background-size:1.5em 1.5em;padding-right:2.5rem;print-color-adjust:exact}[multiple],[size]:where(select:not([size="1"])){background-image:initial;background-position:initial;background-repeat:unset;background-size:initial;padding-right:0.75rem;print-color-adjust:unset}[type='checkbox'],[type='radio']{-webkit-appearance:none;appearance:none;padding:0;print-color-adjust:exact;display:inline-block;vertical-align:middle;background-origin:border-box;-webkit-user-select:none;user-select:none;flex-shrink:0;height:1rem;width:1rem;color:#2563eb;background-color:#fff;border-color:#6b7280;border-width:1px;--tw-shadow:0 0 #0000}[type='checkbox']{border-radius:0px}[type='radio']{border-radius:100%}[type='checkbox']:focus,[type='radio']:focus{outline:2px solid transparent;outline-offset:2px;--tw-ring-inset:var(--tw-empty,/*!*/ /*!*/);--tw-ring-offset-width:2px;--tw-ring-offset-color:#fff;--tw-ring-color:#2563eb;--tw-ring-offset-shadow:var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);--tw-ring-shadow:var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color);box-shadow:var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)}[type='checkbox']:checked,[type='radio']:checked{border-color:transparent;background-color:currentColor;background-size:100% 100%;background-position:center;background-repeat:no-repeat}[type='checkbox']:checked{background-image:url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg%3e");}@media (forced-colors: active) {[type='checkbox']:checked{-webkit-appearance:auto;appearance:auto}}[type='radio']:checked{background-image:url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3ccircle cx='8' cy='8' r='3'/%3e%3c/svg%3e");}@media (forced-colors: active) {[type='radio']:checked{-webkit-appearance:auto;appearance:auto}}[type='checkbox']:checked:hover,[type='checkbox']:checked:focus,[type='radio']:checked:hover,[type='radio']:checked:focus{border-color:transparent;background-color:currentColor}[type='checkbox']:indeterminate{background-image:url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 16 16'%3e%3cpath stroke='white' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M4 8h8'/%3e%3c/svg%3e");border-color:transparent;background-color:currentColor;background-size:100% 100%;background-position:center;background-repeat:no-repeat;}@media (forced-colors: active) {[type='checkbox']:indeterminate{-webkit-appearance:auto;appearance:auto}}[type='checkbox']:indeterminate:hover,[type='checkbox']:indeterminate:focus{border-color:transparent;background-color:currentColor}[type='file']{background:unset;border-color:inherit;border-width:0;border-radius:0;padding:0;font-size:unset;line-height:inherit}[type='file']:focus{outline:1px solid ButtonText;outline:1px auto -webkit-focus-ring-color}.pointer-events-none{pointer-events:none}.absolute{position:absolute}.relative{position:relative}.sticky{position:sticky}.inset-0{inset:0px}.-left-2{left:-0.5rem}.-left-3{left:-0.75rem}.-top-1\.5{top:-0.375rem}.-top-2{top:-0.5rem}.left-0{left:0px}.left-16{left:4rem}.left-\[20\%\]{left:20%}.left-\[40\%\]{left:40%}.left-\[60\%\]{left:60%}.right-0{right:0px}.right-2{right:0.5rem}.top-0{top:0px}.top-4{top:1rem}.top-\[140px\]{top:140px}.top-\[240px\]{top:240px}.top-\[45\%\]{top:45%}.top-\[80px\]{top:80px}.z-10{z-index:10}.z-20{z-index:20}.z-50{z-index:50}.mb-1{margin-bottom:0.25rem}.mb-2{margin-bottom:0.5rem}.mb-4{margin-bottom:1rem}.mb-6{margin-bottom:1.5rem}.mb-8{margin-bottom:2rem}.ml-16{margin-left:4rem}.ml-2{margin-left:0.5rem}.mr-2{margin-right:0.5rem}.mr-4{margin-right:1rem}.mt-auto{margin-top:auto}.flex{display:flex}.grid{display:grid}.hidden{display:none}.h-1{height:0.25rem}.h-10{height:2.5rem}.h-16{height:4rem}.h-20{height:5rem}.h-24{height:6rem}.h-3{height:0.75rem}.h-4{height:1rem}.h-6{height:1.5rem}.h-8{height:2rem}.h-\[1024px\]{height:1024px}.h-\[800px\]{height:800px}.h-full{height:100%}.h-px{height:1px}.w-10{width:2.5rem}.w-16{width:4rem}.w-24{width:6rem}.w-3{width:0.75rem}.w-4{width:1rem}.w-48{width:12rem}.w-6{width:1.5rem}.w-64{width:16rem}.w-8{width:2rem}.w-\[280px\]{width:280px}.w-\[calc\(20\%-4px\)\]{width:calc(20% - 4px)}.w-full{width:100%}.min-w-0{min-width:0px}.flex-1{flex:1 1 0%}.flex-shrink-0{flex-shrink:0}.-translate-x-full{--tw-translate-x:-100%;transform:translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))}.-translate-y-1\/2{--tw-translate-y:-50%;transform:translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))}.translate-x-1\/2{--tw-translate-x:50%;transform:translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))}@keyframes pulse{50%{opacity:.5}}.animate-pulse{animation:pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite}.cursor-pointer{cursor:pointer}.select-none{-webkit-user-select:none;user-select:none}.grid-cols-5{grid-template-columns:repeat(5, minmax(0, 1fr))}.grid-cols-7{grid-template-columns:repeat(7, minmax(0, 1fr))}.flex-col{flex-direction:column}.items-center{align-items:center}.justify-start{justify-content:flex-start}.justify-center{justify-content:center}.justify-between{justify-content:space-between}.gap-1{gap:0.25rem}.gap-2{gap:0.5rem}.gap-3{gap:0.75rem}.gap-4{gap:1rem}.gap-6{gap:1.5rem}.-space-x-1 > :not([hidden]) ~ :not([hidden]){--tw-space-x-reverse:0;margin-right:calc(-0.25rem * var(--tw-space-x-reverse));margin-left:calc(-0.25rem * calc(1 - var(--tw-space-x-reverse)))}.space-y-1 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(0.25rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(0.25rem * var(--tw-space-y-reverse))}.space-y-3 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(0.75rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(0.75rem * var(--tw-space-y-reverse))}.overflow-hidden{overflow:hidden}.overflow-y-auto{overflow-y:auto}.truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.rounded{border-radius:0.25rem}.rounded-full{border-radius:9999px}.rounded-lg{border-radius:0.5rem}.rounded-main{border-radius:24px}.rounded-xl{border-radius:0.75rem}.border{border-width:1px}.border-b{border-bottom-width:1px}.border-l{border-left-width:1px}.border-l-2{border-left-width:2px}.border-r{border-right-width:1px}.border-r-2{border-right-width:2px}.border-t{border-top-width:1px}.border-none{border-style:none}.border-primary{--tw-border-opacity:1;border-color:rgb(255 255 255 / var(--tw-border-opacity, 1))}.border-primary\/20{border-color:rgb(255 255 255 / 0.2)}.border-primary\/50{border-color:rgb(255 255 255 / 0.5)}.border-surface{--tw-border-opacity:1;border-color:rgb(19 19 19 / var(--tw-border-opacity, 1))}.border-white\/10{border-color:rgb(255 255 255 / 0.1)}.border-white\/5{border-color:rgb(255 255 255 / 0.05)}.border-l-outline-variant{--tw-border-opacity:1;border-left-color:rgb(68 71 72 / var(--tw-border-opacity, 1))}.border-l-surface-variant{--tw-border-opacity:1;border-left-color:rgb(53 53 53 / var(--tw-border-opacity, 1))}.bg-background{--tw-bg-opacity:1;background-color:rgb(19 19 19 / var(--tw-bg-opacity, 1))}.bg-black\/20{background-color:rgb(0 0 0 / 0.2)}.bg-outline-variant\/10{background-color:rgb(68 71 72 / 0.1)}.bg-primary{--tw-bg-opacity:1;background-color:rgb(255 255 255 / var(--tw-bg-opacity, 1))}.bg-primary\/10{background-color:rgb(255 255 255 / 0.1)}.bg-primary\/5{background-color:rgb(255 255 255 / 0.05)}.bg-surface-variant{--tw-bg-opacity:1;background-color:rgb(53 53 53 / var(--tw-bg-opacity, 1))}.bg-surface-variant\/10{background-color:rgb(53 53 53 / 0.1)}.bg-surface\/20{background-color:rgb(19 19 19 / 0.2)}.bg-surface\/5{background-color:rgb(19 19 19 / 0.05)}.bg-surface\/50{background-color:rgb(19 19 19 / 0.5)}.bg-transparent{background-color:transparent}.bg-white{--tw-bg-opacity:1;background-color:rgb(255 255 255 / var(--tw-bg-opacity, 1))}.bg-white\/5{background-color:rgb(255 255 255 / 0.05)}.bg-gradient-to-r{background-image:linear-gradient(to right, var(--tw-gradient-stops))}.from-transparent{--tw-gradient-from:transparent var(--tw-gradient-from-position);--tw-gradient-to:rgb(0 0 0 / 0) var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from), var(--tw-gradient-to)}.via-white\/10{--tw-gradient-to:rgb(255 255 255 / 0)  var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from), rgb(255 255 255 / 0.1) var(--tw-gradient-via-position), var(--tw-gradient-to)}.to-transparent{--tw-gradient-to:transparent var(--tw-gradient-to-position)}.p-1{padding:0.25rem}.p-2{padding:0.5rem}.p-3{padding:0.75rem}.p-4{padding:1rem}.p-container-margin{padding:24px}.px-1\.5{padding-left:0.375rem;padding-right:0.375rem}.px-3{padding-left:0.75rem;padding-right:0.75rem}.px-4{padding-left:1rem;padding-right:1rem}.px-6{padding-left:1.5rem;padding-right:1.5rem}.px-container-margin{padding-left:24px;padding-right:24px}.py-0\.5{padding-top:0.125rem;padding-bottom:0.125rem}.py-1{padding-top:0.25rem;padding-bottom:0.25rem}.py-1\.5{padding-top:0.375rem;padding-bottom:0.375rem}.py-2\.5{padding-top:0.625rem;padding-bottom:0.625rem}.py-6{padding-top:1.5rem;padding-bottom:1.5rem}.pl-4{padding-left:1rem}.pl-6{padding-left:1.5rem}.pr-2{padding-right:0.5rem}.pt-2{padding-top:0.5rem}.pt-4{padding-top:1rem}.text-center{text-align:center}.text-right{text-align:right}.font-body-md{font-family:Geist}.font-code-sm{font-family:JetBrains Mono}.font-headline-lg{font-family:Geist}.font-headline-md{font-family:Geist}.font-label-md{font-family:Geist}.text-\[10px\]{font-size:10px}.text-\[12px\]{font-size:12px}.text-\[14px\]{font-size:14px}.text-\[16px\]{font-size:16px}.text-\[18px\]{font-size:18px}.text-\[20px\]{font-size:20px}.text-\[8px\]{font-size:8px}.text-\[9px\]{font-size:9px}.text-headline-lg{font-size:32px;line-height:40px;letter-spacing:-0.02em;font-weight:600}.text-headline-md{font-size:24px;line-height:32px;font-weight:600}.text-label-md{font-size:14px;line-height:20px;letter-spacing:0.01em;font-weight:500}.text-xs{font-size:0.75rem;line-height:1rem}.font-bold{font-weight:700}.font-normal{font-weight:400}.font-semibold{font-weight:600}.uppercase{text-transform:uppercase}.tracking-wider{letter-spacing:0.05em}.text-on-surface{--tw-text-opacity:1;color:rgb(226 226 226 / var(--tw-text-opacity, 1))}.text-on-surface-variant{--tw-text-opacity:1;color:rgb(196 199 200 / var(--tw-text-opacity, 1))}.text-on-surface-variant\/30{color:rgb(196 199 200 / 0.3)}.text-on-surface-variant\/50{color:rgb(196 199 200 / 0.5)}.text-on-surface-variant\/60{color:rgb(196 199 200 / 0.6)}.text-on-surface-variant\/70{color:rgb(196 199 200 / 0.7)}.text-on-surface\/70{color:rgb(226 226 226 / 0.7)}.text-primary{--tw-text-opacity:1;color:rgb(255 255 255 / var(--tw-text-opacity, 1))}.text-white{--tw-text-opacity:1;color:rgb(255 255 255 / var(--tw-text-opacity, 1))}.shadow-\[0_0_10px_rgba\(255\2c 255\2c 255\2c 0\.8\)\]{--tw-shadow:0 0 10px rgba(255,255,255,0.8);--tw-shadow-colored:0 0 10px var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)}.shadow-\[0_0_10px_rgba\(255\2c 255\2c 255\2c 1\)\]{--tw-shadow:0 0 10px rgba(255,255,255,1);--tw-shadow-colored:0 0 10px var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)}.shadow-\[0_0_8px_rgba\(255\2c 255\2c 255\2c 0\.8\)\]{--tw-shadow:0 0 8px rgba(255,255,255,0.8);--tw-shadow-colored:0 0 8px var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)}.shadow-\[0_4px_24px_-4px_rgba\(255\2c 255\2c 255\2c 0\.1\)\]{--tw-shadow:0 4px 24px -4px rgba(255,255,255,0.1);--tw-shadow-colored:0 4px 24px -4px var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)}.shadow-none{--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;box-shadow:var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)}.shadow-sm{--tw-shadow:0 1px 2px 0 rgb(0 0 0 / 0.05);--tw-shadow-colored:0 1px 2px 0 var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)}.ring-primary\/20{--tw-ring-color:rgb(255 255 255 / 0.2)}.blur-2xl{--tw-blur:blur(40px);filter:var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow)}.blur-xl{--tw-blur:blur(24px);filter:var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow)}.backdrop-blur-lg{--tw-backdrop-blur:blur(16px);-webkit-backdrop-filter:var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia);backdrop-filter:var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia)}.backdrop-blur-sm{--tw-backdrop-blur:blur(4px);-webkit-backdrop-filter:var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia);backdrop-filter:var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia)}.backdrop-blur-xl{--tw-backdrop-blur:blur(24px);-webkit-backdrop-filter:var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia);backdrop-filter:var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia)}.transition-all{transition-property:all;transition-timing-function:cubic-bezier(0.4, 0, 0.2, 1);transition-duration:150ms}.transition-colors{transition-property:color, background-color, border-color, fill, stroke, -webkit-text-decoration-color;transition-property:color, background-color, border-color, text-decoration-color, fill, stroke;transition-property:color, background-color, border-color, text-decoration-color, fill, stroke, -webkit-text-decoration-color;transition-timing-function:cubic-bezier(0.4, 0, 0.2, 1);transition-duration:150ms}.transition-shadow{transition-property:box-shadow;transition-timing-function:cubic-bezier(0.4, 0, 0.2, 1);transition-duration:150ms}.transition-transform{transition-property:transform;transition-timing-function:cubic-bezier(0.4, 0, 0.2, 1);transition-duration:150ms}.duration-300{transition-duration:300ms}.duration-500{transition-duration:500ms}.glass-panel{border-width:1px;border-color:rgb(255 255 255 / 0.05);background-color:rgb(255 255 255 / 0.02);--tw-backdrop-blur:blur(16px);-webkit-backdrop-filter:var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia);backdrop-filter:var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia)}.glass-card{border-width:1px;border-color:rgb(255 255 255 / 0.1);background-color:rgb(255 255 255 / 0.06);--tw-backdrop-blur:blur(32px);-webkit-backdrop-filter:var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia);backdrop-filter:var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia)}.primary-gradient-btn{border-width:1px;border-color:rgb(255 255 255 / 0.1);border-top-color:rgb(255 255 255 / 0.3);background-color:rgb(255 255 255 / 0.1);--tw-text-opacity:1;color:rgb(255 255 255 / var(--tw-text-opacity, 1));--tw-backdrop-blur:blur(12px);-webkit-backdrop-filter:var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia);backdrop-filter:var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia);transition-property:all;transition-timing-function:cubic-bezier(0.4, 0, 0.2, 1);transition-duration:200ms}.primary-gradient-btn:hover{background-color:rgb(255 255 255 / 0.2)}.text-glow {
+                text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+            }
+        .selection\:bg-primary\/30 *::selection{background-color:rgb(255 255 255 / 0.3)}
+        .selection\:bg-primary\/30::selection{background-color:rgb(255 255 255 / 0.3)}
+        .placeholder\:text-on-surface-variant\/50::placeholder{color:rgb(196 199 200 / 0.5)}
+        .focus-within\:border-primary\/50:focus-within{border-color:rgb(255 255 255 / 0.5)}
+        .focus-within\:ring-2:focus-within{--tw-ring-offset-shadow:var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);--tw-ring-shadow:var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color);box-shadow:var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000)}
+        .hover\:-translate-y-1:hover{--tw-translate-y:-0.25rem;transform:translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))}
+        .hover\:bg-primary\/10:hover{background-color:rgb(255 255 255 / 0.1)}
+        .hover\:bg-white\/10:hover{background-color:rgb(255 255 255 / 0.1)}
+        .hover\:bg-white\/5:hover{background-color:rgb(255 255 255 / 0.05)}
+        .hover\:text-on-surface:hover{--tw-text-opacity:1;color:rgb(226 226 226 / var(--tw-text-opacity, 1))}
+        .hover\:text-primary:hover{--tw-text-opacity:1;color:rgb(255 255 255 / var(--tw-text-opacity, 1))}
+        .hover\:shadow-lg:hover{--tw-shadow:0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);--tw-shadow-colored:0 10px 15px -3px var(--tw-shadow-color), 0 4px 6px -4px var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)}
+        .focus\:outline-none:focus{outline:2px solid transparent;outline-offset:2px}
+        .focus\:ring-0:focus{--tw-ring-offset-shadow:var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);--tw-ring-shadow:var(--tw-ring-inset) 0 0 0 calc(0px + var(--tw-ring-offset-width)) var(--tw-ring-color);box-shadow:var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000)}
+        .group:hover .group-hover\:translate-x-full{--tw-translate-x:100%;transform:translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))}
+        .group:hover .group-hover\:text-white{--tw-text-opacity:1;color:rgb(255 255 255 / var(--tw-text-opacity, 1))}
+        @media (min-width: 768px){.md\:left-\[14\.28\%\]{left:14.28%}.md\:left-\[28\.56\%\]{left:28.56%}.md\:left-\[42\.84\%\]{left:42.84%}.md\:block{display:block}.md\:flex{display:flex}.md\:hidden{display:none}.md\:w-\[calc\(14\.28\%-4px\)\]{width:calc(14.28% - 4px)}.md\:grid-cols-7{grid-template-columns:repeat(7, minmax(0, 1fr))}.md\:border-r{border-right-width:1px}}
+        @media (min-width: 1024px){.lg\:flex{display:flex}}
+    </style></head>
+<body class="bg-background text-on-surface h-[1024px] overflow-hidden flex font-body-md relative selection:bg-primary/30" data-mode="connect" data-stitch-vh="h-[1024px]===h-screen">
+<!-- SideNavBar -->
+<nav class="hidden md:flex flex-col h-full py-6 w-[280px] h-[1024px] sticky left-0 top-0 border-r border-white/5 shadow-none bg-surface/20 backdrop-blur-lg z-20" data-stitch-vh="h-[1024px]===h-screen">
+<!-- Header -->
+<div class="px-6 mb-8 flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20">
+<span class="material-symbols-outlined text-primary" style='font-variation-settings: "FILL" 1;'>psychology</span>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary">Aura AI</h1>
+<p class="font-label-md text-label-md text-on-surface-variant">Pro Workspace</p>
+</div>
+</div>
+<!-- CTA -->
+<div class="px-6 mb-6">
+<button class="w-full py-2.5 rounded-lg primary-gradient-btn flex items-center justify-center gap-2 font-label-md text-label-md group relative overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-500"></div>
+<span class="material-symbols-outlined text-[18px]">add</span>
+                New Session
+            </button>
+</div>
+<!-- Navigation Tabs -->
+<div class="flex-1 overflow-y-auto px-4 space-y-1">
+<a class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-on-surface-variant font-normal hover:bg-white/5 transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="chat">chat</span>
+                Chats
+            </a>
+<a class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-on-surface-variant font-normal hover:bg-white/5 transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="notes">notes</span>
+                Notes
+            </a>
+<a class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-on-surface-variant font-normal hover:bg-white/5 transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="check_circle">check_circle</span>
+                Tasks
+            </a>
+<a class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-on-surface-variant font-normal hover:bg-white/5 transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="description">description</span>
+                Docs
+            </a>
+<a class="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-white/5 text-primary font-bold border-r-2 border-primary hover:bg-white/5 transition-colors font-label-md text-label-md relative" href="#">
+<div class="absolute inset-0 bg-primary/5 rounded-lg"></div>
+<span class="material-symbols-outlined text-[20px] text-primary" data-icon="calendar_today" style="font-variation-settings: 'FILL' 1;">calendar_today</span>
+<span class="relative z-10 text-glow">Calendar</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-on-surface-variant font-normal hover:bg-white/5 transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="mail">mail</span>
+                Mail
+            </a>
+<a class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-on-surface-variant font-normal hover:bg-white/5 transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="cloud_queue">cloud_queue</span>
+                Drive
+            </a>
+</div>
+<!-- Footer Tabs -->
+<div class="px-4 mt-auto pt-4 border-t border-white/5 space-y-1">
+<a class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="settings">settings</span>
+                Settings
+            </a>
+<a class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="help_outline">help_outline</span>
+                Support
+            </a>
+</div>
+</nav>
+<!-- Main Content Area -->
+<div class="flex-1 flex flex-col min-w-0 relative z-10">
+<!-- TopAppBar -->
+<header class="flex justify-between items-center px-container-margin w-full h-16 sticky top-0 z-50 border-b border-white/10 shadow-sm bg-surface/5 backdrop-blur-xl">
+<!-- Mobile Menu & Title -->
+<div class="flex items-center gap-4">
+<button class="md:hidden text-on-surface-variant hover:text-on-surface">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<div class="hidden md:flex items-center gap-6">
+<h2 class="font-headline-md text-headline-md font-bold text-primary">Aura Calendar</h2>
+</div>
+</div>
+<!-- Actions -->
+<div class="flex items-center gap-4">
+<div class="flex items-center bg-black/20 border border-white/10 rounded-full p-1 mr-4"><button class="px-4 py-1 rounded-full text-xs font-label-md bg-primary/10 text-primary">Day</button><button class="px-4 py-1 rounded-full text-xs font-label-md text-on-surface-variant hover:text-on-surface transition-colors">Week</button><button class="px-4 py-1 rounded-full text-xs font-label-md text-on-surface-variant hover:text-on-surface transition-colors">Month</button></div><div class="hidden md:flex items-center bg-black/20 border border-white/10 rounded-full px-3 py-1.5 focus-within:border-primary/50 focus-within:ring-2 ring-primary/20 transition-all">
+<span class="material-symbols-outlined text-on-surface-variant text-[18px] mr-2">search</span>
+<input class="bg-transparent border-none text-on-surface font-label-md text-label-md focus:outline-none focus:ring-0 placeholder:text-on-surface-variant/50 w-48" placeholder="Search events..." type="text"/>
+<span class="text-xs text-on-surface-variant/50 border border-white/10 rounded px-1.5 py-0.5 ml-2 font-code-sm">⌘K</span>
+</div>
+<div class="flex items-center gap-2 border-l border-white/10 pl-4 ml-2">
+<button class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-white/5 transition-all">
+<span class="material-symbols-outlined text-[20px]" data-icon="notifications">notifications</span>
+</button>
+<button class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-white/5 transition-all">
+<span class="material-symbols-outlined text-[20px]" data-icon="account_circle">account_circle</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Calendar Canvas -->
+<main class="flex-1 flex overflow-hidden p-container-margin gap-6">
+<!-- Main Schedule Grid -->
+<div class="flex-1 glass-panel rounded-main flex flex-col overflow-hidden relative">
+<!-- Grid Body -->
+<div class="flex-1 overflow-y-auto relative custom-scrollbar">
+<!-- Current Time Indicator Line -->
+<div class="absolute top-[315px] left-16 right-0 h-px bg-[#ffb4ab] z-20 pointer-events-none">
+<div class="absolute -left-12 -top-3 w-10 text-right pr-2 text-error font-label-md text-xs font-bold">11:34<br/>AM</div>
+<div class="absolute left-0 -top-1 w-2 h-2 rounded-full bg-error"></div>
+</div>
+<div class="flex relative h-[800px]"> <!-- Fixed height for scrolling demo -->
+<!-- Time Column -->
+<div class="w-16 border-r border-white/5 flex flex-col absolute left-0 top-0 h-full bg-surface/50 backdrop-blur-sm z-10 text-right pr-2 pt-2 font-code-sm text-xs text-on-surface-variant/60 select-none">
+<div class="h-20">9 AM</div>
+<div class="h-20">10 AM</div>
+<div class="h-20">11 AM</div>
+<div class="h-20">12 PM</div>
+<div class="h-20">1 PM</div>
+<div class="h-20">2 PM</div>
+<div class="h-20">3 PM</div>
+<div class="h-20">4 PM</div>
+<div class="h-20">5 PM</div>
+<div class="h-20">6 PM</div>
+</div>
+<!-- Day Column relative -->
+<div class="ml-16 flex-1 relative">
+<!-- Background Grid Lines (Horizontal) -->
+<div class="absolute inset-0 pointer-events-none flex flex-col">
+<div class="h-20 border-b border-white/5"></div>
+<div class="h-20 border-b border-white/5"></div>
+<div class="h-20 border-b border-white/5"></div>
+<div class="h-20 border-b border-white/5"></div>
+<div class="h-20 border-b border-white/5"></div>
+<div class="h-20 border-b border-white/5"></div>
+<div class="h-20 border-b border-white/5"></div>
+<div class="h-20 border-b border-white/5"></div>
+<div class="h-20 border-b border-white/5"></div>
+<div class="h-20 border-b border-white/5"></div>
+</div>
+<!-- Events Layer (Absolute positioning relative to the grid) -->
+<!-- Event: Design Sync (9:30 AM - 10:20 AM) Team/Blue -->
+<div class="absolute left-0 top-[40px] w-3/4 h-[50px] p-1 z-10 group cursor-pointer">
+<div class="glass-card w-full h-full rounded-r-lg border-l-2 p-2 flex justify-between items-start hover:bg-white/10 transition-colors relative overflow-hidden shadow-[0_4px_24px_-4px_rgba(255,255,255,0.1)] hover:-translate-y-1 hover:shadow-lg transition-all duration-300" style="border-left-color: #2979FF; background: linear-gradient(to right, rgba(41, 121, 255, 0.1), transparent);">
+<div class="absolute top-0 right-0 w-24 h-24 bg-[#2979FF]/10 blur-2xl rounded-full -translate-y-1/2 translate-x-1/2"></div>
+<div>
+<span class="font-label-md text-sm font-bold text-white block leading-tight">Design Sync</span>
+<span class="font-label-md text-[10px] text-on-surface-variant">9:30 AM - 10:20 AM</span>
+</div>
+<div class="flex -space-x-2">
+<img class="w-5 h-5 rounded-full border border-black object-cover" data-alt="Small circular avatar of a colleague. Dark minimalist aesthetic, sharp focus." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC9RIp1am6hdHPJqKPvWvac11sP_FfgFXg1uQrPMddxJi4rk6zln0o4IYWv-ih1giTX5TYXwhJ7olWogl72sMDxyFaLhnMWxvEfFgpDy9BeuKjlXvYebWA3ABz36Bb30kUpZc7KBIu_fjLE73EVbQBDrVWMkKqg_w29ZOjNdu4OAc3cqEhVWgKfbxlDO04xPT21SchfkkFTXnwPgC-FOjQIKHG4h8US8jnrOtFDuqTs4P1tXDZEZk5d"/>
+<img class="w-5 h-5 rounded-full border border-black object-cover" data-alt="Small circular avatar of another colleague. Dark minimalist aesthetic, professional lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAhp0Jh12pQBgqnsgFIqZ4yBTp8OiUd0hxIFkkQq7F6eIWO-4IJrn2DtmWH38jZTVaqLJC3kZwGvwwURGBKHhj-zNhrPmIyR7Rs7tcx8cBJzISVJ5nFyOwsGTQ7YpePIeUKAeJy-Or9m0THSmKf_aFwYTVW4KrdBQDV-X8vGiS4Zjr1WpsCNt8cDzJkixJmPDXkAoV2W7K-ckmP7yfmoE__enFzrmWXdXSM8vkzuSla09vjQffUR2mZ"/>
+</div>
+</div>
+</div>
+<!-- Event: Project Alpha Submit (11:00 AM - 11:45 AM) Deadline/Amber -->
+<div class="absolute right-0 top-[160px] w-1/3 h-[45px] p-1 z-10 group cursor-pointer">
+<div class="glass-card w-full h-full rounded-l-lg border-l-2 p-2 flex flex-col justify-center hover:bg-white/10 transition-colors relative overflow-hidden shadow-[0_4px_24px_-4px_rgba(255,255,255,0.1)] hover:-translate-y-1 hover:shadow-lg transition-all duration-300" style="border-left-color: #FFB300; background: linear-gradient(to right, rgba(255, 179, 0, 0.1), transparent);">
+<div class="absolute top-0 right-0 w-24 h-24 bg-[#FFB300]/10 blur-2xl rounded-full -translate-y-1/2 translate-x-1/2"></div>
+<span class="font-label-md text-sm font-bold text-white leading-tight truncate">Project Alpha Submit</span>
+<span class="font-label-md text-[10px] text-on-surface-variant truncate">11:00 AM - 11:45 AM</span>
+</div>
+</div>
+<!-- Event: Lunch & Learn (1:00 PM - 2:00 PM) Personal/Lavender -->
+<div class="absolute left-8 top-[320px] w-1/2 h-[60px] p-1 z-10 group cursor-pointer">
+<div class="glass-card w-full h-full rounded-r-lg border-l-2 p-2 flex flex-col justify-start hover:bg-white/10 transition-colors relative overflow-hidden shadow-[0_4px_24px_-4px_rgba(255,255,255,0.1)] hover:-translate-y-1 hover:shadow-lg transition-all duration-300" style="border-left-color: #B39DDB; background: linear-gradient(to right, rgba(179, 157, 219, 0.1), transparent);">
+<div class="absolute top-0 right-0 w-24 h-24 bg-[#B39DDB]/10 blur-2xl rounded-full -translate-y-1/2 translate-x-1/2"></div>
+<span class="font-label-md text-sm font-bold text-white leading-tight">Lunch &amp; Learn</span>
+<span class="font-label-md text-[10px] text-on-surface-variant">1:00 PM - 2:00 PM</span>
+<div class="mt-auto flex items-center gap-1 text-[9px] text-on-surface-variant">
+<span class="material-symbols-outlined text-[12px]">location_on</span>
+<span>Cafeteria</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Panel: Mini Cal & Filters -->
+<aside class="hidden lg:flex w-64 flex-col gap-6 border-l border-white/5 pl-6 transition-all duration-300 relative" id="right-sidebar"><button class="absolute -left-3 top-4 w-6 h-6 rounded-full glass-card flex items-center justify-center text-on-surface-variant hover:text-primary z-50"><span class="material-symbols-outlined text-[16px]">chevron_right</span></button><div class="glass-panel rounded-xl p-4"><div class="flex justify-between items-center mb-4"><h3 class="font-label-md text-label-md font-semibold text-white">October 2023</h3><div class="flex gap-1"><button class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined text-[18px]">chevron_left</span></button><button class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined text-[18px]">chevron_right</span></button></div></div><div class="grid grid-cols-7 gap-1 text-center font-code-sm text-[10px] text-on-surface-variant mb-2"><div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div></div><div class="grid grid-cols-7 gap-1 text-center font-code-sm text-xs"><div class="text-on-surface-variant/30 py-1">24</div><div class="text-on-surface-variant/30 py-1">25</div><div class="text-on-surface-variant/30 py-1">26</div><div class="text-on-surface-variant/30 py-1">27</div><div class="text-on-surface-variant/30 py-1">28</div><div class="text-on-surface-variant/30 py-1">29</div><div class="text-on-surface-variant/30 py-1">30</div><div class="py-1 hover:bg-white/10 rounded cursor-pointer">1</div><div class="py-1 hover:bg-white/10 rounded cursor-pointer">2</div><div class="py-1 hover:bg-white/10 rounded cursor-pointer">3</div><div class="py-1 hover:bg-white/10 rounded cursor-pointer">4</div><div class="py-1 hover:bg-white/10 rounded cursor-pointer">5</div><div class="py-1 hover:bg-white/10 rounded cursor-pointer">6</div><div class="py-1 hover:bg-white/10 rounded cursor-pointer">7</div><div class="py-1 hover:bg-white/10 rounded cursor-pointer">8</div><div class="py-1 hover:bg-white/10 rounded cursor-pointer">9</div><div class="py-1 hover:bg-white/10 rounded cursor-pointer">10</div><div class="py-1 bg-white text-black font-bold rounded cursor-pointer">11</div><div class="py-1 hover:bg-white/10 rounded cursor-pointer">12</div><div class="py-1 hover:bg-white/10 rounded cursor-pointer">13</div><div class="py-1 hover:bg-white/10 rounded cursor-pointer">14</div></div></div><div class="glass-panel rounded-xl p-4"><h3 class="font-label-md text-headline-lg-mobile font-bold text-white mb-4 border-b border-white/10 pb-2">Today's Agenda</h3><ul class="space-y-3 mt-4"><li class="flex gap-3 items-start"><div class="w-2 h-2 rounded-full mt-1.5" style="background-color: #2979FF;"></div><div><p class="font-body-md text-sm font-bold text-white">Design Sync</p><p class="font-label-sm text-[10px] text-on-surface-variant">9:30 AM (50m)</p></div></li><li class="flex gap-3 items-start"><div class="w-2 h-2 rounded-full mt-1.5 shadow-[0_0_8px_#FFB300]" style="background-color: #FFB300;"></div><div><p class="font-body-md text-sm font-bold text-white">Project Alpha Submit</p><p class="font-label-sm text-[10px] text-error font-bold">11:00 AM - Approaching</p></div></li><li class="flex gap-3 items-start opacity-60"><div class="w-2 h-2 rounded-full mt-1.5" style="background-color: #B39DDB;"></div><div><p class="font-body-md text-sm font-bold text-white">Lunch &amp; Learn</p><p class="font-label-sm text-[10px] text-on-surface-variant">1:00 PM</p></div></li></ul><button class="w-full mt-6 py-2 rounded bg-white text-black font-label-md text-xs font-bold hover:bg-gray-200 transition-colors flex justify-center items-center gap-2"><span class="material-symbols-outlined text-[16px]">add</span> New Event</button></div></aside>
+</main>
+</div>
+<style>
+        /* Custom Scrollbar for the calendar grid to maintain sleek look */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</body></html>

@@ -119,6 +119,11 @@ class OpenAICompatibleProvider(BaseLLMProvider):
                 if tool_calls:
                      msg_dict["tool_calls"] = tool_calls
                 return msg_dict
+                
+            if isinstance(m, dict) and "images" in m:
+                m_clean = m.copy()
+                m_clean.pop("images", None)
+                return m_clean
             return m
             
         flat_messages = []
@@ -140,7 +145,8 @@ class OpenAICompatibleProvider(BaseLLMProvider):
             # For native tool calling we might also need tool_choice
 
         try:
-            async with httpx.AsyncClient() as client:
+            limits = httpx.Limits(max_keepalive_connections=50, max_connections=100)
+            async with httpx.AsyncClient(limits=limits, timeout=60.0) as client:
                 response = await client.post(
                     f"{self.base_url}/chat/completions",
                     headers=self.headers,
@@ -181,6 +187,7 @@ class OpenAICompatibleProvider(BaseLLMProvider):
                 
                 return msg.get("content") or ""
         except httpx.HTTPStatusError as e:
+            await e.response.aread()
             if e.response.status_code in (429, 408, 500, 502, 503, 504):
                 raise ProviderTransientError(f"{self.provider_name} API transient failure ({e.response.status_code}): {e.response.text}")
             else:
@@ -246,6 +253,11 @@ class OpenAICompatibleProvider(BaseLLMProvider):
                 if tool_calls:
                      msg_dict["tool_calls"] = tool_calls
                 return msg_dict
+                
+            if isinstance(m, dict) and "images" in m:
+                m_clean = m.copy()
+                m_clean.pop("images", None)
+                return m_clean
             return m
             
         flat_messages = []
@@ -266,7 +278,8 @@ class OpenAICompatibleProvider(BaseLLMProvider):
             payload["tools"] = converted_tools
 
         try:
-            async with httpx.AsyncClient() as client:
+            limits = httpx.Limits(max_keepalive_connections=50, max_connections=100)
+            async with httpx.AsyncClient(limits=limits, timeout=60.0) as client:
                 async with client.stream(
                     "POST",
                     f"{self.base_url}/chat/completions",
@@ -274,6 +287,8 @@ class OpenAICompatibleProvider(BaseLLMProvider):
                     json=payload,
                     timeout=60.0
                 ) as response:
+                    if response.status_code >= 400:
+                        await response.aread()
                     response.raise_for_status()
                     async for line in response.aiter_lines():
                         if line.startswith("data: "):

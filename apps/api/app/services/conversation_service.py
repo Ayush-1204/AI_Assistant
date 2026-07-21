@@ -64,6 +64,9 @@ class ConversationService:
 
         if data.title is not None:
             conversation.title = data.title
+        
+        if data.is_pinned is not None:
+            conversation.is_pinned = data.is_pinned
 
         return await self.repository.update(conversation)
 

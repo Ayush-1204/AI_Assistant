@@ -1,9 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter/gestures.dart';
 import 'login_view.dart';
 import 'layout.dart';
 import 'providers/auth_provider.dart';
+
+class _AppScrollBehavior extends MaterialScrollBehavior {
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.trackpad,
+      };
+}
 
 void main() {
   runApp(const ProviderScope(child: SecondBrainApp()));
@@ -18,6 +28,7 @@ class SecondBrainApp extends StatelessWidget {
       title: 'Second Brain AI',
       debugShowCheckedModeBanner: false,
       themeMode: ThemeMode.dark,
+      scrollBehavior: _AppScrollBehavior(),
       darkTheme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,

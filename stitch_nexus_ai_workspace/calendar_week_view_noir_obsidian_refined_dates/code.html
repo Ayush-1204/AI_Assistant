@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Aura AI - Calendar Week View</title>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Config -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "error-container": "#93000a",
+                        "surface-container-lowest": "#0e0e0e",
+                        "on-tertiary-fixed-variant": "#474746",
+                        "on-tertiary-container": "#656464",
+                        "tertiary-fixed-dim": "#c8c6c5",
+                        "on-surface-variant": "#c4c7c8",
+                        "on-primary-fixed-variant": "#454747",
+                        "on-background": "#e2e2e2",
+                        "surface-bright": "#393939",
+                        "secondary": "#c6c6cb",
+                        "primary-fixed": "#e2e2e2",
+                        "surface-container-low": "#1b1b1b",
+                        "on-secondary-fixed-variant": "#46464b",
+                        "inverse-on-surface": "#303030",
+                        "tertiary-fixed": "#e5e2e1",
+                        "surface": "#131313",
+                        "inverse-surface": "#e2e2e2",
+                        "on-error": "#690005",
+                        "tertiary": "#ffffff",
+                        "surface-container-highest": "#353535",
+                        "secondary-container": "#46464b",
+                        "outline": "#8e9192",
+                        "on-primary-fixed": "#1a1c1c",
+                        "surface-variant": "#353535",
+                        "secondary-fixed-dim": "#c6c6cb",
+                        "primary-fixed-dim": "#c6c6c7",
+                        "on-secondary": "#2f3034",
+                        "secondary-fixed": "#e3e2e7",
+                        "surface-dim": "#131313",
+                        "error": "#ffb4ab",
+                        "inverse-primary": "#5d5f5f",
+                        "on-tertiary-fixed": "#1c1b1b",
+                        "on-error-container": "#ffdad6",
+                        "primary-container": "#e2e2e2",
+                        "surface-tint": "#c6c6c7",
+                        "outline-variant": "#444748",
+                        "on-tertiary": "#313030",
+                        "surface-container-high": "#2a2a2a",
+                        "on-primary": "#2f3131",
+                        "on-secondary-container": "#b5b4ba",
+                        "on-primary-container": "#636565",
+                        "tertiary-container": "#e5e2e1",
+                        "primary": "#ffffff",
+                        "on-surface": "#e2e2e2",
+                        "surface-container": "#1f1f1f",
+                        "background": "#131313",
+                        "on-secondary-fixed": "#1a1b1f"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "gutter": "16px",
+                        "stack-md": "12px",
+                        "stack-lg": "32px",
+                        "stack-sm": "4px",
+                        "container-padding": "24px",
+                        "base": "8px"
+                    },
+                    "fontFamily": {
+                        "display-lg": ["Geist"],
+                        "headline-lg": ["Geist"],
+                        "body-md": ["Geist"],
+                        "label-sm": ["Geist"],
+                        "headline-lg-mobile": ["Geist"]
+                    },
+                    "fontSize": {
+                        "display-lg": ["64px", { "lineHeight": "72px", "letterSpacing": "-0.04em", "fontWeight": "700" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "letterSpacing": "0em", "fontWeight": "400" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        @import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap');
+        
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+        }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+        }
+        
+        .time-grid {
+            background-image: 
+                linear-gradient(to right, rgba(255,255,255,0.05) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255,255,255,0.05) 1px, transparent 1px);
+            background-size: 100% 60px;
+        }
+
+        .pulse-line {
+            animation: pulse-glow 2s infinite;
+        }
+
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 0 5px rgba(255,255,255,0.2); }
+            50% { box-shadow: 0 0 15px rgba(255,255,255,0.6); }
+            100% { box-shadow: 0 0 5px rgba(255,255,255,0.2); }
+        }
+
+        /* Scrollbar styling for a cleaner look */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255,255,255,0.2);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body-md min-h-screen flex overflow-hidden">
+<!-- SideNavBar Component -->
+<aside class="hidden md:flex flex-col h-full w-[280px] py-container-margin px-4 bg-surface-container-low dark:bg-surface-container-low bg-opacity-2 backdrop-blur-md border-r border-outline-variant/10 sticky left-0 top-0 z-40">
+<!-- Header -->
+<div class="flex items-center gap-stack-md mb-stack-lg px-2 pt-4">
+<div class="w-10 h-10 rounded-lg overflow-hidden glass-card flex items-center justify-center">
+<img class="w-full h-full object-cover" data-alt="A sleek, minimalist avatar icon featuring a glowing geometrical shape on a pitch-black background, lit by a single rim light, representing artificial intelligence in a high-tech workspace." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDD77A7uMhSZBH88qQsBmVUdI_sVcscm8IjD-LiJerPr01UYfYzuaDZxJC6VVT7nSZUute4U962rfQ26RMFl0iy4GXxzXPBnqf5VJt899CZ8Lh1qYFz17NclaXXh36La4enwbxobj3I1UJ-QwTfp3mf76AJ-kaFKxgeuKB3kuyJnICgQKVAQvXnWjTqrvsWlLEPtS_DLJGz-5yVRHjaW7Or-gqrPQAZYrGmqga5-X_vx6YWCqD3zKDc"/>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary dark:text-primary">Aura AI</h1>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Power Workspace</p>
+</div>
+</div>
+<!-- CTA -->
+<button class="mb-stack-lg w-full bg-primary text-surface-container-lowest font-body-md py-2 px-4 rounded-lg hover:ring-2 hover:ring-white hover:ring-offset-2 hover:ring-offset-background transition-all flex justify-center items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">add</span>
+            New Session
+        </button>
+<!-- Navigation Tabs -->
+<nav class="flex-1 flex flex-col gap-2">
+<!-- Active state would be here if this was Dashboard, but we are in Calendar (History mapping for now as fallback, or Custom) -->
+<a class="flex items-center gap-3 text-on-surface-variant hover:text-on-surface px-4 py-2 hover:bg-white/5 transition-colors duration-200 rounded-lg group" href="#">
+<span class="material-symbols-outlined group-active:scale-95 transition-transform duration-150">dashboard</span>
+<span class="font-body-md text-body-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 text-on-surface-variant hover:text-on-surface px-4 py-2 hover:bg-white/5 transition-colors duration-200 rounded-lg group" href="#">
+<span class="material-symbols-outlined group-active:scale-95 transition-transform duration-150">science</span>
+<span class="font-body-md text-body-md">Research</span>
+</a>
+<a class="flex items-center gap-3 text-on-surface-variant hover:text-on-surface px-4 py-2 hover:bg-white/5 transition-colors duration-200 rounded-lg group" href="#">
+<span class="material-symbols-outlined group-active:scale-95 transition-transform duration-150">folder_open</span>
+<span class="font-body-md text-body-md">Projects</span>
+</a>
+<a class="flex items-center gap-3 bg-primary-container/20 text-primary font-bold rounded-lg px-4 py-2 hover:bg-white/5 transition-colors duration-200 group" href="#">
+<span class="material-symbols-outlined group-active:scale-95 transition-transform duration-150" style="font-variation-settings: 'FILL' 1;">calendar_month</span>
+<span class="font-body-md text-body-md">Calendar</span>
+</a>
+<a class="flex items-center gap-3 text-on-surface-variant hover:text-on-surface px-4 py-2 hover:bg-white/5 transition-colors duration-200 rounded-lg group mt-auto" href="#">
+<span class="material-symbols-outlined group-active:scale-95 transition-transform duration-150">settings</span>
+<span class="font-body-md text-body-md">Settings</span>
+</a>
+</nav>
+<!-- Footer Tabs -->
+<div class="mt-stack-lg border-t border-outline-variant/10 pt-4 flex flex-col gap-2 pb-4">
+<a class="flex items-center gap-3 text-on-surface-variant hover:text-on-surface px-4 py-2 hover:bg-white/5 transition-colors duration-200 rounded-lg group" href="#">
+<span class="material-symbols-outlined group-active:scale-95 transition-transform duration-150">help_outline</span>
+<span class="font-label-sm text-label-sm">Help</span>
+</a>
+<a class="flex items-center gap-3 text-on-surface-variant hover:text-on-surface px-4 py-2 hover:bg-white/5 transition-colors duration-200 rounded-lg group" href="#">
+<span class="material-symbols-outlined group-active:scale-95 transition-transform duration-150">security</span>
+<span class="font-label-sm text-label-sm">Privacy</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col h-screen overflow-hidden bg-background relative">
+<!-- Top Navigation / Header area for Main Content -->
+<header class="h-16 flex justify-between items-center px-container-margin border-b border-outline-variant/10 z-30 bg-surface/50 backdrop-blur-xl">
+<div class="flex items-center gap-stack-lg">
+<div class="flex items-center gap-2">
+<span class="font-headline-md text-headline-md font-semibold">October 2023</span>
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+<button class="px-4 py-1.5 rounded-full border border-outline-variant/30 text-on-surface hover:bg-white/5 transition-colors font-label-sm text-label-sm">
+                    Today
+                </button>
+</div>
+<!-- View Toggles -->
+<div class="flex bg-surface-container-lowest border border-outline-variant/30 rounded-lg p-1">
+<button class="px-4 py-1 text-on-surface-variant hover:text-on-surface rounded-md font-label-sm text-label-sm transition-colors">Day</button>
+<button class="px-4 py-1 bg-white/10 text-primary font-bold rounded-md font-label-sm text-label-sm shadow-sm">Week</button>
+<button class="px-4 py-1 text-on-surface-variant hover:text-on-surface rounded-md font-label-sm text-label-sm transition-colors">Month</button>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden lg:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">search</span>
+<input class="w-64 bg-surface-container-lowest border border-outline-variant/30 text-on-surface placeholder:text-on-surface-variant/50 rounded-lg pl-9 pr-4 py-1.5 focus:border-primary focus:ring-0 transition-colors font-body-md text-body-md" placeholder="Search events..." type="text"/>
+</div>
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="lg:hidden text-on-surface-variant hover:text-primary transition-colors" id="toggle-right-panel">
+<span class="material-symbols-outlined">dock_to_left</span>
+</button>
+</div>
+</header>
+<div class="flex-1 flex overflow-hidden">
+<!-- Calendar Grid Area -->
+<div class="flex-1 flex flex-col overflow-y-auto relative">
+<!-- Days Header -->
+<div class="sticky top-0 z-20 flex bg-background/90 backdrop-blur-md border-b border-outline-variant/10"><div class="w-16 border-r border-outline-variant/10 flex-shrink-0"></div>
+<!-- Day Columns -->
+<div class="flex-1 grid grid-cols-7 text-center"><!-- Monday -->
+<div class="p-3 text-center border-r border-outline-variant/5 flex flex-col items-center justify-center group cursor-pointer hover:bg-white/5 transition-colors">
+<span class="font-label-sm text-[10px] text-on-surface-variant mb-1 uppercase tracking-wider">Mon</span>
+<span class="font-headline-md text-[24px] font-bold">16</span>
+</div>
+<!-- Tuesday -->
+<div class="p-3 text-center border-r border-outline-variant/5 flex flex-col items-center justify-center group cursor-pointer hover:bg-white/5 transition-colors">
+<span class="font-label-sm text-[10px] text-on-surface-variant mb-1 uppercase tracking-wider">Tue</span>
+<span class="font-headline-md text-[24px] font-bold">17</span>
+</div>
+<!-- Wednesday (Active) -->
+<div class="p-3 text-center border-r border-outline-variant/5 flex flex-col items-center justify-center bg-white/5 relative cursor-pointer">
+<div class="absolute top-0 left-0 right-0 h-1 bg-primary shadow-[0_0_10px_rgba(255,255,255,0.8)]"></div>
+<span class="font-label-sm text-[10px] text-primary mb-1 uppercase tracking-wider font-semibold">Wed</span>
+<span class="font-headline-md text-[24px] font-bold text-primary">18</span>
+</div>
+<!-- Thursday -->
+<div class="p-3 text-center border-r border-outline-variant/5 flex flex-col items-center justify-center group cursor-pointer hover:bg-white/5 transition-colors">
+<span class="font-label-sm text-[10px] text-on-surface-variant mb-1 uppercase tracking-wider">Thu</span>
+<span class="font-headline-md text-[24px] font-bold">19</span>
+</div>
+<!-- Friday -->
+<div class="p-3 text-center border-r border-outline-variant/5 flex flex-col items-center justify-center group cursor-pointer hover:bg-white/5 transition-colors">
+<span class="font-label-sm text-[10px] text-on-surface-variant mb-1 uppercase tracking-wider">Fri</span>
+<span class="font-headline-md text-[24px] font-bold">20</span>
+</div>
+<!-- Saturday -->
+<div class="p-3 text-center border-r border-outline-variant/5 flex flex-col items-center justify-center group cursor-pointer hover:bg-white/5 transition-colors">
+<span class="font-label-sm text-[10px] text-on-surface-variant/50 mb-1 uppercase tracking-wider">Sat</span>
+<span class="font-headline-md text-[24px] font-bold text-on-surface-variant/50">21</span>
+</div>
+<!-- Sunday -->
+<div class="p-3 text-center flex flex-col items-center justify-center group cursor-pointer hover:bg-white/5 transition-colors">
+<span class="font-label-sm text-[10px] text-on-surface-variant/50 mb-1 uppercase tracking-wider">Sun</span>
+<span class="font-headline-md text-[24px] font-bold text-on-surface-variant/50">22</span>
+</div></div>
+</div>
+<!-- Time Grid Body -->
+<div class="flex-1 flex relative">
+<!-- Time Column -->
+<div class="w-16 flex-shrink-0 flex flex-col border-r border-outline-variant/10 text-right pr-2 pt-2 text-on-surface-variant font-label-sm text-label-sm">
+<div class="h-[60px] relative"><span class="absolute -top-3 right-2 bg-background px-1">9 AM</span></div>
+<div class="h-[60px] relative"><span class="absolute -top-3 right-2 bg-background px-1">10 AM</span></div>
+<div class="h-[60px] relative"><span class="absolute -top-3 right-2 bg-background px-1">11 AM</span></div>
+<div class="h-[60px] relative"><span class="absolute -top-3 right-2 bg-background px-1">12 PM</span></div>
+<div class="h-[60px] relative"><span class="absolute -top-3 right-2 bg-background px-1">1 PM</span></div>
+<div class="h-[60px] relative"><span class="absolute -top-3 right-2 bg-background px-1">2 PM</span></div>
+<div class="h-[60px] relative"><span class="absolute -top-3 right-2 bg-background px-1">3 PM</span></div>
+<div class="h-[60px] relative"><span class="absolute -top-3 right-2 bg-background px-1">4 PM</span></div>
+<div class="h-[60px] relative"><span class="absolute -top-3 right-2 bg-background px-1">5 PM</span></div>
+<div class="h-[60px] relative"><span class="absolute -top-3 right-2 bg-background px-1">6 PM</span></div>
+</div>
+<!-- Grid Columns -->
+<div class="flex-1 grid grid-cols-7 relative time-grid">
+<!-- Column backgrounds -->
+<div class="border-r border-outline-variant/5"></div>
+<div class="border-r border-outline-variant/5"></div>
+<div class="border-r border-outline-variant/5 bg-white/5"></div> <!-- Today column bg -->
+<div class="border-r border-outline-variant/5"></div>
+<div class="border-r border-outline-variant/5"></div>
+<div class="border-r border-outline-variant/5 bg-surface-container-lowest/50"></div> <!-- Weekend -->
+<div class="bg-surface-container-lowest/50"></div> <!-- Weekend -->
+<!-- Current Time Indicator -->
+<div class="absolute w-full flex items-center z-10" style="top: 150px;">
+<div class="w-full h-[1px] bg-primary pulse-line relative">
+<div class="absolute -left-[30px] -top-2 bg-primary text-background font-bold text-[10px] px-1 rounded-sm">11:30</div>
+<div class="absolute -left-1.5 -top-1.5 w-3 h-3 rounded-full bg-primary pulse-line"></div>
+</div>
+</div>
+<!-- Events Layer -->
+<!-- Event: Mon 10:00 - 11:30 (Team Sync) -->
+<div class="absolute left-0 w-[calc(100%/7-4px)] mx-[2px] rounded-md glass-card border-l-4 border-l-[#3b82f6] p-2 overflow-hidden hover:bg-white/10 transition-colors cursor-pointer" style="top: 60px; height: 90px;">
+<div class="font-label-sm text-label-sm font-semibold truncate text-[#3b82f6]">Design Sync</div>
+<div class="text-[10px] text-on-surface-variant truncate">10:00 AM - 11:30 AM</div>
+</div>
+<!-- Event: Tue 13:00 - 14:00 (Personal) -->
+<div class="absolute left-[calc(100%/7)] w-[calc(100%/7-4px)] mx-[2px] rounded-md glass-card border-l-4 border-l-[#a855f7] p-2 overflow-hidden hover:bg-white/10 transition-colors cursor-pointer" style="top: 240px; height: 60px;">
+<div class="font-label-sm text-label-sm font-semibold truncate text-[#a855f7]">Lunch / Walk</div>
+<div class="text-[10px] text-on-surface-variant truncate">1:00 PM - 2:00 PM</div>
+</div>
+<!-- Event: Wed 09:30 - 11:00 (Deadline) -->
+<div class="absolute left-[calc(2*100%/7)] w-[calc(100%/7-4px)] mx-[2px] rounded-md glass-card border-l-4 border-l-[#f59e0b] p-2 overflow-hidden hover:bg-white/10 transition-colors cursor-pointer z-10 shadow-lg" style="top: 30px; height: 90px;">
+<div class="font-label-sm text-label-sm font-semibold truncate text-[#f59e0b]">Project Alpha Release</div>
+<div class="text-[10px] text-on-surface-variant truncate">9:30 AM - 11:00 AM</div>
+</div>
+<!-- Event: Wed 14:00 - 16:00 (Team Sync) -->
+<div class="absolute left-[calc(2*100%/7)] w-[calc(100%/7-4px)] mx-[2px] rounded-md glass-card border-l-4 border-l-[#3b82f6] p-2 overflow-hidden hover:bg-white/10 transition-colors cursor-pointer z-10" style="top: 300px; height: 120px;">
+<div class="font-label-sm text-label-sm font-semibold truncate text-[#3b82f6]">Architecture Review</div>
+<div class="text-[10px] text-on-surface-variant truncate">2:00 PM - 4:00 PM</div>
+<div class="mt-1 flex -space-x-2">
+<div class="w-5 h-5 rounded-full bg-surface-bright border border-background"></div>
+<div class="w-5 h-5 rounded-full bg-surface-bright border border-background"></div>
+</div>
+</div>
+<!-- Event: Thu 11:00 - 12:00 (Personal) -->
+<div class="absolute left-[calc(3*100%/7)] w-[calc(100%/7-4px)] mx-[2px] rounded-md glass-card border-l-4 border-l-[#a855f7] p-2 overflow-hidden hover:bg-white/10 transition-colors cursor-pointer" style="top: 120px; height: 60px;">
+<div class="font-label-sm text-label-sm font-semibold truncate text-[#a855f7]">Focus Time</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Utility Panel -->
+<aside class="hidden lg:flex flex-col w-[320px] bg-surface-container-low/50 backdrop-blur-md border-l border-outline-variant/10 p-container-padding overflow-y-auto">
+<!-- Mini Calendar -->
+<div class="mb-stack-lg">
+<div class="flex justify-between items-center mb-4">
+<h3 class="font-label-sm text-label-sm font-bold uppercase tracking-widest">October 2023</h3>
+<div class="flex gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px] cursor-pointer hover:text-primary">chevron_left</span>
+<span class="material-symbols-outlined text-[18px] cursor-pointer hover:text-primary">chevron_right</span>
+</div>
+</div>
+<div class="grid grid-cols-7 gap-1 text-center font-label-sm text-label-sm">
+<div class="text-on-surface-variant/50 mb-2">M</div>
+<div class="text-on-surface-variant/50 mb-2">T</div>
+<div class="text-on-surface-variant/50 mb-2">W</div>
+<div class="text-on-surface-variant/50 mb-2">T</div>
+<div class="text-on-surface-variant/50 mb-2">F</div>
+<div class="text-on-surface-variant/50 mb-2">S</div>
+<div class="text-on-surface-variant/50 mb-2">S</div>
+<!-- Days (Mocked for layout) -->
+<div class="p-1 text-on-surface-variant/30">25</div>
+<div class="p-1 text-on-surface-variant/30">26</div>
+<div class="p-1 text-on-surface-variant/30">27</div>
+<div class="p-1 text-on-surface-variant/30">28</div>
+<div class="p-1 text-on-surface-variant/30">29</div>
+<div class="p-1 text-on-surface-variant/30">30</div>
+<div class="p-1 hover:bg-white/10 rounded cursor-pointer">1</div>
+<div class="p-1 hover:bg-white/10 rounded cursor-pointer">2</div>
+<div class="p-1 hover:bg-white/10 rounded cursor-pointer">3</div>
+<div class="p-1 hover:bg-white/10 rounded cursor-pointer">4</div>
+<div class="p-1 hover:bg-white/10 rounded cursor-pointer">5</div>
+<div class="p-1 hover:bg-white/10 rounded cursor-pointer">6</div>
+<div class="p-1 hover:bg-white/10 rounded cursor-pointer">7</div>
+<div class="p-1 hover:bg-white/10 rounded cursor-pointer">8</div>
+<div class="p-1 hover:bg-white/10 rounded cursor-pointer">9</div>
+<div class="p-1 hover:bg-white/10 rounded cursor-pointer">10</div>
+<div class="p-1 hover:bg-white/10 rounded cursor-pointer">11</div>
+<div class="p-1 hover:bg-white/10 rounded cursor-pointer">12</div>
+<div class="p-1 hover:bg-white/10 rounded cursor-pointer">13</div>
+<div class="p-1 hover:bg-white/10 rounded cursor-pointer">14</div>
+<div class="p-1 hover:bg-white/10 rounded cursor-pointer">15</div>
+<div class="p-1 bg-white/5 rounded cursor-pointer">16</div>
+<div class="p-1 bg-white/5 rounded cursor-pointer">17</div>
+<div class="p-1 bg-primary text-background font-bold rounded cursor-pointer">18</div>
+<div class="p-1 bg-white/5 rounded cursor-pointer">19</div>
+<div class="p-1 bg-white/5 rounded cursor-pointer">20</div>
+<div class="p-1 hover:bg-white/10 rounded cursor-pointer">21</div>
+<div class="p-1 hover:bg-white/10 rounded cursor-pointer">22</div>
+</div>
+</div>
+<!-- Today's Agenda -->
+<div class="mb-stack-lg">
+<h3 class="font-label-sm text-label-sm font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">view_agenda</span>
+                        Today's Agenda
+                    </h3>
+<div class="flex flex-col gap-3">
+<div class="glass-card p-3 rounded-lg border-l-4 border-l-[#f59e0b]">
+<div class="text-[10px] text-on-surface-variant mb-1">9:30 AM - 11:00 AM</div>
+<div class="font-body-md text-body-md font-semibold text-primary">Project Alpha Release</div>
+<div class="flex items-center gap-1 mt-2 text-on-surface-variant text-[12px]">
+<span class="material-symbols-outlined text-[14px]">videocam</span>
+                                Zoom Meeting
+                            </div>
+</div>
+<div class="glass-card p-3 rounded-lg border-l-4 border-l-[#3b82f6]">
+<div class="text-[10px] text-on-surface-variant mb-1">2:00 PM - 4:00 PM</div>
+<div class="font-body-md text-body-md font-semibold text-primary">Architecture Review</div>
+<div class="flex items-center gap-1 mt-2 text-on-surface-variant text-[12px]">
+<span class="material-symbols-outlined text-[14px]">location_on</span>
+                                War Room A
+                            </div>
+</div>
+</div>
+</div>
+<!-- Calendars Legend -->
+<div>
+<h3 class="font-label-sm text-label-sm font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">category</span>
+                        Calendars
+                    </h3>
+<div class="flex flex-col gap-2 font-body-md text-body-md">
+<label class="flex items-center gap-3 cursor-pointer group">
+<input checked="" class="form-checkbox rounded bg-surface-container-lowest border-outline-variant/30 text-[#a855f7] focus:ring-[#a855f7] focus:ring-offset-background" type="checkbox"/>
+<span class="w-3 h-3 rounded-full bg-[#a855f7] group-hover:scale-110 transition-transform"></span>
+<span class="text-on-surface-variant group-hover:text-primary transition-colors">Personal</span>
+</label>
+<label class="flex items-center gap-3 cursor-pointer group">
+<input checked="" class="form-checkbox rounded bg-surface-container-lowest border-outline-variant/30 text-[#3b82f6] focus:ring-[#3b82f6] focus:ring-offset-background" type="checkbox"/>
+<span class="w-3 h-3 rounded-full bg-[#3b82f6] group-hover:scale-110 transition-transform"></span>
+<span class="text-on-surface-variant group-hover:text-primary transition-colors">Team Sync</span>
+</label>
+<label class="flex items-center gap-3 cursor-pointer group">
+<input checked="" class="form-checkbox rounded bg-surface-container-lowest border-outline-variant/30 text-[#f59e0b] focus:ring-[#f59e0b] focus:ring-offset-background" type="checkbox"/>
+<span class="w-3 h-3 rounded-full bg-[#f59e0b] group-hover:scale-110 transition-transform"></span>
+<span class="text-on-surface-variant group-hover:text-primary transition-colors">Deadlines</span>
+</label>
+</div>
+</div>
+</aside>
+</div>
+</main>
+<script>
+        // Simple script to auto-scroll the calendar grid to the current time area
+        document.addEventListener('DOMContentLoaded', () => {
+            const timeGridContainer = document.querySelector('.flex-1.flex.flex-col.overflow-y-auto');
+            if (timeGridContainer) {
+                // Scroll roughly to 9 AM (which is at top usually, but let's scroll to 10AM area)
+                timeGridContainer.scrollTop = 40; 
+            }
+        });
+    </script>
+</body></html>
