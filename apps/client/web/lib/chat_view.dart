@@ -37,7 +37,16 @@ class CollageElementBuilder extends MarkdownElementBuilder {
 
   @override
   Widget visitElementAfter(md.Element element, TextStyle? preferredStyle) {
-    final urls = element.textContent.split('||');
+    var urls = element.textContent.split('||');
+    urls = urls.where((u) {
+      final lower = u.toLowerCase();
+      return !lower.contains('wikimedia.org') && 
+             !lower.contains('wikipedia.org') && 
+             !lower.contains('unsplash.com');
+    }).toList();
+    
+    if (urls.isEmpty) return const SizedBox.shrink();
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: Wrap(
@@ -793,6 +802,13 @@ class _ChatViewState extends ConsumerState<ChatView> {
                                                 builders: {'collage': CollageElementBuilder(context)},
                                                 imageBuilder: (uri, title, alt) {
                                                   final url = uri.toString();
+                                                  final lowerUrl = url.toLowerCase();
+                                                  if (lowerUrl.contains('wikimedia.org') || 
+                                                      lowerUrl.contains('wikipedia.org') || 
+                                                      lowerUrl.contains('unsplash.com')) {
+                                                    return const SizedBox.shrink();
+                                                  }
+                                                  
                                                   final proxyUrl = '${ApiClient.baseUrl}/media/proxy?url=${Uri.encodeComponent(url)}';
                                                   return GestureDetector(
                                                     onTap: () {

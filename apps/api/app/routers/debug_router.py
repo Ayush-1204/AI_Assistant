@@ -60,7 +60,7 @@ async def retrieval_debug(
                 chunk_id=result.chunk.id,
                 chunk_index=result.chunk.chunk_index,
                 token_count=result.chunk.token_count,
-                distance=result.distance,
+                distance=result.distance if result.distance is not None else 0.0,
                 content=result.chunk.content,
             )
             for result in results
