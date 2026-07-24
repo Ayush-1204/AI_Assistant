@@ -124,12 +124,12 @@ class ProviderRouter(BaseLLMProvider):
         # Dummy structural schema since router itself technically supports anything mapped downwards
         return ProviderMetadata(
             name="router", supported_models=[], context_window=0, supports_streaming=True,
-            supports_vision=False, supports_native_tools=False, supports_parallel_tools=False,
+            supports_vision=False, supports_native_tools=True, supports_parallel_tools=False,
             supports_tool_streaming=False, estimated_cost_tier=0, is_local=False
         )
 
     async def check_health(self) -> bool:
-        for p_name in self.providers:
+        for p_name in list(self.providers):
             if await self._is_provider_healthy(p_name):
                 return True
         return False
@@ -155,7 +155,7 @@ class ProviderRouter(BaseLLMProvider):
         
         available = []
         vision_available = []
-        for name in self.providers:
+        for name in list(self.providers):
             if local_override and "ollama" not in name.lower():
                 continue
                 

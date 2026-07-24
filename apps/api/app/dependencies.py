@@ -1,6 +1,6 @@
 from collections.abc import AsyncGenerator
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -60,6 +60,7 @@ from app.services.ai.tools.implementations.mcp_adapter import MCPAdapterTool
 from app.services.ai.tools.memory_search import MemorySearchTool
 from app.services.ai.tools.system_control import SystemControlTool
 from app.services.ai.tools.app_launcher import AppLauncherTool
+from app.services.ai.tools.browser import PlaywrightBrowserTool
 from app.services.ai.tools.browser_automation import BrowserAutomationTool
 from app.services.ai.tools.computer_control import ComputerControlTool
 from app.services.ai.tools.notes_tool import NotesTool
@@ -498,8 +499,10 @@ def get_tool_orchestrator(
     db: AsyncSession = Depends(get_db),
 ) -> ToolOrchestrator:
 
+    from app.services.ai.tools.weather import WeatherTool
     registry = ToolRegistry()
     registry.register(CurrentTimeTool())
+    registry.register(WeatherTool())
     registry.register(CalculatorTool())
     registry.register(DocumentSearchTool(retrieval_service))
     registry.register(MemorySearchTool(memory_service))
@@ -513,6 +516,7 @@ def get_tool_orchestrator(
     registry.register(SystemControlTool())
     registry.register(AppLauncherTool())
     registry.register(BrowserAutomationTool())
+    registry.register(PlaywrightBrowserTool())
     registry.register(ComputerControlTool())
     
     if settings.GOOGLE_CLIENT_ID:
@@ -567,12 +571,56 @@ def get_ai_service(
         tool_orchestrator=tool_orchestrator,
     )
 
+def get_ai_service_standalone(session) -> AIService:
+    msg_repo = get_message_repository(session)
+    conv_repo = get_conversation_repository(session)
+    mem_repo = get_memory_repository(session)
+    doc_repo = get_document_repository(session)
+    chunk_repo = get_document_chunk_repository(session)
+    note_repo = get_note_repository(session)
+    task_repo = get_task_repository(session)
+    remind_repo = get_reminder_repository(session)
+    
+    msg_svc = get_message_service(msg_repo, conv_repo)
+    conv_svc = get_conversation_service(conv_repo)
+    mem_svc = get_memory_service(mem_repo)
+    
+    embed_provider = get_embedding_provider()
+    embed_svc = get_embedding_service(embed_provider)
+    fusion = get_result_fusion()
+    reranker = get_reranker()
+    retrieval_svc = get_retrieval_service(chunk_repo, embed_svc, fusion, reranker)
+    context_builder = get_context_builder(msg_svc, mem_svc, retrieval_svc)
+    
+    extractor_reg = get_extractor_registry()
+    chunker = get_text_chunker()
+    idx_svc = get_indexing_service(chunk_repo, doc_repo, embed_svc)
+    doc_proc = get_document_processor(doc_repo, chunk_repo, extractor_reg, chunker, idx_svc)
+    
+    note_svc = get_note_service(note_repo, doc_repo, doc_proc)
+    task_svc = get_task_service(task_repo)
+    remind_svc = get_reminder_service(remind_repo)
+    
+    tool_orch = get_tool_orchestrator(retrieval_svc, mem_svc, note_svc, task_svc, remind_svc, session)
+    
+    provider = get_provider_router()
+    return AIService(
+        provider=provider,
+        message_service=msg_svc,
+        conversation_service=conv_svc,
+        context_builder=context_builder,
+        memory_service=mem_svc,
+        tool_orchestrator=tool_orch
+    )
+
+
 
 # ==========================================================
 # Authentication
 # ==========================================================
 
 async def get_current_user(
+    request: Request,
     token: str = Depends(oauth2_scheme),
     repository: UserRepository = Depends(
         get_user_repository,
@@ -597,6 +645,26 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found",
         )
+        
+    lat = request.headers.get('X-User-Lat')
+    lon = request.headers.get('X-User-Lon')
+    
+    if lat and lon:
+        try:
+            f_lat = float(lat)
+            f_lon = float(lon)
+            if user.last_known_lat != f_lat or user.last_known_lon != f_lon:
+                user.last_known_lat = f_lat
+                user.last_known_lon = f_lon
+                # The user object is attached to the session via the repository,
+                # but to be completely safe, we should commit the change if we modified it.
+                # However, since `get_current_user` is a dependency, committing here could 
+                # interfere with the route's transaction. We will just set it and let the
+                # route's transaction handle the commit if applicable, or do a safe targeted commit.
+                repository.db.add(user)
+                await repository.db.commit()
+        except ValueError:
+            pass
 
     return user
 
@@ -605,9 +673,6 @@ def boot_scheduler():
     from app.services.notifications.notification_service import NotificationService
     from app.services.notifications.providers.database_provider import (
         DatabaseNotificationProvider,
-    )
-    from app.services.notifications.providers.email_provider import (
-        EmailNotificationProvider,
     )
     from app.services.notifications.providers.push_provider import (
         PushNotificationProvider,
@@ -620,7 +685,6 @@ def boot_scheduler():
         db = session or AsyncSessionLocal()
         notification_service = NotificationService([
             DatabaseNotificationProvider(db),
-            EmailNotificationProvider(),
             PushNotificationProvider(db)
         ])
         dispatcher = AgentDispatcher(

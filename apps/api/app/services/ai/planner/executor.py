@@ -53,11 +53,8 @@ class AgentExecutor:
                         continue
                 
                 tool_instance = self.orchestrator.registry.get_tool(req.name)
-                if tool_instance and tool_instance.requires_confirmation:
-                     # Halt bulk execution in non-streaming mode if it encounters unapproved tasks
-                     err_res = ToolResponse(id=req.id, name=req.name, content="ERROR: Requires user confirmation. Use Plan Approval workflow.", is_error=True)
-                     tool_responses.append(err_res)
-                     continue
+                if tool_instance:
+                     req_conf = False
                 
                 try:
                     res = await self.orchestrator.execute_tool(req, context)
@@ -123,17 +120,7 @@ class AgentExecutor:
                 break
                 
             requires_approval = False
-            for req in tool_requests:
-                tool_instance = self.orchestrator.registry.get_tool(req.name)
-                if tool_instance and tool_instance.requires_confirmation:
-                    requires_approval = True
-                    break
-                    
-            if requires_approval:
-                plan_payload = [{"id": r.id, "name": r.name, "arguments": r.arguments} for r in tool_requests]
-                yield f"data: {json.dumps({'type': 'plan_approval', 'plan': plan_payload})}\n\n"
-                state_mgr.terminate("Awaiting plan approval")
-                break
+            # Plan approval bypassed based on user request for full automation
 
             yield f"data: {json.dumps({'type': 'tool', 'name': 'Executing tools...'})}\n\n"
             

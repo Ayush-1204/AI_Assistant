@@ -60,6 +60,9 @@ class OpenAICompatibleProvider(BaseLLMProvider):
             # Normally tool orchestrators output OpenAI compatible json.
             func_dict = t.get("functionDeclarations", [])
             if not func_dict:
+                func_dict = t.get("function_declarations", [])
+                
+            if not func_dict:
                 if "type" in t and t["type"] == "function":
                     # Perhaps it's already OpenAI schema
                     openai_tools.append(t)
@@ -142,7 +145,8 @@ class OpenAICompatibleProvider(BaseLLMProvider):
         }
         if converted_tools:
             payload["tools"] = converted_tools
-            # For native tool calling we might also need tool_choice
+            if intent == "SEARCH" and not any(m.get("role") == "tool" for m in flat_messages):
+                payload["tool_choice"] = "required"
 
         try:
             limits = httpx.Limits(max_keepalive_connections=50, max_connections=100)
@@ -276,6 +280,8 @@ class OpenAICompatibleProvider(BaseLLMProvider):
         }
         if converted_tools:
             payload["tools"] = converted_tools
+            if intent == "SEARCH" and not any(m.get("role") == "tool" for m in flat_messages):
+                payload["tool_choice"] = "required"
 
         try:
             limits = httpx.Limits(max_keepalive_connections=50, max_connections=100)
@@ -290,6 +296,8 @@ class OpenAICompatibleProvider(BaseLLMProvider):
                     if response.status_code >= 400:
                         await response.aread()
                     response.raise_for_status()
+                    tool_calls_buffer = {}
+                    
                     async for line in response.aiter_lines():
                         if line.startswith("data: "):
                             data_str = line[6:]
@@ -300,8 +308,42 @@ class OpenAICompatibleProvider(BaseLLMProvider):
                                 delta = chunk["choices"][0]["delta"]
                                 if content := delta.get("content"):
                                     yield content
+                                    
+                                if "tool_calls" in delta:
+                                    for tc in delta["tool_calls"]:
+                                        idx = tc["index"]
+                                        if idx not in tool_calls_buffer:
+                                            tool_calls_buffer[idx] = {
+                                                "id": tc.get("id", ""),
+                                                "name": tc.get("function", {}).get("name", ""),
+                                                "arguments": tc.get("function", {}).get("arguments", "")
+                                            }
+                                        else:
+                                            if tc.get("function", {}).get("arguments"):
+                                                tool_calls_buffer[idx]["arguments"] += tc["function"]["arguments"]
                             except Exception:
                                 pass
+                                
+                    if tool_calls_buffer:
+                        class MockCall:
+                            def __init__(self, name, args):
+                                self.name = name
+                                self.args = args
+
+                        class MockResponse:
+                            def __init__(self, calls, text):
+                                self.function_calls = calls
+                                self.text = text
+                                
+                        calls = []
+                        for tc in tool_calls_buffer.values():
+                            try:
+                                args = json.loads(tc["arguments"])
+                            except Exception:
+                                args = {}
+                            calls.append(MockCall(name=tc["name"], args=args))
+                            
+                        yield MockResponse(calls, "")
         except httpx.HTTPStatusError as e:
             if e.response.status_code in (429, 408, 500, 502, 503, 504):
                 raise ProviderTransientError(f"{self.provider_name} API transient streaming failure ({e.response.status_code}): {e.response.text}")

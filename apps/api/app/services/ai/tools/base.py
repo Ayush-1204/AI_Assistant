@@ -26,6 +26,10 @@ class BaseTool(ABC):
         """Indicates whether this tool requires explicit user permission to execute."""
         return False
         
+    def dynamic_requires_confirmation(self, kwargs: dict) -> bool:
+        """Override to dynamically determine confirmation based on arguments."""
+        return self.requires_confirmation
+        
     @property
     def risk_level(self) -> str:
         """Risk level categorization: 'safe', 'moderate', 'destructive'."""

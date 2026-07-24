@@ -11,10 +11,14 @@ class PromptBuilder:
         Convert conversation history into a prompt.
         """
 
-        return "\n".join(
-            f"{message['role']}: {message['content']}"
-            for message in messages
-        )
+        lines = []
+        import json
+        for message in messages:
+            if 'content' in message:
+                lines.append(f"{message.get('role', 'user')}: {message['content']}")
+            else:
+                lines.append(f"{message.get('role', 'user')}: {json.dumps(message.get('parts', message))}")
+        return "\n".join(lines)
 
     @staticmethod
     def title(

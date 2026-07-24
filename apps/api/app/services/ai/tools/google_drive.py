@@ -19,10 +19,27 @@ class DriveTool(BaseTool):
     @property
     def parameters_schema(self) -> dict:
         return {
-            "action": "string (list | search | metadata | download | delete)",
-            "query": "string (optional): search query",
-            "file_id": "string (optional): Google Drive file ID",
-            "mime_type": "string (optional): For downloading native Google Docs",
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["list", "search", "metadata", "download", "delete"],
+                    "description": "The Drive action to perform."
+                },
+                "query": {
+                    "type": "string",
+                    "description": "Search query (optional)"
+                },
+                "file_id": {
+                    "type": "string",
+                    "description": "Google Drive file ID"
+                },
+                "mime_type": {
+                    "type": "string",
+                    "description": "For downloading native Google Docs (optional)"
+                }
+            },
+            "required": ["action"]
         }
         
     async def execute(self, execution_context: dict, **kwargs) -> str:

@@ -610,7 +610,8 @@ class _ChatViewState extends ConsumerState<ChatView> {
                   padding: const EdgeInsets.all(24),
                   itemCount: chatState.messages.length +
                       1 +
-                      (chatState.isProcessing ? 1 : 0),
+                      (chatState.isProcessing ? 1 : 0) +
+                      (chatState.pendingPlan != null ? 1 : 0),
                   itemBuilder: (context, index) {
                     if (index == 0) {
                       return Padding(
@@ -681,6 +682,18 @@ class _ChatViewState extends ConsumerState<ChatView> {
                       );
                     }
 
+                    // Plan Approval Card
+                    if (chatState.pendingPlan != null &&
+                        index == chatState.messages.length + 1 + (chatState.isProcessing ? 1 : 0)) {
+                      return _PlanApprovalCard(
+                        plan: chatState.pendingPlan!,
+                        onApprove: (steps) =>
+                            ref.read(chatProvider.notifier).approvePlan(steps),
+                        onCancel: () =>
+                            ref.read(chatProvider.notifier).cancelPlan(),
+                      );
+                    }
+
                     final msg = chatState.messages[index - 1];
                     
                     if (msg.startsWith("System:")) {
@@ -692,6 +705,37 @@ class _ChatViewState extends ConsumerState<ChatView> {
                                Container(height: 1, width: 120, color: Colors.white.withValues(alpha: 0.15)),
                                const SizedBox(height: 8),
                                Text(msg.replaceFirst("System:", "").trim().toUpperCase(), style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                             ]
+                           )
+                         )
+                       );
+                    }
+
+                    if (msg.startsWith("User: [AUTOMATED SCHEDULED TRIGGER]")) {
+                       String dateStr = "";
+                       String titleStr = "";
+                       
+                       final lines = msg.split('\n');
+                       for (var line in lines) {
+                           if (line.startsWith("Date: ")) {
+                               dateStr = line.replaceFirst("Date: ", "").trim();
+                           } else if (line.startsWith("Title: ")) {
+                               titleStr = line.replaceFirst("Title: ", "").trim();
+                           }
+                       }
+                       
+                       return Center(
+                         child: Padding(
+                           padding: const EdgeInsets.symmetric(vertical: 24),
+                           child: Column(
+                             children: [
+                               Container(height: 1, width: 120, color: Colors.white.withValues(alpha: 0.15)),
+                               const SizedBox(height: 8),
+                               Text("— ${titleStr.toUpperCase()} —", style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                               if (dateStr.isNotEmpty) ...[
+                                   const SizedBox(height: 4),
+                                   Text(dateStr, style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 9)),
+                               ]
                              ]
                            )
                          )
@@ -717,6 +761,13 @@ class _ChatViewState extends ConsumerState<ChatView> {
                       final urls = urlRegex.allMatches(block).map((m) => m.group(1)!).toList();
                       return '\n\n[COLLAGE:${urls.join('||')}]\n\n';
                     });
+
+                    // Hide raw XML tool blocks from the UI
+                    processedMsg = processedMsg.replaceAll(RegExp(r'<tool_call>[\s\S]*?(</tool_call>|$)', multiLine: true), '');
+                    processedMsg = processedMsg.replaceAll(RegExp(r'<tool_response>[\s\S]*?(</tool_response>|$)', multiLine: true), '');
+                    // Also clean up any loose <tool_call or </tool_call> that might have gotten split
+                    processedMsg = processedMsg.replaceAll('<tool_call>', '').replaceAll('</tool_call>', '');
+                    processedMsg = processedMsg.replaceAll('<tool_response>', '').replaceAll('</tool_response>', '');
 
                     return TweenAnimationBuilder<double>(
                       key: ValueKey("msg_${chatState.messages.length}_$index"),
@@ -1053,6 +1104,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
             Consumer(builder: (context, ref, child) {
               final isListening = ref.watch(chatProvider).isListening;
               final isSending = ref.watch(chatProvider).isSending;
+              final isProcessing = ref.watch(chatProvider).isProcessing;
               final isEmpty = ref.watch(chatProvider).messages.isEmpty;
 
               return Container(
@@ -1315,7 +1367,25 @@ class _ChatViewState extends ConsumerState<ChatView> {
                                           valueListenable: _controller,
                                           builder: (context, value, child) {
                                             bool isEmpty = value.text.trim().isEmpty;
-                                            if (isEmpty) {
+                                            if (isProcessing) {
+                                              return Container(
+                                                width: 36,
+                                                height: 36,
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white,
+                                                  borderRadius: BorderRadius.circular(18),
+                                                  boxShadow: [
+                                                    BoxShadow(color: Colors.white.withValues(alpha: 0.2), blurRadius: 8)
+                                                  ],
+                                                ),
+                                                child: IconButton(
+                                                  padding: EdgeInsets.zero,
+                                                  tooltip: 'Stop Generating',
+                                                  icon: const Icon(Icons.stop, size: 22, color: Colors.black),
+                                                  onPressed: () => ref.read(chatProvider.notifier).stopGenerating(),
+                                                ),
+                                              );
+                                            } else if (isEmpty) {
                                               return IconButton(
                                                 tooltip: 'Live Voice Mode',
                                                 constraints: const BoxConstraints(
@@ -1836,14 +1906,14 @@ class _AnimatedWeatherIconState extends State<AnimatedWeatherIcon>
       return SizedBox(width: widget.size, height: widget.size, child: _buildRain());
     } else if (c.contains('fog') || c.contains('mist') || c.contains('haze')) {
       return SizedBox(width: widget.size, height: widget.size, child: _buildFog());
+    } else if (c.contains('night') || c.contains('moon')) {
+      return SizedBox(width: widget.size, height: widget.size, child: _buildMoon());
     } else if (c.contains('partly') || c.contains('few') || (c.contains('sun') && c.contains('cloud'))) {
       return SizedBox(width: widget.size, height: widget.size, child: _buildPartlyCloudy());
     } else if (c.contains('cloud') || c.contains('overcast')) {
       return SizedBox(width: widget.size, height: widget.size, child: _buildCloud());
     } else if (c.contains('sun') || c.contains('clear')) {
       return SizedBox(width: widget.size, height: widget.size, child: _buildSun());
-    } else if (c.contains('night') || c.contains('moon')) {
-      return SizedBox(width: widget.size, height: widget.size, child: _buildMoon());
     }
     
     // Default fallback
@@ -1917,16 +1987,21 @@ class _DashboardWidgetCardState extends State<_DashboardWidgetCard>
     if (c.contains('rain') || c.contains('drizzle') || c.contains('shower')) return Icons.water_drop;
     if (c.contains('snow')) return Icons.ac_unit;
     if (c.contains('fog') || c.contains('mist') || c.contains('haze')) return Icons.foggy;
+    if (c.contains('night') || c.contains('moon')) return Icons.nights_stay;
     if (c.contains('partly') || c.contains('few') || (c.contains('sun') && c.contains('cloud'))) return Icons.cloud_queue;
     if (c.contains('cloud') || c.contains('overcast')) return Icons.cloud;
-    if (c.contains('night') || c.contains('moon')) return Icons.nights_stay;
     return Icons.wb_sunny;
   }
 
   Widget _buildWeatherInner() {
     final w = widget.data;
     final forecast = w['forecast'] as List<dynamic>? ?? [];
-    final cond = w['condition']?.toString() ?? w['subtitle']?.toString() ?? 'Sunny';
+    final displayCond = w['condition']?.toString() ?? w['subtitle']?.toString() ?? 'Sunny';
+    
+    String iconCond = displayCond;
+    if (w['is_day'] == 0) {
+      iconCond += " night";
+    }
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1946,13 +2021,13 @@ class _DashboardWidgetCardState extends State<_DashboardWidgetCard>
                         letterSpacing: -1.0,
                         height: 1.0)),
                 const SizedBox(width: 12),
-                AnimatedWeatherIcon(condition: cond, size: 42),
+                AnimatedWeatherIcon(condition: iconCond, size: 42),
               ]
             ),
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(cond,
+                Text(displayCond,
                     style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -2304,3 +2379,348 @@ class WaveformCircleIcon extends StatelessWidget {
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PLAN APPROVAL CARD
+// ─────────────────────────────────────────────────────────────────────────────
+class _PlanApprovalCard extends StatefulWidget {
+  final List<Map<String, dynamic>> plan;
+  final void Function(List<Map<String, dynamic>> approvedSteps) onApprove;
+  final VoidCallback onCancel;
+
+  const _PlanApprovalCard({
+    required this.plan,
+    required this.onApprove,
+    required this.onCancel,
+  });
+
+  @override
+  State<_PlanApprovalCard> createState() => _PlanApprovalCardState();
+}
+
+class _PlanApprovalCardState extends State<_PlanApprovalCard>
+    with SingleTickerProviderStateMixin {
+  late List<Map<String, dynamic>> _steps;
+  late List<bool> _enabled;
+  bool _editMode = false;
+  late AnimationController _anim;
+  late Animation<double> _fadeAnim;
+
+  static const Map<String, IconData> _toolIcons = {
+    'browser_automation': Icons.public,
+    'web_search': Icons.search,
+    'google_calendar': Icons.calendar_today,
+    'gmail': Icons.mail_outline,
+    'google_drive': Icons.drive_file_move_outline,
+    'create_note': Icons.note_add_outlined,
+    'document_search': Icons.manage_search,
+    'memory_search': Icons.psychology_outlined,
+    'tasks': Icons.task_alt,
+    'reminders_tool': Icons.alarm,
+    'computer_control': Icons.computer,
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _steps = List.from(widget.plan);
+    _enabled = List.filled(widget.plan.length, true);
+    _anim = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
+    _fadeAnim = CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic);
+    _anim.forward();
+  }
+
+  @override
+  void dispose() {
+    _anim.dispose();
+    super.dispose();
+  }
+
+  IconData _iconFor(String toolName) =>
+      _toolIcons.entries.firstWhere(
+        (e) => toolName.contains(e.key),
+        orElse: () => MapEntry('', Icons.build_outlined),
+      ).value;
+
+  String _formatArgs(Map args) {
+    if (args.isEmpty) return '';
+    final entries = args.entries.take(2).map((e) {
+      final val = e.value?.toString() ?? '';
+      return '${e.key}: ${val.length > 30 ? "${val.substring(0, 30)}…" : val}';
+    });
+    return '(${entries.join(', ')})';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final approvedSteps = [
+      for (int i = 0; i < _steps.length; i++)
+        if (_enabled[i]) _steps[i],
+    ];
+
+    return FadeTransition(
+      opacity: _fadeAnim,
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 24.0),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(right: 16),
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFB300).withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: const Color(0xFFFFB300).withValues(alpha: 0.4)),
+                  ),
+                  child: const Icon(Icons.schema_outlined, color: Color(0xFFFFB300), size: 20),
+                ),
+                Flexible(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1A1A1A),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFFFFB300).withValues(alpha: 0.25)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFFFB300).withValues(alpha: 0.06),
+                          blurRadius: 20,
+                          spreadRadius: 2,
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Header
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 16, 16, 12),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.pending_actions_outlined,
+                                  size: 16, color: Color(0xFFFFB300)),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'Action Plan — Review Required',
+                                style: TextStyle(
+                                  color: Color(0xFFFFB300),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                              const Spacer(),
+                              GestureDetector(
+                                onTap: () => setState(() => _editMode = !_editMode),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: _editMode
+                                        ? Colors.white.withValues(alpha: 0.08)
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+                                  ),
+                                  child: Text(
+                                    _editMode ? 'Done Editing' : 'Edit',
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(alpha: 0.6),
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Divider
+                        Divider(color: Colors.white.withValues(alpha: 0.06), height: 1),
+
+                        // Steps
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Column(
+                            children: List.generate(_steps.length, (i) {
+                              final step = _steps[i];
+                              final args = (step['arguments'] as Map?) ?? {};
+                              final icon = _iconFor(step['name']?.toString() ?? '');
+                              final isEnabled = _enabled[i];
+
+                              return AnimatedOpacity(
+                                duration: const Duration(milliseconds: 200),
+                                opacity: isEnabled ? 1.0 : 0.4,
+                                child: Container(
+                                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: isEnabled ? 0.03 : 0.01),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: Colors.white.withValues(alpha: isEnabled ? 0.08 : 0.04),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 22,
+                                        height: 22,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withValues(alpha: 0.05),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        alignment: Alignment.center,
+                                        child: Text(
+                                          '${i + 1}',
+                                          style: TextStyle(
+                                            color: Colors.white.withValues(alpha: 0.5),
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Icon(icon, size: 14, color: Colors.white.withValues(alpha: 0.5)),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: RichText(
+                                          text: TextSpan(
+                                            children: [
+                                              TextSpan(
+                                                text: step['name']?.toString() ?? 'unknown',
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w500,
+                                                  fontFamily: 'monospace',
+                                                ),
+                                              ),
+                                              TextSpan(
+                                                text: ' ${_formatArgs(args)}',
+                                                style: TextStyle(
+                                                  color: Colors.white.withValues(alpha: 0.4),
+                                                  fontSize: 11,
+                                                  fontFamily: 'monospace',
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                      if (_editMode)
+                                        GestureDetector(
+                                          onTap: () => setState(() => _enabled[i] = !_enabled[i]),
+                                          child: Icon(
+                                            isEnabled ? Icons.remove_circle_outline : Icons.add_circle_outline,
+                                            size: 18,
+                                            color: isEnabled
+                                                ? Colors.redAccent.withValues(alpha: 0.7)
+                                                : Colors.greenAccent.withValues(alpha: 0.7),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }),
+                          ),
+                        ),
+
+                        Divider(color: Colors.white.withValues(alpha: 0.06), height: 1),
+
+                        // Action buttons
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                          child: Row(
+                            children: [
+                              Text(
+                                '${approvedSteps.length} of ${_steps.length} steps selected',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.35),
+                                  fontSize: 11,
+                                ),
+                              ),
+                              const Spacer(),
+                              // Cancel
+                              GestureDetector(
+                                onTap: widget.onCancel,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.transparent,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                                  ),
+                                  child: Text(
+                                    'Cancel',
+                                    style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              // Approve
+                              GestureDetector(
+                                onTap: approvedSteps.isEmpty
+                                    ? null
+                                    : () => widget.onApprove(approvedSteps),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: approvedSteps.isEmpty
+                                        ? Colors.white.withValues(alpha: 0.05)
+                                        : const Color(0xFF2D7D2D),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: approvedSteps.isEmpty
+                                          ? Colors.white.withValues(alpha: 0.05)
+                                          : Colors.greenAccent.withValues(alpha: 0.3),
+                                    ),
+                                    boxShadow: approvedSteps.isEmpty
+                                        ? []
+                                        : [
+                                            BoxShadow(
+                                              color: Colors.green.withValues(alpha: 0.2),
+                                              blurRadius: 10,
+                                            )
+                                          ],
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.check_circle_outline,
+                                          size: 14,
+                                          color: approvedSteps.isEmpty
+                                              ? Colors.white24
+                                              : Colors.white),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'Approve & Run',
+                                        style: TextStyle(
+                                          color: approvedSteps.isEmpty ? Colors.white24 : Colors.white,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+

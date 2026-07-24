@@ -1,27 +1,30 @@
+import asyncio
+import sys
 import os
+import json
 
-from dotenv import load_dotenv
+sys.path.append(os.path.dirname(__file__))
 
-load_dotenv()
+from app.services.ai.providers.gemini_provider import GeminiProvider
 
-from google import genai
-
-client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
-
-models_to_test = [
-    "gemini-1.5-flash",
-    "gemini-1.5-pro",
-    "gemini-2.5-pro",
-    "gemini-1.5-pro-latest",
-]
-
-for m in models_to_test:
-    print(f"Testing {m}...")
+async def main():
+    provider = GeminiProvider()
+    messages = [{"role": "user", "content": "Hello!"}]
+    tools = [{
+        "type": "function",
+        "function": {
+            "name": "test_tool",
+            "description": "A test tool",
+            "parameters": {"type": "object", "properties": {}}
+        }
+    }]
+    print("Testing chat...")
+    res = await provider.chat(messages, tools=tools)
     try:
-        response = client.models.generate_content(
-            model=m,
-            contents="hello"
-        )
-        print(f"✅ {m} works! Response: {response.text}")
+        print("Response text:", res.text)
     except Exception as e:
-        print(f"❌ {m} failed: {e}")
+        print("Exception accessing text:", type(e), str(e))
+    print("Candidates:", res.candidates)
+
+if __name__ == "__main__":
+    asyncio.run(main())

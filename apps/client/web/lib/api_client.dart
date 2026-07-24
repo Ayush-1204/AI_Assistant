@@ -12,6 +12,7 @@ class ApiClient {
   double? _lat;
   double? _lon;
   bool _isLocalOnly = false;
+  http.Client? _activeStreamClient;
 
   ApiClient() : _dio = Dio(BaseOptions(baseUrl: baseUrl)) {
     _dio.interceptors.add(InterceptorsWrapper(
@@ -355,27 +356,116 @@ class ApiClient {
     request.headers['Cache-Control'] = 'no-cache';
     request.body = jsonEncode(payload);
 
-    final response = await http.Client().send(request);
-    if (response.statusCode != 200) {
-        final err = await response.stream.bytesToString();
-        throw Exception("Stream failed: $err");
-    }
+    _activeStreamClient?.close();
+    _activeStreamClient = http.Client();
 
-    String buffer = "";
-    await for (final chunk in response.stream) {
-      buffer += utf8.decode(chunk, allowMalformed: true);
-      while (buffer.contains('\n\n')) {
-        int index = buffer.indexOf('\n\n');
-        String block = buffer.substring(0, index).trim();
-        buffer = buffer.substring(index + 2);
-        
-        for (var line in block.split('\n')) {
-           line = line.trim();
-           if (line.startsWith('data: ')) {
-               yield line.substring(6);
-           }
+    try {
+      final response = await _activeStreamClient!.send(request);
+      if (response.statusCode != 200) {
+          final err = await response.stream.bytesToString();
+          throw Exception("Stream failed: $err");
+      }
+
+      String buffer = "";
+      await for (final chunk in response.stream) {
+        buffer += utf8.decode(chunk, allowMalformed: true);
+        while (buffer.contains('\n\n')) {
+          int index = buffer.indexOf('\n\n');
+          String block = buffer.substring(0, index).trim();
+          buffer = buffer.substring(index + 2);
+          
+          for (var line in block.split('\n')) {
+             line = line.trim();
+             if (line.startsWith('data: ')) {
+                 yield line.substring(6);
+             }
+          }
         }
       }
+    } finally {
+      _activeStreamClient?.close();
+      _activeStreamClient = null;
     }
+  }
+
+  void abortChatStream() {
+    _activeStreamClient?.close();
+    _activeStreamClient = null;
+  }
+
+  /// POST /chat/approve-plan — executes approved tool steps and streams back the final response
+  Stream<String> approvePlanStream(int conversationId, List<Map<String, dynamic>> approvedSteps) async* {
+    final payload = {
+      'conversation_id': conversationId,
+      'approved_steps': approvedSteps,
+    };
+
+    final request = http.Request('POST', Uri.parse('$baseUrl/chat/approve-plan'));
+    if (_authToken != null) request.headers['Authorization'] = 'Bearer $_authToken';
+    request.headers['Content-Type'] = 'application/json';
+    request.headers['Accept'] = 'text/event-stream';
+    request.body = jsonEncode(payload);
+
+    _activeStreamClient?.close();
+    _activeStreamClient = http.Client();
+    try {
+      final response = await _activeStreamClient!.send(request);
+      if (response.statusCode != 200) {
+        final err = await response.stream.bytesToString();
+        throw Exception('approve-plan failed: $err');
+      }
+      String buffer = '';
+      await for (final chunk in response.stream) {
+        buffer += utf8.decode(chunk, allowMalformed: true);
+        while (buffer.contains('\n\n')) {
+          final idx = buffer.indexOf('\n\n');
+          final block = buffer.substring(0, idx).trim();
+          buffer = buffer.substring(idx + 2);
+          for (var line in block.split('\n')) {
+            line = line.trim();
+            if (line.startsWith('data: ')) yield line.substring(6);
+          }
+        }
+      }
+    } finally {
+      _activeStreamClient?.close();
+      _activeStreamClient = null;
+    }
+  }
+
+  // ── Scheduled Tasks ──────────────────────────────────────────────────────
+  Future<List<dynamic>> fetchScheduledTasks() async {
+    try {
+      final response = await _dio.get('/scheduled-tasks');
+      return response.data as List<dynamic>;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<dynamic> createScheduledTask({
+    required String label,
+    required String directive,
+    String? cronExpression,
+    DateTime? runAt,
+  }) async {
+    final body = <String, dynamic>{
+      'label': label,
+      'directive': directive,
+      if (cronExpression != null) 'cron_expression': cronExpression,
+      if (runAt != null) 'run_at': runAt.toUtc().toIso8601String(),
+      'timezone_offset_minutes': DateTime.now().timeZoneOffset.inMinutes,
+    };
+    final response = await _dio.post('/scheduled-tasks', data: body);
+    return response.data;
+  }
+
+  Future<void> deleteScheduledTask(int id) async {
+    await _dio.delete('/scheduled-tasks/$id');
+  }
+
+  Future<dynamic> toggleScheduledTask(int id) async {
+    final response = await _dio.patch('/scheduled-tasks/$id/toggle');
+    return response.data;
   }
 }

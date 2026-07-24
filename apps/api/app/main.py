@@ -1,3 +1,9 @@
+import sys
+import asyncio
+
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -22,6 +28,7 @@ from app.routers.reminders import router as reminders_router
 from app.routers.tasks import router as tasks_router
 from app.routers.voice import router as voice_router
 from app.routers.media import router as media_router
+from app.routers.scheduled_tasks import router as scheduled_tasks_router
 
 settings = get_settings()
 
@@ -58,3 +65,4 @@ app.include_router(devices_router)
 app.include_router(voice_router)
 app.include_router(dashboard_router)
 app.include_router(media_router)
+app.include_router(scheduled_tasks_router)

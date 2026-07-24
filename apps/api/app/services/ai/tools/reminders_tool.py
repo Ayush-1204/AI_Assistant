@@ -37,7 +37,7 @@ class RemindersTool(BaseTool):
         action = kwargs.get("action")
         
         if action == "create":
-            time = datetime.fromisoformat(kwargs["reminder_time"])
+            time = datetime.fromisoformat(kwargs["reminder_time"].replace("Z", "+00:00"))
             rem = await self.reminder_service.create_reminder(user_id, kwargs["title"], time)
             return f"Reminder created for {time}."
         elif action == "list":

@@ -29,27 +29,78 @@ class AgentDispatcher:
                     return
                     
                 if job.recurring_action:
-                    logger.info(f"[Dispatcher] Spawning autonomous Chronos Swarm job for {job_id}...")
-                    import typing
-
-                    from app.dependencies import _router_instance
-                    from app.services.ai.planner.agents.swarm.agents import (
-                        SwarmAgent,
-                        router_agent,
-                    )
-                    from app.services.ai.planner.agents.swarm.swarm import SwarmOrchestrator
-                    from app.services.ai.providers.router import ProviderRouter
+                    logger.info(f"[Dispatcher] Spawning autonomous chat execution for {job_id}...")
                     
-                    router = typing.cast(ProviderRouter, _router_instance)
-                    swarm = SwarmOrchestrator(router)
+                    # 1. Find or create the conversation thread for this specific job
+                    from app.db.models.conversation import Conversation
+                    from sqlalchemy import select
                     
-                    cron_agent = SwarmAgent(
-                        name="ChronosDaemon",
-                        instructions=f"You are a backend daemon tracking autonomous execution. Task Directive: {job.recurring_action}",
-                        tools=router_agent.tools
+                    convo_title = f"Daemon: {job.label}"
+                    convo_result = await session.execute(
+                        select(Conversation)
+                        .where(Conversation.user_id == job.user_id, Conversation.title == convo_title)
+                        .limit(1)
                     )
-                    result_text = await swarm.run(cron_agent, messages=[{"role": "user", "content": "Commence daemon routine."}])
-                    logger.info(f"[Chronos Daemon {job_id}] Output: {result_text}")
+                    convo = convo_result.scalar_one_or_none()
+                    
+                    if not convo:
+                        convo = Conversation(title=convo_title, user_id=job.user_id, is_pinned=True)
+                        session.add(convo)
+                        await session.flush()
+                        await session.commit()
+                        
+                    # 2. Re-instantiate the main AIService context for the job
+                    from app.dependencies import get_ai_service_standalone
+                    ai_service = get_ai_service_standalone(session)
+                    
+                    # 3. Formulate the autonomous prompt
+                    from datetime import datetime
+                    now_str = datetime.now().strftime("%Y-%m-%d %I:%M %p")
+                    
+                    prompt = (
+                        f"[AUTOMATED SCHEDULED TRIGGER]\n"
+                        f"Date: {now_str}\n"
+                        f"Title: {job.label}\n"
+                        f"{job.recurring_action}"
+                    )
+                    
+                    from app.db.models.user import User
+                    user_result = await session.execute(select(User).where(User.id == job.user_id))
+                    user = user_result.scalar_one_or_none()
+                    
+                    # 4. Execute standard chat pipeline natively
+                    # This will automatically inject the user's prompt into the conversation,
+                    # run tool strategy loops (searching the web, time, etc),
+                    # and append the final response back into the same conversation.
+                    result_text, citations, metadata = await ai_service.chat(
+                        user_id=job.user_id,
+                        conversation_id=convo.id,
+                        prompt=prompt,
+                        location_lat=user.last_known_lat if user else None,
+                        location_lon=user.last_known_lon if user else None,
+                        intent="general"
+                    )
+                    
+                    logger.info(f"[Dispatcher {job_id}] Execution completed via AIService. Latency: {metadata.get('latency_ms')}ms")
+                    
+                    # 5. Ensure the user receives a push notification linking to the chat
+                    from app.services.notifications.notification_service import NotificationService
+                    from app.services.notifications.providers.database_provider import DatabaseNotificationProvider
+                    from app.services.notifications.providers.push_provider import PushNotificationProvider
+                    
+                    notif_svc = NotificationService([
+                        DatabaseNotificationProvider(session),
+                        PushNotificationProvider(session)
+                    ])
+                    
+                    snippet = result_text[:200] + ("..." if len(result_text) > 200 else "")
+                    await notif_svc.notify(
+                         job.user_id,
+                         title=f"Autonomous Update: {job.label}", 
+                         message=f"{snippet}",
+                         type="SYSTEM", priority=1,
+                         data={"conversation_id": convo.id}
+                    )
                 else:
                     # Re-instantiate notification bounds with the secure async thread context
                     from app.services.notifications.notification_service import (
@@ -58,16 +109,12 @@ class AgentDispatcher:
                     from app.services.notifications.providers.database_provider import (
                         DatabaseNotificationProvider,
                     )
-                    from app.services.notifications.providers.email_provider import (
-                        EmailNotificationProvider,
-                    )
                     from app.services.notifications.providers.push_provider import (
                         PushNotificationProvider,
                     )
                     
                     notif_svc = NotificationService([
                         DatabaseNotificationProvider(session),
-                        EmailNotificationProvider(),
                         PushNotificationProvider(session)
                     ])
                     

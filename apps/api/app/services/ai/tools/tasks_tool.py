@@ -37,7 +37,7 @@ class TasksTool(BaseTool):
         action = kwargs.get("action")
         
         if action == "create":
-            due_date = datetime.fromisoformat(kwargs["due_date"]) if "due_date" in kwargs else None
+            due_date = datetime.fromisoformat(kwargs["due_date"].replace("Z", "+00:00")) if "due_date" in kwargs else None
             task = await self.task_service.create_task(user_id, kwargs["title"], due_date=due_date)
             return f"Task '{task.title}' created with ID {task.id}."
         elif action == "list":

@@ -19,6 +19,7 @@ class BackgroundScheduler:
                     worker = await self.worker_factory(session)
                     await worker.poll_due_reminders()
                     await worker.process_pending_jobs()
+                    await worker.reschedule_completed_cron_jobs()
             except Exception as e:
                 logging.error(f"Scheduler loop error: {e}")
             await asyncio.sleep(self.interval)

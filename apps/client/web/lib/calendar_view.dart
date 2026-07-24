@@ -19,6 +19,32 @@ Color _eventColor(String? summary) {
   return _kEventColors[(summary.hashCode.abs()) % _kEventColors.length];
 }
 
+// Returns true when start is a date-only string ("2026-07-31", 10 chars)
+bool _isDateOnly(dynamic event) {
+  final s = event['start'] as String?;
+  if (s == null) return false;
+  return s.length == 10; // "YYYY-MM-DD" with no time component
+}
+
+bool _isAllDay(dynamic event) {
+  if (_isDateOnly(event)) return true;
+  final s = event['start'] as String?;
+  final e = event['end'] as String?;
+  if (s != null && e != null) {
+    try {
+      final startDt = DateTime.parse(s).toLocal();
+      final endDt = DateTime.parse(e).toLocal();
+      return startDt.year != endDt.year || startDt.month != endDt.month || startDt.day != endDt.day;
+    } catch (_) {}
+  }
+  return false;
+}
+
+bool _isBirthday(dynamic event) {
+  final s = (event['summary'] as String? ?? '').toLowerCase();
+  return s.contains('birthday') || s.contains('birt...');
+}
+
 // ─── View enum ─────────────────────────────────────────────────────────────
 enum CalView { day, week, month }
 
@@ -36,6 +62,7 @@ class _CalendarViewState extends ConsumerState<CalendarView>
   late DateTime _focusDate; // selected day / week anchor / month anchor
   List<dynamic> _events = [];
   bool _isLoading = true;
+  bool _isFirstLoad = true;
   int _slideDir = 1;
 
   late AnimationController _fadeCtrl;
@@ -43,19 +70,29 @@ class _CalendarViewState extends ConsumerState<CalendarView>
   
   Timer? _debounceTimer;
 
-  late PageController _monthPageCtrl;
   late PageController _weekPageCtrl;
   late PageController _dayPageCtrl;
+
+  // Month view: true bidirectional infinite CustomScrollView
+  final GlobalKey _monthCenterKey = GlobalKey();
+  final ScrollController _monthScrollCtrl = ScrollController();
+  double _monthRowH = 0;
+  bool _isSnapping = false;
   
   final DateTime _anchorDate = DateTime.now();
+  
+  int _daysBetween(DateTime a, DateTime b) {
+    return DateTime.utc(b.year, b.month, b.day)
+        .difference(DateTime.utc(a.year, a.month, a.day))
+        .inDays;
+  }
 
-  int _calcMonthIdx(DateTime d) => 10000 + ((d.year - _anchorDate.year) * 12 + (d.month - _anchorDate.month));
   int _calcWeekIdx(DateTime d) {
     final startNow = _anchorDate.subtract(Duration(days: _anchorDate.weekday - 1));
     final startTarget = d.subtract(Duration(days: d.weekday - 1));
-    return 10000 + (startTarget.difference(startNow).inDays / 7).round();
+    return 10000 + (_daysBetween(startNow, startTarget) / 7).round();
   }
-  int _calcDayIdx(DateTime d) => 10000 + d.difference(_anchorDate).inDays;
+  int _calcDayIdx(DateTime d) => 10000 + _daysBetween(_anchorDate, d);
 
 
   @override
@@ -70,7 +107,6 @@ class _CalendarViewState extends ConsumerState<CalendarView>
     _timeGridScrollCtrl = ScrollController(
         initialScrollOffset: (hourPixels - 300).clamp(0.0, double.infinity));
         
-    _monthPageCtrl = PageController(initialPage: _calcMonthIdx(_focusDate));
     _weekPageCtrl = PageController(initialPage: _calcWeekIdx(_focusDate));
     _dayPageCtrl = PageController(initialPage: _calcDayIdx(_focusDate));
         
@@ -82,9 +118,9 @@ class _CalendarViewState extends ConsumerState<CalendarView>
     _debounceTimer?.cancel();
     _fadeCtrl.dispose();
     _timeGridScrollCtrl?.dispose();
-    _monthPageCtrl.dispose();
     _weekPageCtrl.dispose();
     _dayPageCtrl.dispose();
+    _monthScrollCtrl.dispose();
     super.dispose();
   }
 
@@ -97,10 +133,8 @@ class _CalendarViewState extends ConsumerState<CalendarView>
   }
 
   Future<void> _fetchEvents() async {
-    // Never show loading spinner once events are already shown
     // Only show spinner on very first load
-    final bool firstLoad = _events.isEmpty;
-    if (firstLoad && mounted) {
+    if (_isFirstLoad && mounted) {
       setState(() => _isLoading = true);
       _fadeCtrl.reset();
     }
@@ -115,10 +149,18 @@ class _CalendarViewState extends ConsumerState<CalendarView>
           _events = evts;
           _isLoading = false;
         });
-        if (firstLoad) _fadeCtrl.forward();
+        if (_isFirstLoad) {
+          _isFirstLoad = false;
+          _fadeCtrl.forward();
+        }
       }
     } catch (_) {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+           _isLoading = false;
+           _isFirstLoad = false;
+        });
+      }
     }
   }
 
@@ -137,8 +179,14 @@ class _CalendarViewState extends ConsumerState<CalendarView>
             duration: const Duration(milliseconds: 220), curve: Curves.easeOut);
         break;
       case CalView.month:
-        _monthPageCtrl.nextPage(
-            duration: const Duration(milliseconds: 220), curve: Curves.easeOut);
+        // Advance one row (one week) at a time
+        if (_monthScrollCtrl.hasClients && _monthRowH > 0) {
+          _monthScrollCtrl.animateTo(
+            _monthScrollCtrl.offset + _monthRowH,
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOut,
+          );
+        }
         break;
     }
   }
@@ -154,8 +202,13 @@ class _CalendarViewState extends ConsumerState<CalendarView>
             duration: const Duration(milliseconds: 220), curve: Curves.easeOut);
         break;
       case CalView.month:
-        _monthPageCtrl.previousPage(
-            duration: const Duration(milliseconds: 220), curve: Curves.easeOut);
+        if (_monthScrollCtrl.hasClients && _monthRowH > 0) {
+          _monthScrollCtrl.animateTo(
+            _monthScrollCtrl.offset - _monthRowH,
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOut,
+          );
+        }
         break;
     }
   }
@@ -166,9 +219,17 @@ class _CalendarViewState extends ConsumerState<CalendarView>
 
   void _jumpToDate(DateTime d) {
     setState(() => _focusDate = d);
-    if (_monthPageCtrl.hasClients) {
-      _monthPageCtrl.animateToPage(_calcMonthIdx(d),
-          duration: const Duration(milliseconds: 120), curve: Curves.easeOut);
+    // Month view: compute pixel offset from anchor to target month
+    if (_monthScrollCtrl.hasClients && _monthRowH > 0) {
+      final targetFirst = DateTime(d.year, d.month, 1);
+      final anchorSunday = _anchorDate.subtract(Duration(days: _anchorDate.weekday % 7));
+      final daysDiff = targetFirst.difference(anchorSunday).inDays;
+      final weekOffset = (daysDiff / 7.0).floorToDouble(); 
+      _monthScrollCtrl.animateTo(
+        weekOffset * _monthRowH,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
     }
     if (_weekPageCtrl.hasClients) {
       _weekPageCtrl.animateToPage(_calcWeekIdx(d),
@@ -184,13 +245,29 @@ class _CalendarViewState extends ConsumerState<CalendarView>
   // ── Events for a given date ──────────────────────────────────────────────
   List<dynamic> _eventsForDate(DateTime date) {
     return _events.where((e) {
+      // All-day events: use _eventSpansDay which handles date-only strings
+      if (_isAllDay(e)) return _eventSpansDay(e, date);
+
       final start = e['start'] as String?;
       if (start == null) return false;
       try {
-        final dt = DateTime.parse(start).toLocal();
-        return dt.year == date.year &&
-            dt.month == date.month &&
-            dt.day == date.day;
+        final dtStart = DateTime.parse(start).toLocal();
+        final dtStartDay = DateTime(dtStart.year, dtStart.month, dtStart.day);
+        
+        final end = e['end'] as String?;
+        DateTime dtEndDay = dtStartDay;
+        if (end != null) {
+          final dtEnd = DateTime.parse(end).toLocal();
+          dtEndDay = DateTime(dtEnd.year, dtEnd.month, dtEnd.day);
+          // If the event ends at midnight (00:00:00) the next day, it should not render on the next day's square.
+          if (dtEnd.hour == 0 && dtEnd.minute == 0 && dtEnd.second == 0 && dtEnd.isAfter(dtStart)) {
+             dtEndDay = dtEndDay.subtract(const Duration(days: 1));
+          }
+        }
+        
+        final target = DateTime(date.year, date.month, date.day);
+        return (target.isAtSameMomentAs(dtStartDay) || target.isAfter(dtStartDay)) &&
+               (target.isAtSameMomentAs(dtEndDay) || target.isBefore(dtEndDay));
       } catch (_) {
         return false;
       }
@@ -380,7 +457,7 @@ class _CalendarViewState extends ConsumerState<CalendarView>
       Expanded(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: _isLoading && _events.isEmpty
+          child: _isFirstLoad
               ? const Center(
                   child: CircularProgressIndicator(
                       color: Colors.white24, strokeWidth: 1.5))
@@ -422,6 +499,12 @@ class _CalendarViewState extends ConsumerState<CalendarView>
         border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.07))),
       ),
       child: Row(children: [
+        _todayBtn(),
+        const SizedBox(width: 12),
+        _navBtn(Icons.chevron_left, _goPrev),
+        const SizedBox(width: 4),
+        _navBtn(Icons.chevron_right, _goNext),
+        const SizedBox(width: 16),
         MouseRegion(
           cursor: SystemMouseCursors.click,
           child: GestureDetector(
@@ -465,12 +548,6 @@ class _CalendarViewState extends ConsumerState<CalendarView>
             ),
           ),
         ),
-        const SizedBox(width: 16),
-        _navBtn(Icons.chevron_left, _goPrev),
-        const SizedBox(width: 4),
-        _navBtn(Icons.chevron_right, _goNext),
-        const SizedBox(width: 12),
-        _todayBtn(),
         const Spacer(),
         _viewToggle(),
         const SizedBox(width: 16),
@@ -531,7 +608,18 @@ class _CalendarViewState extends ConsumerState<CalendarView>
     return _SegmentedToggle(
       currentView: _view,
       onChanged: (v) {
-        if (_view != v) setState(() => _view = v);
+        if (_view != v) {
+          setState(() => _view = v);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (v == CalView.day && _dayPageCtrl.hasClients) {
+              _dayPageCtrl.jumpToPage(_calcDayIdx(_focusDate));
+            } else if (v == CalView.week && _weekPageCtrl.hasClients) {
+              _weekPageCtrl.jumpToPage(_calcWeekIdx(_focusDate));
+            } else if (v == CalView.month) {
+              _jumpToDate(_focusDate);
+            }
+          });
+        }
       },
     );
   }
@@ -573,12 +661,90 @@ class _CalendarViewState extends ConsumerState<CalendarView>
 
   // ████████████████████████  MONTH VIEW  ████████████████████████████████████
 
+  /// Returns the starting Sunday of a given week offset from _anchorDate
+  DateTime _weekStartForOffset(int weekOffset) {
+    final anchorSunday = _anchorDate.subtract(Duration(days: _anchorDate.weekday % 7));
+    return anchorSunday.add(Duration(days: weekOffset * 7));
+  }
+
+  /// Handler for the CustomScrollView's NotificationListener.
+  bool _onMonthScroll(ScrollNotification n) {
+    if (n is ScrollUpdateNotification) {
+      // Determine which month is most visible and update _focusDate
+      final offset = _monthScrollCtrl.offset;
+      final weekOffset = (offset / _monthRowH).round();
+      final currentSun = _weekStartForOffset(weekOffset);
+      // The "focus date" for fetching events is set to the middle of the most visible week
+      final midWeek = currentSun.add(const Duration(days: 3));
+      if (midWeek.year != _focusDate.year || midWeek.month != _focusDate.month) {
+        setState(() => _focusDate = DateTime(midWeek.year, midWeek.month, 1));
+        _fetchEventsDebounced();
+      }
+    }
+    if (n is ScrollEndNotification && !_isSnapping) {
+      final offset = _monthScrollCtrl.offset;
+      final snapped = (offset / _monthRowH).round() * _monthRowH;
+      if ((offset - snapped).abs() > 0.5) {
+        _isSnapping = true;
+        _monthScrollCtrl
+            .animateTo(snapped,
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut)
+            .then((_) => _isSnapping = false);
+      }
+    }
+    return false;
+  }
+
+  /// Build one week row for the continuous month view.
+  Widget _buildWeekRow(int weekOffset, double rowH) {
+    final sun = _weekStartForOffset(weekOffset);
+    final now = DateTime.now();
+
+    return SizedBox(
+      height: rowH,
+      child: Row(
+        children: List.generate(7, (i) {
+          final cellDate = sun.add(Duration(days: i));
+          final isToday = DateUtils.isSameDay(cellDate, now);
+          final isSelected = DateUtils.isSameDay(cellDate, _focusDate);
+          final isWeekend = cellDate.weekday == DateTime.saturday || cellDate.weekday == DateTime.sunday;
+          
+          // Show the month name if it's the 1st of the month (or top left cell)
+          String? monthName;
+          if (cellDate.day == 1 || (weekOffset == 0 && i == 0)) {
+            monthName = DateFormat('MMM').format(cellDate);
+          }
+
+          // In continuous mode, slightly mute days not in focus month
+          final isOutsideMonth = cellDate.month != _focusDate.month;
+
+          return Expanded(
+            child: _MonthCell(
+              key: ValueKey('${cellDate.toIso8601String()}'),
+              cellDate: cellDate,
+              monthName: monthName,
+              isToday: isToday,
+              isSelected: isSelected,
+              isWeekend: isWeekend,
+              isOutsideMonth: isOutsideMonth,
+              events: _eventsForDate(cellDate),
+              onTap: () => setState(() => _focusDate = cellDate),
+              onAddTap: () => _showAddEventDialog(cellDate),
+              onEventTap: (evt) => _confirmDelete(evt['id'].toString()),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
   Widget _buildMonthView() {
     const headers = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
     return _glassPanel(
       child: Column(children: [
-        // Header row
+        // Fixed day-of-week header
         Row(
           children: headers
               .map((h) => Expanded(
@@ -596,88 +762,37 @@ class _CalendarViewState extends ConsumerState<CalendarView>
               .toList(),
         ),
         Container(height: 1, color: Colors.white.withValues(alpha: 0.05)),
+        // Bidirectional infinite scroll via CustomScrollView + center key
         Expanded(
-          child: PageView.builder(
-            controller: _monthPageCtrl,
-            physics: const PageScrollPhysics(parent: ClampingScrollPhysics()),
-            scrollDirection: Axis.vertical,
-            onPageChanged: (idx) {
-              final diff = idx - 10000;
-              final newDate = DateTime(_anchorDate.year, _anchorDate.month + diff, 1);
-              setState(() => _focusDate = newDate);
-              _fetchEventsDebounced();
-            },
-            itemBuilder: (ctx, idx) {
-              final diff = idx - 10000;
-              final pageDate = DateTime(_anchorDate.year, _anchorDate.month + diff, 1);
-              final first = DateTime(pageDate.year, pageDate.month, 1);
-              final daysInMonth = DateUtils.getDaysInMonth(pageDate.year, pageDate.month);
-              final startOffset = first.weekday % 7; // Sun=0
-
-              return GridView.builder(
-                padding: EdgeInsets.zero,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate:
-                    const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 7,
-                        mainAxisExtent: 110),
-                itemCount: 42,
-                itemBuilder: (ctx, i) {
-                  final dayNum = i - startOffset + 1;
-                  if (dayNum < 1 || dayNum > daysInMonth) {
-                    final int prevDays = pageDate.month == 1 
-                        ? DateUtils.getDaysInMonth(pageDate.year - 1, 12)
-                        : DateUtils.getDaysInMonth(pageDate.year, pageDate.month - 1);
-                    
-                    final emptyDay = dayNum < 1 ? prevDays + dayNum : dayNum - daysInMonth;
-                    return _emptyMonthCell(emptyDay, i % 7);
-                  }
-                  final date = DateTime(pageDate.year, pageDate.month, dayNum);
-                  final today = DateTime.now();
-                  final isToday = date.year == today.year && date.month == today.month && date.day == today.day;
-                  final isSelected = date.year == _focusDate.year && date.month == _focusDate.month && date.day == _focusDate.day;
-                  final dayEvts = _eventsForDate(date);
-                  final isWeekend = date.weekday == DateTime.saturday || date.weekday == DateTime.sunday;
-
-                  return _MonthCell(
-                    dayNum: dayNum,
-                    isToday: isToday,
-                    isSelected: isSelected,
-                    isWeekend: isWeekend,
-                    events: dayEvts,
-                    onTap: () {
-                      setState(() => _focusDate = date);
-                    },
-                    onAddTap: () => _showAddEventDialog(date),
-                    onEventTap: (evt) => _confirmDelete(evt['id'].toString()),
-                  );
-                },
-              );
-            },
-          ),
+          child: LayoutBuilder(builder: (context, constraints) {
+            _monthRowH = constraints.maxHeight / 5;
+            final rowH = _monthRowH;
+            return NotificationListener<ScrollNotification>(
+              onNotification: _onMonthScroll,
+              child: CustomScrollView(
+                center: _monthCenterKey,
+                controller: _monthScrollCtrl,
+                physics: const ClampingScrollPhysics(),
+                slivers: [
+                  // ── Past weeks (rendered going upward from center) ──────
+                  SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (ctx, i) => _buildWeekRow(-(i + 1), rowH),
+                    ),
+                  ),
+                  // ── Anchor: current week + future weeks ───────────────
+                  SliverList(
+                    key: _monthCenterKey,
+                    delegate: SliverChildBuilderDelegate(
+                      (ctx, i) => _buildWeekRow(i, rowH),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
         ),
       ]),
-    );
-  }
-
-  Widget _emptyMonthCell(int n, int col) {
-    final isWeekend = col == 0 || col == 6;
-    return Container(
-      decoration: BoxDecoration(
-        color: isWeekend
-            ? Colors.black.withValues(alpha: 0.15)
-            : Colors.black.withValues(alpha: 0.08),
-        border: Border(
-          right: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
-          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
-        ),
-      ),
-      alignment: Alignment.topRight,
-      padding: const EdgeInsets.all(8),
-      child: Text('$n',
-          style: TextStyle(
-              fontSize: 12,
-              color: Colors.white.withValues(alpha: 0.15))),
     );
   }
 
@@ -689,6 +804,7 @@ class _CalendarViewState extends ConsumerState<CalendarView>
       physics: const PageScrollPhysics(parent: ClampingScrollPhysics()),
       scrollDirection: Axis.horizontal,
       onPageChanged: (idx) {
+        if (_calcWeekIdx(_focusDate) == idx) return;
         final diff = idx - 10000;
         final base = _anchorDate.subtract(Duration(days: _anchorDate.weekday - 1));
         setState(() => _focusDate = base.add(Duration(days: diff * 7)));
@@ -711,6 +827,7 @@ class _CalendarViewState extends ConsumerState<CalendarView>
               events: _events,
               onEventTap: (e) => _confirmDelete(e['id'].toString())),
           dayCount: 7,
+          days: weekDays,
         );
       },
     );
@@ -724,6 +841,7 @@ class _CalendarViewState extends ConsumerState<CalendarView>
       physics: const PageScrollPhysics(parent: ClampingScrollPhysics()),
       scrollDirection: Axis.horizontal,
       onPageChanged: (idx) {
+        if (_calcDayIdx(_focusDate) == idx) return;
         final diff = idx - 10000;
         setState(() => _focusDate = _anchorDate.add(Duration(days: diff)));
         _fetchEventsDebounced();
@@ -741,6 +859,7 @@ class _CalendarViewState extends ConsumerState<CalendarView>
               events: _eventsForDate(pageDate),
               onEventTap: (e) => _confirmDelete(e['id'].toString())),
           dayCount: 1,
+          days: [pageDate],
         );
       },
     );
@@ -751,12 +870,18 @@ class _CalendarViewState extends ConsumerState<CalendarView>
     required List<Widget> dayHeaders,
     required Widget eventLayer,
     required int dayCount,
+    required List<DateTime> days,
   }) {
     const hours = [
       '12 AM', '1 AM', '2 AM', '3 AM', '4 AM', '5 AM', '6 AM', '7 AM', '8 AM', '9 AM', '10 AM', '11 AM',
       '12 PM', '1 PM', '2 PM', '3 PM', '4 PM', '5 PM', '6 PM', '7 PM', '8 PM', '9 PM', '10 PM', '11 PM',
     ];
     const hourH = 60.0;
+
+    // All-day events: events that span entire days (date-only start string)
+    final allDayEvents = _events
+        .where((e) => _isAllDay(e) && days.any((d) => _eventSpansDay(e, d)))
+        .toList();
 
     return _glassPanel(
       child: Column(children: [
@@ -766,6 +891,9 @@ class _CalendarViewState extends ConsumerState<CalendarView>
           ...dayHeaders.map((h) => Expanded(child: h)),
         ]),
         Container(height: 1, color: Colors.white.withValues(alpha: 0.06)),
+        // All-day events banner (only shown when there are all-day events)
+        if (allDayEvents.isNotEmpty)
+          _AllDayBanner(days: days, allDayEvents: allDayEvents),
         Expanded(
           child: SingleChildScrollView(
             controller: _timeGridScrollCtrl,
@@ -828,6 +956,29 @@ class _CalendarViewState extends ConsumerState<CalendarView>
         ),
       ]),
     );
+  }
+
+  // Helper: does an all-day event touch a given calendar day?
+  bool _eventSpansDay(dynamic e, DateTime d) {
+    final startStr = e['start'] as String?;
+    final endStr = e['end'] as String?;
+    if (startStr == null) return false;
+    try {
+      final dateOnly = _isDateOnly(e);
+      final startDate = dateOnly ? DateTime.parse(startStr) : DateTime.parse(startStr).toLocal();
+      DateTime endDate = startDate;
+      if (endStr != null) {
+        endDate = dateOnly ? DateTime.parse(endStr) : DateTime.parse(endStr).toLocal();
+        // Google Calendar end date for date-only events is exclusive
+        if (dateOnly) {
+          endDate = endDate.subtract(const Duration(days: 1));
+        }
+      }
+      final target = DateTime(d.year, d.month, d.day);
+      final startDay = DateTime(startDate.year, startDate.month, startDate.day);
+      final endDay = DateTime(endDate.year, endDate.month, endDate.day);
+      return !target.isBefore(startDay) && !target.isAfter(endDay);
+    } catch (_) { return false; }
   }
 
   // ── Right sidebar ─────────────────────────────────────────────────────────
@@ -987,18 +1138,22 @@ class _CalendarViewState extends ConsumerState<CalendarView>
 // MONTH CELL
 // ─────────────────────────────────────────────────────────────────────────────
 class _MonthCell extends StatefulWidget {
-  final int dayNum;
-  final bool isToday, isSelected, isWeekend;
+  final DateTime cellDate;
+  final String? monthName;
+  final bool isToday, isSelected, isWeekend, isOutsideMonth;
   final List<dynamic> events;
   final VoidCallback onTap;
   final VoidCallback onAddTap;
   final void Function(dynamic evt) onEventTap;
 
   const _MonthCell({
-    required this.dayNum,
+    super.key,
+    required this.cellDate,
+    this.monthName,
     required this.isToday,
     required this.isSelected,
     required this.isWeekend,
+    this.isOutsideMonth = false,
     required this.events,
     required this.onTap,
     required this.onAddTap,
@@ -1050,22 +1205,23 @@ class _MonthCellState extends State<_MonthCell> {
                         Border.all(color: Colors.white.withValues(alpha: 0.15),
                             width: 1)),
               ),
-            Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Day number
-                    Row(children: [
+            Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Day number
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    child: Row(children: [
                       const Spacer(),
                       widget.isToday
                           ? Container(
-                              width: 26,
+                              width: widget.monthName != null ? null : 26,
                               height: 26,
+                              padding: widget.monthName != null ? const EdgeInsets.symmetric(horizontal: 8) : null,
                               decoration: BoxDecoration(
                                 color: Colors.white,
-                                shape: BoxShape.circle,
+                                borderRadius: widget.monthName != null ? BorderRadius.circular(13) : null,
+                                shape: widget.monthName != null ? BoxShape.rectangle : BoxShape.circle,
                                 boxShadow: [
                                   BoxShadow(
                                       color: Colors.white
@@ -1074,49 +1230,114 @@ class _MonthCellState extends State<_MonthCell> {
                                 ],
                               ),
                               alignment: Alignment.center,
-                              child: Text('${widget.dayNum}',
+                              child: Text(widget.monthName != null ? '${widget.monthName} ${widget.cellDate.day}' : '${widget.cellDate.day}',
                                   style: const TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.bold,
                                       color: Colors.black)),
                             )
-                          : Text('${widget.dayNum}',
+                          : Text(widget.monthName != null ? '${widget.monthName} ${widget.cellDate.day}' : '${widget.cellDate.day}',
                               style: TextStyle(
                                   fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                  color: widget.isWeekend
-                                      ? Colors.white38
-                                      : Colors.white60)),
+                                  fontWeight: widget.monthName != null ? FontWeight.bold : FontWeight.w500,
+                                  color: widget.isOutsideMonth 
+                                      ? Colors.white.withValues(alpha: 0.15)
+                                      : (widget.isWeekend
+                                          ? Colors.white38
+                                          : Colors.white60))),
                     ]),
-                    const SizedBox(height: 4),
-                    // Events (up to 2, then +N)
-                    ...widget.events.take(2).map((e) {
-                      final c = _eventColor(e['summary']?.toString());
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 2),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 5, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: c.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border(
-                              left: BorderSide(color: c, width: 2)),
+                  ),
+                  // Events (up to 2, then +N)
+                  ...widget.events.take(2).map((e) {
+                    final c = _eventColor(e['summary']?.toString());
+                    final dateOnly = _isDateOnly(e);
+                    final allDay = _isAllDay(e);
+                    final birthday = _isBirthday(e);
+                    
+                    bool isFirstDay = true;
+                    bool isLastDay = true;
+
+                    if (!dateOnly) {
+                      try {
+                        final st = DateTime.parse(e['start'] as String).toLocal();
+                        final et = e['end'] != null ? DateTime.parse(e['end'] as String).toLocal() : st;
+                        isFirstDay = widget.cellDate.year == st.year && widget.cellDate.month == st.month && widget.cellDate.day == st.day;
+                        isLastDay = widget.cellDate.year == et.year && widget.cellDate.month == et.month && widget.cellDate.day == et.day;
+                      } catch (_) {}
+                    } else {
+                      try {
+                        final st = DateTime.parse(e['start'] as String);
+                        final et = e['end'] != null ? DateTime.parse(e['end'] as String).subtract(const Duration(days: 1)) : st;
+                        isFirstDay = widget.cellDate.year == st.year && widget.cellDate.month == st.month && widget.cellDate.day == st.day;
+                        isLastDay = widget.cellDate.year == et.year && widget.cellDate.month == et.month && widget.cellDate.day == et.day;
+                      } catch (_) {}
+                    }
+
+                    final isSpanningLeft = allDay && !isFirstDay;
+                    final isSpanningRight = allDay && !isLastDay;
+                    final ml = isSpanningLeft ? 0.0 : 4.0;
+                    final mr = isSpanningRight ? 0.0 : 4.0;
+
+                    // For timed events (not dateOnly), we can show the time prefix.
+                    String? timePrefix;
+                    if (!dateOnly) {
+                      if (!allDay || isFirstDay) {
+                        try {
+                          final dt = DateTime.parse(e['start'] as String).toLocal();
+                          timePrefix = DateFormat('h:mm a').format(dt);
+                        } catch (_) {}
+                      }
+                    }
+
+                    return Container(
+                      margin: EdgeInsets.only(bottom: 2, left: ml, right: mr),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 5, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: allDay
+                            ? c.withValues(alpha: 0.20)
+                            : c.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.horizontal(
+                          left: isSpanningLeft ? Radius.zero : const Radius.circular(4),
+                          right: isSpanningRight ? Radius.zero : const Radius.circular(4),
                         ),
-                        child: Text(e['summary'] ?? 'Event',
-                            style: const TextStyle(
-                                fontSize: 9,
-                                color: Colors.white,
-                                fontWeight: FontWeight.w500),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis),
-                      );
-                    }),
-                    if (widget.events.length > 2)
-                      Text('+${widget.events.length - 2} more',
+                        border: allDay
+                            ? null
+                            : Border(left: BorderSide(color: c, width: 2)),
+                      ),
+                      child: Row(
+                        children: [
+                          if (birthday)
+                            const Text('🎁 ', style: TextStyle(fontSize: 9)),
+                          if (timePrefix != null) ...[
+                            Text(timePrefix,
+                                style: TextStyle(
+                                    fontSize: 8,
+                                    color: c,
+                                    fontWeight: FontWeight.w600)),
+                            const SizedBox(width: 3),
+                          ],
+                          Expanded(
+                            child: Text(e['summary'] ?? 'Event',
+                                style: const TextStyle(
+                                    fontSize: 9,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w500),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                  if (widget.events.length > 2)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Text('+${widget.events.length - 2} more',
                           style: const TextStyle(
                               fontSize: 9, color: Colors.white38)),
-                  ]),
-            ),
+                    ),
+                ]),
             // Hover add button
             if (_hovered)
               Positioned(
@@ -1175,6 +1396,124 @@ class _WeekDayHeader extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ALL DAY BANNER
+// ─────────────────────────────────────────────────────────────────────────────
+class _AllDayBanner extends StatelessWidget {
+  final List<DateTime> days;
+  final List<dynamic> allDayEvents;
+
+  const _AllDayBanner({required this.days, required this.allDayEvents});
+
+  bool _spansDay(dynamic e, DateTime d) {
+    final startStr = e['start'] as String?;
+    final endStr = e['end'] as String?;
+    if (startStr == null) return false;
+    try {
+      final dateOnly = _isDateOnly(e);
+      final startDate = dateOnly ? DateTime.parse(startStr) : DateTime.parse(startStr).toLocal();
+      DateTime endDate = startDate;
+      if (endStr != null) {
+        endDate = dateOnly ? DateTime.parse(endStr) : DateTime.parse(endStr).toLocal();
+        if (dateOnly) endDate = endDate.subtract(const Duration(days: 1));
+      }
+      final target = DateTime(d.year, d.month, d.day);
+      final startDay = DateTime(startDate.year, startDate.month, startDate.day);
+      final endDay = DateTime(endDate.year, endDate.month, endDate.day);
+      return !target.isBefore(startDay) && !target.isAfter(endDay);
+    } catch (_) { return false; }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.02),
+        border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.06))),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // "All-day" label column (matches the 64px time column width)
+          SizedBox(
+            width: 64,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 8, top: 4, bottom: 4),
+              child: Text('All-day',
+                  textAlign: TextAlign.right,
+                  style: TextStyle(fontSize: 9, color: Colors.white.withValues(alpha: 0.3))),
+            ),
+          ),
+          // One column per day
+          ...days.map((d) {
+            final dayEvents = allDayEvents.where((e) => _spansDay(e, d)).toList();
+            return Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: dayEvents.map((e) {
+                  final color = _eventColor(e['summary']?.toString());
+                  final birthday = _isBirthday(e);
+                  final dateOnly = _isDateOnly(e);
+                  
+                  final startStr = e['start'] as String?;
+                  final endStr = e['end'] as String?;
+                  DateTime? startDate, endDate;
+                  try {
+                    if (startStr != null) startDate = dateOnly ? DateTime.parse(startStr) : DateTime.parse(startStr).toLocal();
+                    if (endStr != null) {
+                      endDate = dateOnly ? DateTime.parse(endStr) : DateTime.parse(endStr).toLocal();
+                      if (dateOnly) endDate = endDate.subtract(const Duration(days: 1));
+                    }
+                  } catch (_) {}
+                  
+                  final isStart = startDate != null && DateUtils.isSameDay(d, startDate);
+                  final isEnd = (endDate != null) ? DateUtils.isSameDay(d, endDate) : isStart;
+                  
+                  final ml = isStart ? 1.0 : 0.0;
+                  final mr = isEnd ? 1.0 : 0.0;
+
+                  String? timePrefix;
+                  if (isStart && !dateOnly && startStr != null) {
+                    try {
+                      final dt = DateTime.parse(startStr).toLocal();
+                      timePrefix = DateFormat('h:mm a').format(dt);
+                    } catch (_) {}
+                  }
+
+                  return Container(
+                    margin: EdgeInsets.only(top: 1, bottom: 1, left: ml, right: mr),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.25),
+                      borderRadius: BorderRadius.horizontal(
+                        left: isStart ? const Radius.circular(4) : Radius.zero,
+                        right: isEnd ? const Radius.circular(4) : Radius.zero,
+                      ),
+                    ),
+                    child: Row(children: [
+                      if (birthday) const Text('🎁 ', style: TextStyle(fontSize: 9)),
+                      if (timePrefix != null) ...[
+                        Text(timePrefix, style: TextStyle(fontSize: 9, color: color, fontWeight: FontWeight.w600)),
+                        const SizedBox(width: 4),
+                      ],
+                      Expanded(
+                        child: Text(isStart ? (e['summary'] ?? '') : '',
+                            style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w500),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis),
+                      ),
+                    ]),
+                  );
+                }).toList(),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // WEEK EVENT LAYER
 // ─────────────────────────────────────────────────────────────────────────────
 class _WeekEventLayer extends StatelessWidget {
@@ -1206,8 +1545,8 @@ class _WeekEventLayer extends StatelessWidget {
                   color: Colors.white.withValues(alpha: 0.04)),
             )),
 
-        // Events
-        ...events.expand((e) {
+        // Events (skip all-day; they go in the banner above the grid)
+        ...events.where((e) => !_isAllDay(e)).expand((e) {
           final startStr = e['start'] as String?;
           final endStr = e['end'] as String?;
           if (startStr == null) return <Widget>[];
@@ -1222,59 +1561,68 @@ class _WeekEventLayer extends StatelessWidget {
             return <Widget>[];
           }
 
-          final colIdx = days.indexWhere((d) =>
-              d.year == startDt.year &&
-              d.month == startDt.month &&
-              d.day == startDt.day);
-          if (colIdx < 0) return <Widget>[];
+          final widgets = <Widget>[];
 
-          final startMin =
-              (startDt.hour - startHour) * 60 + startDt.minute;
-          final durMin = endDt.difference(startDt).inMinutes;
-          final top = startMin / 60 * hourH;
-          final height = (durMin / 60 * hourH).clamp(20.0, double.infinity);
+          for (int colIdx = 0; colIdx < days.length; colIdx++) {
+            final d = days[colIdx];
+            final colStart = DateTime(d.year, d.month, d.day);
+            final colEnd = DateTime(d.year, d.month, d.day, 23, 59, 59);
 
-          final color = _eventColor(e['summary']?.toString());
+            if (startDt.isAfter(colEnd) || endDt.isBefore(colStart) || endDt.isAtSameMomentAs(colStart)) {
+              continue;
+            }
 
-          return [
-            Positioned(
-              left: colW * colIdx + 2,
-              top: top,
-              width: colW - 4,
-              height: height,
-              child: GestureDetector(
-                onDoubleTap: () => onEventTap(e),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border(
-                        left: BorderSide(color: color, width: 3)),
+            final drawStart = startDt.isBefore(colStart) ? colStart : startDt;
+            final drawEnd = endDt.isAfter(colEnd) ? colEnd : endDt;
+
+            final startMin = (drawStart.hour - startHour) * 60 + drawStart.minute;
+            final durMin = drawEnd.difference(drawStart).inMinutes;
+            final top = startMin / 60 * hourH;
+            final height = (durMin / 60 * hourH).clamp(20.0, double.infinity);
+
+            final color = _eventColor(e['summary']?.toString());
+
+            widgets.add(
+              Positioned(
+                left: colW * colIdx + 2,
+                top: top,
+                width: colW - 4,
+                height: height,
+                child: GestureDetector(
+                  onDoubleTap: () => onEventTap(e),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border(
+                          left: BorderSide(color: color, width: 3)),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 6, vertical: 4),
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(e['summary'] ?? 'Event',
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: color),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis),
+                          Text(
+                              '${DateFormat('h:mm a').format(drawStart)} – ${DateFormat('h:mm a').format(drawEnd)}',
+                              style: const TextStyle(
+                                  fontSize: 9,
+                                  color: Colors.white54),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis),
+                        ]),
                   ),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 6, vertical: 4),
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(e['summary'] ?? 'Event',
-                            style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: color),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis),
-                        Text(
-                            '${DateFormat('h:mm a').format(startDt)} – ${DateFormat('h:mm a').format(endDt)}',
-                            style: const TextStyle(
-                                fontSize: 9,
-                                color: Colors.white54),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis),
-                      ]),
                 ),
               ),
-            ),
-          ];
+            );
+          }
+          return widgets;
         }),
       ]);
     });
@@ -1302,7 +1650,8 @@ class _DayEventLayer extends StatelessWidget {
 
     return LayoutBuilder(builder: (ctx, constraints) {
       return Stack(children: [
-        ...events.expand((e) {
+        // All-day events go to the banner; skip them here
+        ...events.where((e) => !_isAllDay(e)).expand((e) {
           final startStr = e['start'] as String?;
           final endStr = e['end'] as String?;
           if (startStr == null) return <Widget>[];
@@ -1317,14 +1666,25 @@ class _DayEventLayer extends StatelessWidget {
             return <Widget>[];
           }
 
-          final startMin =
-              (startDt.hour - startHour) * 60 + startDt.minute;
-          final durMin = endDt.difference(startDt).inMinutes;
+          final widgets = <Widget>[];
+
+          final colStart = DateTime(date.year, date.month, date.day);
+          final colEnd = DateTime(date.year, date.month, date.day, 23, 59, 59);
+
+          if (startDt.isAfter(colEnd) || endDt.isBefore(colStart) || endDt.isAtSameMomentAs(colStart)) {
+            return <Widget>[];
+          }
+
+          final drawStart = startDt.isBefore(colStart) ? colStart : startDt;
+          final drawEnd = endDt.isAfter(colEnd) ? colEnd : endDt;
+
+          final startMin = (drawStart.hour - startHour) * 60 + drawStart.minute;
+          final durMin = drawEnd.difference(drawStart).inMinutes;
           final top = startMin / 60 * hourH;
           final height = (durMin / 60 * hourH).clamp(24.0, double.infinity);
           final color = _eventColor(e['summary']?.toString());
 
-          return [
+          widgets.add(
             Positioned(
               left: 12,
               right: 12,
@@ -1356,7 +1716,7 @@ class _DayEventLayer extends StatelessWidget {
                                 color: color)),
                         if (height > 36)
                           Text(
-                              '${DateFormat('h:mm a').format(startDt)} – ${DateFormat('h:mm a').format(endDt)}',
+                              '${DateFormat('h:mm a').format(drawStart)} – ${DateFormat('h:mm a').format(drawEnd)}',
                               style: const TextStyle(
                                   fontSize: 11,
                                   color: Colors.white54)),
@@ -1370,7 +1730,9 @@ class _DayEventLayer extends StatelessWidget {
                 ),
               ),
             ),
-          ];
+          );
+          
+          return widgets;
         }),
       ]);
     });

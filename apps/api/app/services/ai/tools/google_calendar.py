@@ -19,13 +19,39 @@ class CalendarTool(BaseTool):
     @property
     def parameters_schema(self) -> dict:
         return {
-            "action": "string (todays_schedule | upcoming_events | create_event | delete_event | find_free_time)",
-            "summary": "string (optional): Title of event for create_event",
-            "description": "string (optional): Description for create_event",
-            "start_time": "string (optional): ISO8601 for create_event (e.g. 2026-07-03T10:00:00Z)",
-            "end_time": "string (optional): ISO8601 for create_event",
-            "event_id": "string (optional): ID for delete_event",
-            "date": "string (optional): YYYY-MM-DD for find_free_time"
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["todays_schedule", "upcoming_events", "create_event", "delete_event", "find_free_time"],
+                    "description": "The calendar action to perform."
+                },
+                "summary": {
+                    "type": "string",
+                    "description": "Title of event for create_event"
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Description for create_event"
+                },
+                "start_time": {
+                    "type": "string",
+                    "description": "ISO8601 for create_event (e.g. 2026-07-03T10:00:00Z)"
+                },
+                "end_time": {
+                    "type": "string",
+                    "description": "ISO8601 for create_event"
+                },
+                "event_id": {
+                    "type": "string",
+                    "description": "ID for delete_event"
+                },
+                "date": {
+                    "type": "string",
+                    "description": "YYYY-MM-DD for find_free_time"
+                }
+            },
+            "required": ["action"]
         }
         
     async def execute(self, execution_context: dict, **kwargs) -> str:

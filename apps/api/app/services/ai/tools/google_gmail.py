@@ -19,13 +19,39 @@ class GmailTool(BaseTool):
     @property
     def parameters_schema(self) -> dict:
         return {
-            "action": "string (list_unread | search | read | draft | send | reply | archive)",
-            "query": "string (optional): standard Gmail search query",
-            "message_id": "string (optional): for read, reply, archive",
-            "to": "string (optional): email address for send, draft",
-            "subject": "string (optional): for send, draft",
-            "body": "string (optional): email body for send, draft, reply",
-            "max_results": "integer (optional): limit for searches"
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["list_unread", "search", "read", "draft", "send", "reply", "archive"],
+                    "description": "The Gmail action to perform."
+                },
+                "query": {
+                    "type": "string",
+                    "description": "Standard Gmail search query (optional)"
+                },
+                "message_id": {
+                    "type": "string",
+                    "description": "Message ID for read, reply, archive"
+                },
+                "to": {
+                    "type": "string",
+                    "description": "Email address for send, draft"
+                },
+                "subject": {
+                    "type": "string",
+                    "description": "Subject for send, draft"
+                },
+                "body": {
+                    "type": "string",
+                    "description": "Email body for send, draft, reply"
+                },
+                "max_results": {
+                    "type": "integer",
+                    "description": "Limit for searches (optional)"
+                }
+            },
+            "required": ["action"]
         }
         
     async def execute(self, execution_context: dict, **kwargs) -> str:

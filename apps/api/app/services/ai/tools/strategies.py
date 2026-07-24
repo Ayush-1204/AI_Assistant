@@ -54,7 +54,7 @@ class XmlFunctionStrategy(ToolInvocationStrategy):
 <tool_call>
 {"name": "tool_name", "args": {"arg1": "value1"}}
 </tool_call>
-You will receive the tool output in a <tool_response> block. You can only call ONE tool at a time!
+You will receive the tool outputs in <tool_response> blocks. You can call MULTIPLE tools concurrently by outputting multiple <tool_call> blocks.
 
 CRITICAL INSTRUCTION: If the user queries a basic pleasantry, casual greeting, or conversational filler (e.g., 'hello', 'hey', 'how are you', 'who are you'), YOU MUST NOT INVOKE ANY TOOLS. Respond immediately with a friendly conversational greeting. Do not over-complicate chit-chat."""
         return prompt
@@ -74,23 +74,34 @@ CRITICAL INSTRUCTION: If the user queries a basic pleasantry, casual greeting, o
             
         if not isinstance(response_text_or_obj, str): return False, []
             
-        match = re.search(r'<tool_call>\s*(.*?)\s*</tool_call>', response_text_or_obj, re.DOTALL)
-        if not match:
+        matches = list(re.finditer(r'<tool_call>\s*(.*?)\s*</tool_call>', response_text_or_obj, re.DOTALL))
+        if not matches:
             return False, []
             
-        raw_json = match.group(1)
-        try:
-            call_data = json.loads(raw_json)
-            req = ToolRequest(
-                id=match.group(0),
-                name=call_data.get("name", "unknown"),
-                arguments=call_data.get("args", {})
-            )
-            return True, [req]
-            
-        except json.JSONDecodeError:
-            req = ToolRequest(id=match.group(0), name="PARSE_ERROR", arguments={})
-            return True, [req]
+        requests = []
+        for match in matches:
+            raw_json = match.group(1)
+            try:
+                call_data = json.loads(raw_json)
+                args = call_data.get("args")
+                if args is None:
+                    args = call_data.get("arguments")
+                if args is None:
+                    args = call_data.get("parameters")
+                if args is None:
+                    args = {}
+                
+                req = ToolRequest(
+                    id=match.group(0),
+                    name=call_data.get("name", "unknown"),
+                    arguments=args
+                )
+                requests.append(req)
+            except json.JSONDecodeError:
+                req = ToolRequest(id=match.group(0), name="PARSE_ERROR", arguments={})
+                requests.append(req)
+                
+        return True, requests
             
     def format_assistant_message(self, response_text_or_obj: Any) -> list[dict]:
         text = self.get_text_from_response(response_text_or_obj)
@@ -100,11 +111,12 @@ CRITICAL INSTRUCTION: If the user queries a basic pleasantry, casual greeting, o
         if not responses:
             return []
             
-        res = responses[0]
-        original_xml = res.id if res.id else getattr(raw_tool_call, "id", "unknown_xml")
-        
-        tool_msg_content = f"Tool execution result for:\n{original_xml}\n\n<tool_response>\n{res.content}\n</tool_response>"
-        return [{"role": "user", "content": tool_msg_content}]
+        content_parts = []
+        for res in responses:
+            original_xml = res.id if res.id else getattr(raw_tool_call, "id", "unknown_xml")
+            content_parts.append(f"Tool execution result for:\n{original_xml}\n\n<tool_response>\n{res.content}\n</tool_response>")
+            
+        return [{"role": "user", "content": "\n\n".join(content_parts)}]
         
     def get_text_from_response(self, response_text_or_obj: Any) -> str:
         if isinstance(response_text_or_obj, str):

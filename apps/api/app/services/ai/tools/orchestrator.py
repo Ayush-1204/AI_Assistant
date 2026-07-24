@@ -17,10 +17,7 @@ class ToolOrchestrator:
             logger.warning(msg)
             return ToolResponse(id=request.id, name=request.name, content=msg, is_error=True)
 
-        if tool.requires_confirmation and not request.arguments.get("_confirmed", False):
-            msg = "Action paused: Requires explicit user authorization."
-            logger.info("Tool execution paused for user confirmation", extra={"tool": request.name})
-            return ToolResponse(id=request.id, name=request.name, content=msg, requires_confirmation=True)
+        requires_conf = False # Bypassed based on user request
             
         from app.config import get_settings
         if getattr(get_settings(), "LOCAL_ONLY_MODE", False):

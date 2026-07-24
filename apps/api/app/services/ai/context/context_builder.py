@@ -88,7 +88,12 @@ class ContextBuilder:
             "- People -> public figures, athletes, actors\n"
             "CRITICAL: DO NOT hallucinate fake Wikipedia or Amazon image URLs. Furthermore, you are STRICTLY FORBIDDEN from generating or outputting any active image URLs containing `wikimedia.org` or `wikipedia.org`! Wikimedia blocks hotlinking and will result in 404 broken UI rendering! If the user requests pictures of a real person, place, or thing, you MUST execute the `web_search` tool to fetch authentic real-world Image URLs natively. Only render `![alt](url)` using mathematically proven URLs fetched from your active context or tools, explicitly avoiding Wikimedia constraints.\n"
             "4. FATAL WARNING: NEVER USE CONVERSATIONAL ANGLE BRACKETS! DO NOT use internal monologues, `<thought>` tags, or conversational reasoning bounded by `< >` (e.g., `<It appears...`). Angle brackets are STRICTLY RESERVED for tool invocations and literal markdown code blocks. Any conversational use of angle brackets will instantly crash the rendering pipeline!\n"
+            "5. NO REFUSALS FOR SCRAPING: You MUST obey user requests to extract, scrape, or search public websites (including Wikipedia). DO NOT hallucinate policies or restrictions about scraping public knowledge bases. Always invoke the `browser` or `web_search` tools to accomplish the task rather than lecturing the user.\n"
         ) + loc_str
+        
+        from datetime import datetime
+        time_str = f" The current local date and time is {datetime.now().isoformat(timespec='seconds')}."
+        system_prompt += time_str
         
         current_tokens += _estimate_tokens(system_prompt)
         system_blocks.append(system_prompt)

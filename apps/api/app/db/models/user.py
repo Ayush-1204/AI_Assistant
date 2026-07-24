@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Boolean, DateTime, String
+from sqlalchemy import Boolean, DateTime, String, Float
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -42,6 +42,9 @@ class User(Base):
         server_default=func.now(),
         onupdate=func.now(),
     )
+    
+    last_known_lat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    last_known_lon: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     conversations = relationship(
         "Conversation",

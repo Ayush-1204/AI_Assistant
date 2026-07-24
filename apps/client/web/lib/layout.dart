@@ -3,15 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'providers/chat_provider.dart';
 import 'chat_view.dart';
 import 'notes_view.dart';
-import 'documents_view.dart';
 import 'settings_view.dart';
 import 'token_usage_view.dart';
-import 'life_metrics_view.dart';
 import 'calendar_view.dart';
-import 'people_view.dart';
-import 'memory_view.dart';
-import 'audio_debug_view.dart';
 import 'tasks_view.dart';
+import 'scheduled_jobs_view.dart';
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -30,13 +26,9 @@ class _MainLayoutState extends State<MainLayout> {
     const ChatView(),
     const NotesView(),
     const TasksView(),
-    const DocumentsView(),
     const CalendarView(),
+    const ScheduledJobsView(),
     const TokenUsageView(),
-    const LifeMetricsView(),
-    const PeopleView(),
-    const MemoryView(),
-    const AudioDebugView(),
     const SettingsView(),
   ];
 
@@ -44,13 +36,9 @@ class _MainLayoutState extends State<MainLayout> {
     _NavItem(icon: Icons.dashboard_outlined, activeIcon: Icons.dashboard, label: 'Workspace'),
     _NavItem(icon: Icons.note_outlined, activeIcon: Icons.note, label: 'Notes'),
     _NavItem(icon: Icons.check_circle_outline, activeIcon: Icons.check_circle, label: 'Tasks'),
-    _NavItem(icon: Icons.folder_outlined, activeIcon: Icons.folder, label: 'Knowledge Base'),
     _NavItem(icon: Icons.calendar_month_outlined, activeIcon: Icons.calendar_month, label: 'Calendar'),
+    _NavItem(icon: Icons.schedule_outlined, activeIcon: Icons.schedule, label: 'Scheduled Jobs'),
     _NavItem(icon: Icons.speed_outlined, activeIcon: Icons.speed, label: 'Token Limits'),
-    _NavItem(icon: Icons.track_changes_outlined, activeIcon: Icons.track_changes, label: 'Life Metrics'),
-    _NavItem(icon: Icons.people_outline, activeIcon: Icons.people, label: 'People CRM'),
-    _NavItem(icon: Icons.psychology_outlined, activeIcon: Icons.psychology, label: 'Memories'),
-    _NavItem(icon: Icons.bug_report_outlined, activeIcon: Icons.bug_report, label: 'Audio Sandbox'),
   ];
 
   @override
@@ -77,21 +65,30 @@ class _MainLayoutState extends State<MainLayout> {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: Row(
-                          mainAxisAlignment: _isSidebarOpen ? MainAxisAlignment.start : MainAxisAlignment.center,
+                          mainAxisAlignment: MainAxisAlignment.start,
                           children: [
-                            if (_isSidebarOpen) ...[
-                              Container(
-                                width: 32, height: 32,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-                                  color: Colors.white.withValues(alpha: 0.05),
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeOutCubic,
+                              width: _isSidebarOpen ? 168 : 0,
+                              child: ClipRect(
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 32, height: 32,
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+                                        color: Colors.white.withValues(alpha: 0.05),
+                                      ),
+                                      child: const Icon(Icons.hub_outlined, size: 16, color: Colors.white),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    const Expanded(child: Text('Second Brain', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white), maxLines: 1)),
+                                  ],
                                 ),
-                                child: const Icon(Icons.hub_outlined, size: 16, color: Colors.white),
                               ),
-                              const SizedBox(width: 10),
-                              const Expanded(child: Text('Second Brain', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white), maxLines: 1)),
-                            ],
+                            ),
                             IconButton(
                               icon: Icon(_isSidebarOpen ? Icons.chevron_left : Icons.menu, color: Colors.white.withValues(alpha: 0.5)),
                               onPressed: () => setState(() => _isSidebarOpen = !_isSidebarOpen),
@@ -113,37 +110,46 @@ class _MainLayoutState extends State<MainLayout> {
                         );
                       }),
                       
-                      if (_selectedIndex == 0 && _isSidebarOpen) ...[
+                      if (_selectedIndex == 0) ...[
                         Expanded(
-                          child: Consumer(
-                            builder: (context, ref, child) {
-                               final sessions = ref.watch(chatProvider).sessions;
-                               if (sessions.isEmpty) return const SizedBox();
-                               
-                               final pinned = sessions.where((s) => s['is_pinned'] == true).toList();
-                               final recent = sessions.where((s) => s['is_pinned'] != true).toList();
-                               
-                               return ListView(
-                                  padding: const EdgeInsets.only(top: 16),
-                                  children: [
-                                     if (pinned.isNotEmpty) ...[
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                                          child: Align(alignment: Alignment.centerLeft, child: Text('PINNED', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white.withValues(alpha: 0.3), letterSpacing: 1.2))),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        ...pinned.map((s) => _SidebarHistoryItem(key: ValueKey('pinned_${s['id']}'), session: s)),
-                                        const SizedBox(height: 16),
-                                     ],
-                                     Padding(
-                                       padding: const EdgeInsets.symmetric(horizontal: 20),
-                                       child: Align(alignment: Alignment.centerLeft, child: Text('RECENTS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white.withValues(alpha: 0.3), letterSpacing: 1.2))),
-                                     ),
-                                     const SizedBox(height: 8),
-                                     ...recent.map((s) => _SidebarHistoryItem(key: ValueKey('recent_${s['id']}'), session: s)),
-                                  ]
-                               );
-                            }
+                          child: AnimatedOpacity(
+                            duration: const Duration(milliseconds: 200),
+                            opacity: _isSidebarOpen ? 1.0 : 0.0,
+                            child: OverflowBox(
+                              minWidth: 240,
+                              maxWidth: 240,
+                              alignment: Alignment.topLeft,
+                              child: Consumer(
+                                builder: (context, ref, child) {
+                                   final sessions = ref.watch(chatProvider).sessions;
+                                   if (sessions.isEmpty) return const SizedBox();
+                                   
+                                   final pinned = sessions.where((s) => s['is_pinned'] == true).toList();
+                                   final recent = sessions.where((s) => s['is_pinned'] != true).toList();
+                                   
+                                   return ListView(
+                                      padding: const EdgeInsets.only(top: 16),
+                                      children: [
+                                         if (pinned.isNotEmpty) ...[
+                                            Padding(
+                                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                                              child: Align(alignment: Alignment.centerLeft, child: Text('PINNED', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white.withValues(alpha: 0.3), letterSpacing: 1.2))),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            ...pinned.map((s) => _SidebarHistoryItem(key: ValueKey('pinned_${s['id']}'), session: s)),
+                                            const SizedBox(height: 16),
+                                         ],
+                                         Padding(
+                                           padding: const EdgeInsets.symmetric(horizontal: 20),
+                                           child: Align(alignment: Alignment.centerLeft, child: Text('RECENTS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white.withValues(alpha: 0.3), letterSpacing: 1.2))),
+                                         ),
+                                         const SizedBox(height: 8),
+                                         ...recent.map((s) => _SidebarHistoryItem(key: ValueKey('recent_${s['id']}'), session: s)),
+                                      ]
+                                   );
+                                }
+                              )
+                            ),
                           )
                         ),
                       ] else const Spacer(),
@@ -332,7 +338,7 @@ class _SidebarTileState extends State<_SidebarTile> {
             curve: Curves.easeOutCubic,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 10),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(8),
                 color: widget.selected 
@@ -342,19 +348,28 @@ class _SidebarTileState extends State<_SidebarTile> {
                       : Colors.transparent,
               ),
               child: Row(
-                mainAxisAlignment: widget.isExpanded ? MainAxisAlignment.start : MainAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.start,
                 children: [
                 Icon(widget.icon, size: 18, color: widget.selected ? Colors.white : Colors.grey[600]),
-                if (widget.isExpanded) ...[
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(widget.label, maxLines: 1, overflow: TextOverflow.clip, style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: widget.selected ? FontWeight.w500 : FontWeight.w400,
-                      color: widget.selected ? Colors.white : Colors.grey[600],
-                    )),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOutCubic,
+                  width: widget.isExpanded ? 140 : 0,
+                  child: ClipRect(
+                    child: Row(
+                      children: [
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(widget.label, maxLines: 1, overflow: TextOverflow.clip, style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: widget.selected ? FontWeight.w500 : FontWeight.w400,
+                            color: widget.selected ? Colors.white : Colors.grey[600],
+                          )),
+                        ),
+                      ],
+                    ),
                   ),
-                ]
+                )
               ]),
             ),
           ),

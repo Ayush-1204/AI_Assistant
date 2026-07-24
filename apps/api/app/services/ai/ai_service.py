@@ -175,62 +175,72 @@ class AIService:
         logger.info(f"[AIService] Dispatching streaming execution loop with intent: '{intent}'")
         final_response = ""
         
-        if intent == "deep_research":
-            import typing
-
-            from app.services.ai.providers.router import ProviderRouter
-            router_inst = typing.cast(ProviderRouter, self.provider)
-            agent = DeepResearchAgent(router_inst)
+        import asyncio
+        try:
+            if intent == "deep_research":
+                import typing
+    
+                from app.services.ai.providers.router import ProviderRouter
+                router_inst = typing.cast(ProviderRouter, self.provider)
+                agent = DeepResearchAgent(router_inst)
+                
+                yield f"data: {json.dumps({'type': 'tool', 'name': 'Initiating Multi-Hop Tavily Research...'})}\n\n"
+                final_response = await agent.run(prompt)
+                yield f"data: {json.dumps({'type': 'content', 'delta': final_response})}\n\n"
+                yield f"data: {json.dumps({'type': 'tool', 'name': 'Research completed.'})}\n\n"
+            elif intent == "swarm":
+                import typing
+                from app.services.ai.providers.router import ProviderRouter
+                from app.services.ai.planner.agents.swarm.swarm import SwarmOrchestrator
+                from app.services.ai.planner.agents.swarm.agents import router_agent
+                
+                router_inst = typing.cast(ProviderRouter, self.provider)
+                swarm_engine = SwarmOrchestrator(router_inst)
+                
+                yield f"data: {json.dumps({'type': 'tool', 'name': 'Spinning up Multi-Agent Swarm (Router, Coder, Reviewer)'})}\n\n"
+                final_response = await swarm_engine.run(router_agent, messages)
+                yield f"data: {json.dumps({'type': 'content', 'delta': final_response})}\n\n"
+                yield f"data: {json.dumps({'type': 'tool', 'name': 'Swarm execution converged successfully.'})}\n\n"
+            elif intent == "antigravity":
+                from app.services.ai.planner.agents.antigravity import AntigravityAgent
+                ag_agent = AntigravityAgent()
+                async for chunk in ag_agent.stream_run(prompt, images=images):
+                    if chunk.startswith("data: ") and '"delta"' in chunk:
+                        try:
+                            delta = json.loads(chunk[6:])['delta']
+                            final_response += delta
+                        except:
+                            pass
+                    yield chunk
+            else:
+                planner = Planner(self.provider, strategy, intent=intent)
+                executor = AgentExecutor(planner, self.tool_orchestrator, strategy, intent=intent)
+                
+                async for chunk in executor.stream_run(prompt, context, messages, tools_payload):
+                    if chunk.startswith("data: ") and '"delta"' in chunk:
+                        try:
+                            delta = json.loads(chunk[6:])['delta']
+                            final_response += delta
+                        except:
+                            pass
+                    yield chunk
+                    
+        except asyncio.CancelledError:
+            logger.warning("[AIService] Client aborted stream manually. Synchronizing partial response to memory.")
             
-            yield f"data: {json.dumps({'type': 'tool', 'name': 'Initiating Multi-Hop Tavily Research...'})}\n\n"
-            final_response = await agent.run(prompt)
-            yield f"data: {json.dumps({'type': 'content', 'delta': final_response})}\n\n"
-            yield f"data: {json.dumps({'type': 'tool', 'name': 'Research completed.'})}\n\n"
-        elif intent == "swarm":
-            import typing
-            from app.services.ai.providers.router import ProviderRouter
-            from app.services.ai.planner.agents.swarm.swarm import SwarmOrchestrator
-            from app.services.ai.planner.agents.swarm.agents import router_agent
+        finally:
+            if final_response:
+                await self.message_service.create(conversation_id, MessageCreate(role=MessageRole.ASSISTANT, content=final_response))
             
-            router_inst = typing.cast(ProviderRouter, self.provider)
-            swarm_engine = SwarmOrchestrator(router_inst)
-            
-            yield f"data: {json.dumps({'type': 'tool', 'name': 'Spinning up Multi-Agent Swarm (Router, Coder, Reviewer)'})}\n\n"
-            final_response = await swarm_engine.run(router_agent, messages)
-            yield f"data: {json.dumps({'type': 'content', 'delta': final_response})}\n\n"
-            yield f"data: {json.dumps({'type': 'tool', 'name': 'Swarm execution converged successfully.'})}\n\n"
-        elif intent == "antigravity":
-            from app.services.ai.planner.agents.antigravity import AntigravityAgent
-            ag_agent = AntigravityAgent()
-            async for chunk in ag_agent.stream_run(prompt, images=images):
-                if chunk.startswith("data: ") and '"delta"' in chunk:
-                    try:
-                        delta = json.loads(chunk[6:])['delta']
-                        final_response += delta
-                    except:
-                        pass
-                yield chunk
-        else:
-            planner = Planner(self.provider, strategy, intent=intent)
-            executor = AgentExecutor(planner, self.tool_orchestrator, strategy, intent=intent)
-            
-            async for chunk in executor.stream_run(prompt, context, messages, tools_payload):
-                if chunk.startswith("data: ") and '"delta"' in chunk:
-                    try:
-                        delta = json.loads(chunk[6:])['delta']
-                        final_response += delta
-                    except:
-                        pass
-                yield chunk
-
-        await self.message_service.create(conversation_id, MessageCreate(role=MessageRole.ASSISTANT, content=final_response))
-        
-        latency_ms = (time.perf_counter() - start_time) * 1000.0
-        metadata_dump = {
-            "type": "metadata",
-            "model_used": f"Provider Router ({intent.upper()})",
-            "retrieval_chunks": len(citations),
-            "latency_ms": round(latency_ms, 2)
-        }
-        yield f"data: {json.dumps(metadata_dump)}\n\n"
-        yield "data: [DONE]\n\n"
+            latency_ms = (time.perf_counter() - start_time) * 1000.0
+            metadata_dump = {
+                "type": "metadata",
+                "model_used": f"Provider Router ({intent.upper()})",
+                "retrieval_chunks": len(citations),
+                "latency_ms": round(latency_ms, 2)
+            }
+            try:
+                yield f"data: {json.dumps(metadata_dump)}\n\n"
+                yield "data: [DONE]\n\n"
+            except asyncio.CancelledError:
+                pass

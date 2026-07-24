@@ -24,6 +24,8 @@ class ChatState {
   final bool isProcessing;
   final bool shouldAutoExitVoiceMode;
   final String loadingText;
+  final List<Map<String, dynamic>>? pendingPlan; // non-null when plan_approval is pending
+  final int? pendingPlanMsgIndex;
 
   ChatState({
     this.conversationId,
@@ -41,6 +43,8 @@ class ChatState {
     this.isProcessing = false,
     this.shouldAutoExitVoiceMode = false,
     this.loadingText = "Thinking...",
+    this.pendingPlan,
+    this.pendingPlanMsgIndex,
   }) : messages = messages ?? [];
 
   ChatState copyWith({
@@ -59,6 +63,9 @@ class ChatState {
     bool? isProcessing,
     bool? shouldAutoExitVoiceMode,
     String? loadingText,
+    List<Map<String, dynamic>>? pendingPlan,
+    bool clearPendingPlan = false,
+    int? pendingPlanMsgIndex,
   }) {
     return ChatState(
       conversationId: conversationId ?? this.conversationId,
@@ -76,6 +83,8 @@ class ChatState {
       isProcessing: isProcessing ?? this.isProcessing,
       shouldAutoExitVoiceMode: shouldAutoExitVoiceMode ?? this.shouldAutoExitVoiceMode,
       loadingText: loadingText ?? this.loadingText,
+      pendingPlan: clearPendingPlan ? null : (pendingPlan ?? this.pendingPlan),
+      pendingPlanMsgIndex: clearPendingPlan ? null : (pendingPlanMsgIndex ?? this.pendingPlanMsgIndex),
     );
   }
 }
@@ -169,8 +178,10 @@ class ChatNotifier extends StateNotifier<ChatState> {
     } else {
       state = state.copyWith(messages: []);
     }
-
-    _initWebSocket();
+    
+    if (state.isContinuousVoiceMode) {
+      _initWebSocket();
+    }
   }
 
   Future<void> startNewChat() async {
@@ -197,7 +208,9 @@ class ChatNotifier extends StateNotifier<ChatState> {
       _wsStreamSub?.cancel();
       _channel?.sink.close();
       _channel = null;
-      _initWebSocket();
+      if (state.isContinuousVoiceMode) {
+        _initWebSocket();
+      }
     } catch (e) {
       debugPrint("Failed to create new chat: $e");
     } finally {
@@ -262,6 +275,8 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
   Future<void> _initWebSocket() async {
     if (state.conversationId == null) return;
+    if (!state.isContinuousVoiceMode) return;
+    
     try {
       _wsStreamSub?.cancel();
       _channel = _apiClient.connectToVoiceStream(state.conversationId.toString());
@@ -422,6 +437,11 @@ class ChatNotifier extends StateNotifier<ChatState> {
       if (state.isListening || state.isVoiceTyping) {
          stopListening();
       }
+      _wsStreamSub?.cancel();
+      _channel?.sink.close();
+      _channel = null;
+    } else {
+      _initWebSocket();
     }
   }
 
@@ -483,6 +503,63 @@ class ChatNotifier extends StateNotifier<ChatState> {
     state = state.copyWith(pendingImages: []);
   }
 
+  void stopGenerating() {
+    if (state.isProcessing) {
+      _apiClient.abortChatStream();
+      state = state.copyWith(isProcessing: false, loadingText: null);
+    }
+  }
+
+  void cancelPlan() {
+    state = state.copyWith(clearPendingPlan: true, isProcessing: false);
+  }
+
+  Future<void> approvePlan(List<Map<String, dynamic>> approvedSteps) async {
+    if (state.conversationId == null) return;
+    final planMsgIndex = state.pendingPlanMsgIndex;
+    state = state.copyWith(clearPendingPlan: true, isProcessing: true, loadingText: 'Executing plan...');
+
+    try {
+      String accumulated = '';
+      bool firstChunk = false;
+      int msgIdx = planMsgIndex ?? state.messages.length;
+
+      final stream = _apiClient.approvePlanStream(state.conversationId!, approvedSteps);
+      await for (final payload in stream) {
+        if (payload == '[DONE]') {
+          state = state.copyWith(isProcessing: false);
+          continue;
+        }
+        try {
+          final data = jsonDecode(payload);
+          if (data['type'] == 'content') {
+            if (state.isProcessing) state = state.copyWith(isProcessing: false);
+            if (!firstChunk) {
+              firstChunk = true;
+              final msgs = List<String>.from(state.messages);
+              msgs.add('Assistant: ');
+              msgIdx = msgs.length - 1;
+              state = state.copyWith(messages: msgs);
+            }
+            accumulated += data['delta'] as String;
+            final newMsgs = List<String>.from(state.messages);
+            if (msgIdx < newMsgs.length) {
+              newMsgs[msgIdx] = 'Assistant: $accumulated';
+              state = state.copyWith(messages: newMsgs);
+            }
+          } else if (data['type'] == 'tool') {
+            final name = data['name'] as String? ?? 'Executing...';
+            state = state.copyWith(loadingText: name);
+          }
+        } catch (_) {}
+      }
+    } catch (e) {
+      debugPrint('approvePlan error: $e');
+    } finally {
+      state = state.copyWith(isProcessing: false);
+    }
+  }
+
   void addMessage(String text) {
     state = state.copyWith(messages: [...state.messages, text]);
   }
@@ -507,7 +584,9 @@ class ChatNotifier extends StateNotifier<ChatState> {
       if (state.conversationId == null) {
          final newId = await _apiClient.createConversation("New Chat");
          state = state.copyWith(conversationId: newId);
-         _initWebSocket();
+         if (state.isContinuousVoiceMode) {
+           _initWebSocket();
+         }
       }
       
       state = state.copyWith(isProcessing: true, loadingText: "Thinking...");
@@ -556,6 +635,15 @@ class ChatNotifier extends StateNotifier<ChatState> {
            } else if (data['type'] == 'tool') {
               final name = data['name'] as String? ?? 'Executing tools...';
               state = state.copyWith(loadingText: name.contains('Searching') ? 'Searching the web...' : name);
+           } else if (data['type'] == 'plan_approval') {
+              // Agent halted — surface the plan card in the UI
+              final rawPlan = data['plan'] as List<dynamic>? ?? [];
+              final typedPlan = rawPlan.map((s) => Map<String, dynamic>.from(s as Map)).toList();
+              state = state.copyWith(
+                isProcessing: false,
+                pendingPlan: typedPlan,
+                pendingPlanMsgIndex: msgIndex,
+              );
            }
          } catch (_) {}
       }
@@ -575,12 +663,19 @@ class ChatNotifier extends StateNotifier<ChatState> {
       
       state = state.copyWith(isProcessing: false);
     } catch (e) {
+      // Don't modify messages if the user explicitly cancelled the stream, just drop the connection natively
+      if (e.toString().contains('Connection closed') || e.toString().contains('Stream failed') || e.toString().contains('ClientException')) {
+          state = state.copyWith(isProcessing: false, loadingText: null);
+          return;
+      }
       final newMsgs = List<String>.from(state.messages);
       if (newMsgs.isNotEmpty && newMsgs.last == "Assistant: ") {
         newMsgs.removeLast();
       }
-      newMsgs.add("Assistant: Error connecting to backend: $e");
-      state = state.copyWith(messages: newMsgs, isProcessing: false);
+      state = state.copyWith(
+        isProcessing: false, 
+        messages: newMsgs,
+      );
     } finally {
       state = state.copyWith(isSending: false);
     }

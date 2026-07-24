@@ -48,11 +48,12 @@ def _wmo_to_condition(wmo: int) -> str:
 async def fetch_weather(lat: str = "28.6139", lon: str = "77.2090") -> dict[str, Any]:
     try:
         async with httpx.AsyncClient(timeout=4.0) as client:
-            resp = await client.get(f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,weather_code&daily=temperature_2m_max,weather_code&timezone=auto")
+            resp = await client.get(f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,weather_code,is_day&daily=temperature_2m_max,weather_code&timezone=auto")
             if resp.status_code == 200:
                 data = resp.json()
                 temp = data.get("current", {}).get("temperature_2m", "--")
                 current_wmo = data.get("current", {}).get("weather_code", 3)
+                is_day = data.get("current", {}).get("is_day", 1)
                 current_condition = _wmo_to_condition(current_wmo)
                 
                 daily_times = data.get("daily", {}).get("time", [])
@@ -74,6 +75,7 @@ async def fetch_weather(lat: str = "28.6139", lon: str = "77.2090") -> dict[str,
                     "title": f"{temp}°C", 
                     "subtitle": current_condition,
                     "condition": current_condition,
+                    "is_day": is_day,
                     "forecast": forecast
                 }
     except Exception:
@@ -104,11 +106,13 @@ async def get_calendar_events(
         
         for evt in events:
             start_dt = evt.get('start', {}).get('dateTime') or evt.get('start', {}).get('date')
+            end_dt = evt.get('end', {}).get('dateTime') or evt.get('end', {}).get('date')
             events_payload.append({
                 "id": evt.get("id"),
                 "summary": evt.get("summary", "Busy"),
                 "location": evt.get("location", ""),
                 "start": start_dt,
+                "end": end_dt,
             })
     except Exception as e:
         logger.warning(f"Failed to fetch calendar events: {e}")
@@ -297,6 +301,7 @@ async def get_dashboard_widgets(
                 "title": weather["title"],
                 "subtitle": weather["subtitle"],
                 "ai_summary": ai_data.get("weather_summary", "Stable weather optimal."),
+                "is_day": weather.get("is_day", 1),
                 "forecast": weather.get("forecast", [])
             },
             {

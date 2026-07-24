@@ -2,7 +2,7 @@ import enum
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -32,6 +32,12 @@ class ScheduledJob(Base):
     cron_expression: Mapped[str | None] = mapped_column(String(50)) # For recurring Celery-beat like schedules 
     recurring_action: Mapped[str | None] = mapped_column(Text) # Explicit agent logic to deploy
     
+    # User-facing task fields
+    label: Mapped[str | None] = mapped_column(String(255))  # Human-readable name
+    is_user_defined: Mapped[bool] = mapped_column(Boolean, default=False)  # True = created by user via UI
+    is_enabled: Mapped[bool] = mapped_column(Boolean, default=True)  # Toggle without deleting
+    next_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # Cached next fire time
+    
     retry_count: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[JobStatus] = mapped_column(String, default=JobStatus.PENDING)
     failure_reason: Mapped[str | None] = mapped_column(Text)
@@ -40,3 +46,7 @@ class ScheduledJob(Base):
     
     user: Mapped["User"] = relationship("User")
     reminder: Mapped[Optional["Reminder"]] = relationship("Reminder")
+
+    @property
+    def directive(self) -> str | None:
+        return self.recurring_action
