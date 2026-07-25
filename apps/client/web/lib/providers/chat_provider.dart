@@ -564,6 +564,19 @@ class ChatNotifier extends StateNotifier<ChatState> {
     state = state.copyWith(messages: [...state.messages, text]);
   }
 
+  Future<void> editMessageAndSend(int index, String newText) async {
+    if (state.conversationId == null) return;
+    try {
+      await _apiClient.truncateConversation(state.conversationId!, index);
+    } catch (e) {
+      debugPrint("Failed to truncate conversation: $e");
+      return;
+    }
+    state = state.copyWith(messages: state.messages.sublist(0, index));
+    await sendMessage("User: $newText");
+  }
+
+
   Future<void> sendMessage(String text, {bool isRegenerate = false}) async {
     if (text.trim().isEmpty || state.isSending) return;
     

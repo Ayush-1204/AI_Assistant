@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, Response, status
 from app.db.models.user import User
 from app.dependencies import (
     get_conversation_service,
+    get_message_service,
     get_current_user,
 )
 from app.schemas.conversation import (
@@ -12,6 +13,12 @@ from app.schemas.conversation import (
     ConversationDetailResponse
 )
 from app.services.conversation_service import ConversationService
+from app.services.message_service import MessageService
+from pydantic import BaseModel
+
+class TruncateRequest(BaseModel):
+    from_index: int
+
 
 router = APIRouter(
     prefix="/conversations",
@@ -107,3 +114,21 @@ async def delete_conversation(
     return Response(
         status_code=status.HTTP_204_NO_CONTENT,
     )
+
+
+@router.post(
+    "/{conversation_id}/truncate",
+    status_code=status.HTTP_200_OK,
+)
+async def truncate_conversation(
+    conversation_id: int,
+    data: TruncateRequest,
+    current_user: User = Depends(get_current_user),
+    service: ConversationService = Depends(get_conversation_service),
+    message_service: MessageService = Depends(get_message_service),
+):
+    # Verify the conversation belongs to the user
+    await service.get_by_id(conversation_id, current_user.id)
+    # Truncate messages
+    await message_service.delete_messages_from_index(conversation_id, data.from_index)
+    return {"status": "ok"}

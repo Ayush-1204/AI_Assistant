@@ -248,6 +248,15 @@ class ApiClient {
     }
   }
 
+  Future<void> truncateConversation(int conversationId, int fromIndex) async {
+    try {
+      await _dio.post('/conversations/$conversationId/truncate', data: {'from_index': fromIndex});
+    } on DioException catch (e) {
+      throw Exception(e.response?.data?['detail'] ?? 'Failed to truncate conversation');
+    }
+  }
+
+
   Future<void> updateConversationPin(int conversationId, bool isPinned) async {
     try {
       await _dio.patch('/conversations/$conversationId', data: {'is_pinned': isPinned});

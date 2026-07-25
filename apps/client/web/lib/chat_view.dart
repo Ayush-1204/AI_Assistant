@@ -842,11 +842,9 @@ class _ChatViewState extends ConsumerState<ChatView> {
                                               color: Colors.white
                                                   .withValues(alpha: 0.05)),
                                     ),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        MarkdownBody(
+                                    child: Builder(
+                                      builder: (context) {
+                                        final mdBody = MarkdownBody(
                                                 data: processedMsg,
                                                 extensionSet: md.ExtensionSet.gitHubFlavored,
                                                 inlineSyntaxes: [CollageSyntax()],
@@ -988,10 +986,21 @@ class _ChatViewState extends ConsumerState<ChatView> {
                                                       decoration: TextDecoration
                                                           .underline),
                                                 ),
-                                              ),
-                                              
+                                              );
 
-                                        
+                                        return Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            if (!isAssistant)
+                                              _UserMessageEditor(
+                                                initialText: processedMsg,
+                                                markdownBody: mdBody,
+                                                onSave: (newText) => ref.read(chatProvider.notifier).editMessageAndSend(index - 1, newText),
+                                              )
+                                            else
+                                              mdBody,
+                                            
                                         if (isAssistant &&
                                             chatState.messageMetadata[
                                                     index - 1] !=
@@ -1070,6 +1079,8 @@ class _ChatViewState extends ConsumerState<ChatView> {
                                           ],
                                         )
                                       ],
+                                        );
+                                      }
                                     ),
                                   ),
                                 ),
@@ -2724,3 +2735,103 @@ class _PlanApprovalCardState extends State<_PlanApprovalCard>
   }
 }
 
+class _UserMessageEditor extends StatefulWidget {
+  final String initialText;
+  final Widget markdownBody;
+  final Function(String) onSave;
+
+  const _UserMessageEditor({
+    Key? key,
+    required this.initialText,
+    required this.markdownBody,
+    required this.onSave,
+  }) : super(key: key);
+
+  @override
+  State<_UserMessageEditor> createState() => _UserMessageEditorState();
+}
+
+class _UserMessageEditorState extends State<_UserMessageEditor> {
+  bool _isEditing = false;
+  late TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialText);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_isEditing) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          widget.markdownBody,
+          const SizedBox(height: 8),
+          InkWell(
+            onTap: () => setState(() => _isEditing = true),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.edit, size: 14, color: Colors.white.withValues(alpha: 0.5)),
+                const SizedBox(width: 4),
+                Text("Edit", style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12)),
+              ],
+            ),
+          )
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: _controller,
+          style: const TextStyle(color: Colors.white, fontSize: 15),
+          maxLines: null,
+          decoration: InputDecoration(
+            isDense: true,
+            filled: true,
+            fillColor: Colors.black.withValues(alpha: 0.2),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _isEditing = false;
+                  _controller.text = widget.initialText;
+                });
+              },
+              child: const Text("Cancel", style: TextStyle(color: Colors.white54)),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () {
+                setState(() => _isEditing = false);
+                widget.onSave(_controller.text);
+              },
+              child: const Text("Save & Submit"),
+            )
+          ],
+        )
+      ],
+    );
+  }
+}

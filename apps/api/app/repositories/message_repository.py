@@ -57,3 +57,11 @@ class MessageRepository:
     ) -> None:
         await self.db.delete(message)
         await self.db.commit()
+
+    async def delete_many(
+        self,
+        messages: list[Message],
+    ) -> None:
+        for message in messages:
+            await self.db.delete(message)
+        await self.db.commit()

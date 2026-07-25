@@ -150,3 +150,11 @@ This document aggregates the implementation plans and walkthrough summaries for 
   - Added an `asyncio.sleep` retry loop to `SemanticScholarTool` for handling HTTP 429 rate limit responses.
   - Enhanced `ComputerControlTool` to handle key combinations (e.g., `win+down`) by splitting on `+` and calling `pyautogui.hotkey()`.
 
+## Phase 31: Edit Message & Conversation Truncation
+**Status**: `Completed`
+- **Plan**: Allow users to edit their historical messages in the chat interface, automatically truncating subsequent conversation history and resubmitting the edited prompt.
+- **Implementation**:
+  - Implemented `delete_many` in `MessageRepository` and `delete_messages_from_index` in `MessageService` to purge messages after a specific index.
+  - Exposed POST `/conversations/{conversation_id}/truncate` in the backend API to handle truncation requests securely.
+  - Built `_UserMessageEditor` widget in `chat_view.dart` to support inline editing of User messages while preserving markdown layout.
+  - Updated `ChatProvider` to slice local state arrays and resubmit the conversation payload natively after truncation.
