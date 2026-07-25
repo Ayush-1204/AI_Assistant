@@ -48,6 +48,14 @@ temp/
 *.bak
 *.swp
 *.tmp
+*.exe
+*.zip
+*.out
+apps/api/test_*.py
+apps/api/tmp_*.py
+apps/api/check_db.py
+apps/api/fix_utc.py
+apps/api/migrate_oauth_state.py
 node_modules/
 build/
 dist/
@@ -60,3 +68,4 @@ dist/
 # Jarvis Research & OpenJarvis
 jarvis_research/
 openjarvis/
+
