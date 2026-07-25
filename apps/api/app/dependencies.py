@@ -500,10 +500,24 @@ def get_tool_orchestrator(
 ) -> ToolOrchestrator:
 
     from app.services.ai.tools.weather import WeatherTool
+    from app.services.ai.tools.code_interpreter import CodeInterpreterTool
+    from app.services.ai.tools.wikipedia import WikipediaTool
+    from app.services.ai.tools.image_search import ImageSearchTool
+    from app.services.ai.tools.wolfram import WolframAlphaTool
+    from app.services.ai.tools.arxiv import ArxivTool
+    from app.services.ai.tools.semantic_scholar import SemanticScholarTool
+    
     registry = ToolRegistry()
     registry.register(CurrentTimeTool())
     registry.register(WeatherTool())
     registry.register(CalculatorTool())
+    registry.register(CodeInterpreterTool(settings.E2B_API_KEY))
+    
+    registry.register(WikipediaTool())
+    registry.register(ImageSearchTool())
+    registry.register(WolframAlphaTool(settings.WOLFRAM_ALPHA_APP_ID))
+    registry.register(ArxivTool())
+    registry.register(SemanticScholarTool())
     registry.register(DocumentSearchTool(retrieval_service))
     registry.register(MemorySearchTool(memory_service))
     

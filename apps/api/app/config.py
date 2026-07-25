@@ -94,6 +94,12 @@ class Settings(BaseSettings):
     GROQ_API_KEY: str | None = None
     OPENROUTER_API_KEY: str | None = None
 
+    # Knowledge APIs
+    WOLFRAM_ALPHA_APP_ID: str | None = None
+
+    # E2B Code Interpreter
+    E2B_API_KEY: str | None = None
+
     # Google Workspace
     GOOGLE_CLIENT_ID: str | None = None
     GOOGLE_CLIENT_SECRET: str | None = None

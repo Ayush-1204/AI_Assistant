@@ -16,7 +16,10 @@ class MemorySearchTool(BaseTool):
         
     @property
     def parameters_schema(self) -> dict:
-        return {}
+        return {
+            "type": "object",
+            "properties": {}
+        }
         
     async def execute(self, execution_context: dict, **kwargs) -> str:
         user_id = execution_context.get("user_id")

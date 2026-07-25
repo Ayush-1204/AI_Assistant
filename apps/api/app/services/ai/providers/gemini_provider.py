@@ -83,16 +83,18 @@ class GeminiProvider(BaseLLMProvider):
         
         gemini_tools: list[Any] = list(tools) if tools else []
             
-        config = None
         if "lite" not in self.model.lower():
-            # Give Gemini explicit access to its own Search Grounding allowing it to choose vs Tavily
             import google.genai.types as gt
             try:
                 # Add native search grounding properly formatted using the SDK schema
                 gemini_tools.append(gt.Tool(google_search=gt.GoogleSearch()))
-                config = gt.GenerateContentConfig(tools=gemini_tools)
             except Exception:
                 pass
+
+        config = None
+        if gemini_tools:
+            import google.genai.types as gt
+            config = gt.GenerateContentConfig(tools=gemini_tools)
 
         try:
             if config:
@@ -159,14 +161,17 @@ class GeminiProvider(BaseLLMProvider):
 
         gemini_tools: list[Any] = list(tools) if tools else []
         
-        config = None
         if "lite" not in self.model.lower():
             import google.genai.types as gt
             try:
                 gemini_tools.append(gt.Tool(google_search=gt.GoogleSearch()))
-                config = gt.GenerateContentConfig(tools=gemini_tools)
             except Exception:
                 pass
+
+        config = None
+        if gemini_tools:
+            import google.genai.types as gt
+            config = gt.GenerateContentConfig(tools=gemini_tools)
             
         # Utilize Google SDK's native async client
         try:

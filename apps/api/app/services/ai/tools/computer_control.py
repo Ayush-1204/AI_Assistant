@@ -131,7 +131,11 @@ class ComputerControlTool(BaseTool):
                 key = kwargs.get("key")
                 if not key:
                     return "Error: 'key' parameter is required."
-                pyautogui.press(key)
+                if "+" in key:
+                    keys = [k.strip() for k in key.split("+")]
+                    pyautogui.hotkey(*keys)
+                else:
+                    pyautogui.press(key)
                 return f"Successfully pressed the physical key: '{key}'"
                 
             elif action == "drag":

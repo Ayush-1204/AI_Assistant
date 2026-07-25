@@ -16,7 +16,16 @@ class DocumentSearchTool(BaseTool):
         
     @property
     def parameters_schema(self) -> dict:
-        return {"query": "string, exactly what to search for"}
+        return {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Exactly what to search for"
+                }
+            },
+            "required": ["query"]
+        }
         
     async def execute(self, execution_context: dict, query: str = "", **kwargs) -> str:
         user_id = execution_context.get("user_id")

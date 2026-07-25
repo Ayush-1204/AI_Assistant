@@ -14,7 +14,16 @@ class CalculatorTool(BaseTool):
         
     @property
     def parameters_schema(self) -> dict:
-        return {"expression": "string, e.g. '2 + 2'"}
+        return {
+            "type": "object",
+            "properties": {
+                "expression": {
+                    "type": "string",
+                    "description": "Mathematical expression, e.g. '2 + 2'"
+                }
+            },
+            "required": ["expression"]
+        }
         
     async def execute(self, execution_context: dict, expression: str = "", **kwargs) -> str:
         try:

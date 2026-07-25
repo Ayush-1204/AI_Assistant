@@ -1,6 +1,6 @@
-# Development Log: Phase 9 to Phase 22
+# Development Log: Phase 9 to Phase 28
 
-This document aggregates the implementation plans and walkthrough summaries for Phases 9 through 22, detailing the architectural decisions, structural refactoring, and UI/UX improvements deployed to the Personal AI Assistant.
+This document aggregates the implementation plans and walkthrough summaries for Phases 9 through 28, detailing the architectural decisions, structural refactoring, and UI/UX improvements deployed to the Personal AI Assistant.
 
 ---
 
@@ -82,3 +82,71 @@ This document aggregates the implementation plans and walkthrough summaries for 
   - Pared the Custom Voice Icon explicitly down to 4 visual payload bars matching strict design limits exactly.
   - Re-routed historic conversation parsing schemas masking arbitrary `System:` payload data out of the Voice UI completely, along with stripping active persistent `User: ` prefixes off chat bubbles natively.
   - Dropped excessive `Sessions/Recent` popup array layouts directly from the overarching top action bar per user UX refinements.
+
+## Phase 23: Native Function Calling Strategy & Provider Tool Mapping
+**Status**: `Completed`
+- **Plan**: Restore native function calling across all LLM providers (Gemini, Groq, OpenRouter) and fix tool translation schemas.
+- **Implementation**:
+  - Re-enabled `supports_native_tools = True` in `router.py` to bypass unstable XML fallback strategies.
+  - Updated `openai_provider.py` to map Gemini `function_declarations` schemas into OpenAI-compatible `tools` schemas seamlessly.
+  - Ensured native function call extraction and execution work uniformly across all providers.
+
+## Phase 24: Scheduled Task UI Separators & Automation Pipeline
+**Status**: `Completed`
+- **Plan**: Align automated scheduled job outputs with normal user chat flows while standardizing UI representation.
+- **Implementation**:
+  - Updated `dispatcher.py` to append Date/Title metadata to automated job triggers while preserving raw user directives intact.
+  - Built a frontend interceptor in `chat_view.dart` to hide raw `[AUTOMATED SCHEDULED TRIGGER]` text, rendering a pristine system separator pill displaying the task Title and Date.
+
+## Phase 25: Open-Meteo Weather Service API Tool
+**Status**: `Completed`
+- **Plan**: Provide dedicated weather lookup capabilities directly to both live chat and background tasks to prevent LLM web search hallucinations.
+- **Implementation**:
+  - Implemented `WeatherTool` in `app/services/ai/tools/weather.py` utilizing the Open-Meteo Geocoding and Forecast APIs via `httpx`.
+  - Registered `WeatherTool` in `ToolOrchestrator` (`dependencies.py`), providing exact current conditions, humidity, wind, and 5-day forecasts.
+
+## Phase 26: OpenAI Streaming Tool-Call Delta Buffering & Forced Tool Choice
+**Status**: `Completed`
+- **Plan**: Resolve tool execution failures during SSE streaming requests on OpenAI/Groq endpoints and enforce tool calls when intent requires search.
+- **Implementation**:
+  - Added a `tool_calls_buffer` inside `stream_chat` in `openai_provider.py` to accumulate streamed function arguments and yield a `MockResponse` upon stream completion.
+  - Added dynamic `tool_choice: "required"` injection when `intent == "SEARCH"` for initial execution steps (safeguarded against loop recursion).
+  - Enhanced `PromptBuilder.chat()` to safely serialize native `parts` array structures in message history, resolving `KeyError: 'content'` during provider failover.
+
+## Phase 27: E2B Cloud Sandbox Code Interpreter Integration
+**Status**: `Completed`
+- **Plan**: Fix desktop computer control dependencies and implement a secure Python code interpreter sandbox for complex computation and data analysis.
+- **Implementation**:
+  - Installed `pyautogui`, `Pillow`, and `e2b_code_interpreter` in the backend virtual environment, restoring full functionality to `ComputerControlTool`.
+  - Implemented `CodeInterpreterTool` in `app/services/ai/tools/code_interpreter.py` using `Sandbox.create()` from `e2b_code_interpreter`.
+  - Added `E2B_API_KEY` to `config.py` and registered `CodeInterpreterTool` in `dependencies.py` to run untrusted code in Firecracker microVM sandboxes.
+
+## Phase 28: Native Knowledge & Research Tools Suite
+**Status**: `Completed`
+- **Plan**: Expand the AI's research capabilities with specialized factual, scientific, and mathematical lookup APIs.
+- **Implementation**:
+  - Built 4 zero-dependency tools using raw `httpx` and built-in Python parsers:
+    - `WikipediaTool`: Fast, factual entity lookups via Wikipedia REST API.
+    - `WolframAlphaTool`: Quantitative and scientific reasoning via Wolfram Alpha Spoken Results API (added `WOLFRAM_ALPHA_APP_ID` to `config.py`).
+    - `ArxivTool`: Academic paper search and abstract retrieval via arXiv Atom feed API.
+    - `SemanticScholarTool`: Citation graphs and literature search via Semantic Scholar API.
+  - Registered all 4 tools in `dependencies.py` and updated the `ai_tools_list.md` artifact.
+
+## Phase 29: Image Verification, Local Proxy, and ImageSearchTool
+**Status**: `Completed`
+- **Plan**: Eliminate broken/hallucinated image URLs in LLM responses and bypass CORS/hotlinking restrictions (e.g. Wikimedia blocks).
+- **Implementation**:
+  - Created `ImageSearchTool` in `app/services/ai/tools/image_search.py` using Wikipedia API to search images, performing HTTP `HEAD` verification requests to ensure the image exists (`200 OK`) and has `Content-Type: image/*`.
+  - Routed verified image URLs through the local backend proxy endpoint `/media/proxy?url=...` (in `app/routers/media.py`) to bypass CORS and hotlinking blocks on Flutter Web.
+  - Updated system prompt in `context_builder.py` to strictly forbid hallucinated/unverified image URLs and Wikimedia hotlinks.
+  - Registered `ImageSearchTool` in `dependencies.py`.
+
+## Phase 30: Tool Hardening & Resilience Patches
+**Status**: `Completed`
+- **Plan**: Resolve 308 redirects, output capture bugs, rate-limit failures, and keypress handling across tools.
+- **Implementation**:
+  - Fixed `WolframAlphaTool` to use `https://api.wolframalpha.com` instead of `http://`, resolving 308 Permanent Redirect errors.
+  - Updated `CodeInterpreterTool` to capture standard output from `execution.logs.stdout` and `execution.logs.stderr` (matching the updated `e2b_code_interpreter` V1 SDK) instead of legacy `execution.text`.
+  - Added an `asyncio.sleep` retry loop to `SemanticScholarTool` for handling HTTP 429 rate limit responses.
+  - Enhanced `ComputerControlTool` to handle key combinations (e.g., `win+down`) by splitting on `+` and calling `pyautogui.hotkey()`.
+
