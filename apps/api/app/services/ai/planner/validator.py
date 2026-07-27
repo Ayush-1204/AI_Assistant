@@ -18,7 +18,12 @@ class ValidatorStage:
         if result.confidence < 0.5:
             return ValidationReport(is_trustworthy=False, confidence_score=result.confidence, reason="Tool execution failed or returned very low confidence natively.")
 
+        import datetime
+        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
         prompt = f"""You are a strict data validator. Your job is to evaluate if a piece of retrieved information is trustworthy, relevant, and fresh for the user's query.
+
+Current Date/Time: {current_time}
 
 User Query: {query}
 Tool Used: {result.tool_name}
