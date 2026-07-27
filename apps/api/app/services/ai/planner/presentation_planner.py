@@ -83,7 +83,7 @@ Example:
 You must use the Curated Context to populate the fields. DO NOT invent facts.
 
 Curated Context Summary & Facts:
-{json.dumps(context.model_dump(exclude={{'raw_data'}}), indent=2)}
+{json.dumps(context.model_dump(exclude={'raw_data'}), indent=2)}
 
 Raw Tool Data (Use this for precise arrays, charts, forecasts, etc):
 {json.dumps(context.raw_data, indent=2)}
