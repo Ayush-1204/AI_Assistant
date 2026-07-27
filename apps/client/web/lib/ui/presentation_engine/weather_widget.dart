@@ -174,6 +174,7 @@ class _WeatherCardWidgetState extends State<WeatherCardWidget> {
             ),
         ],
       ),
+      ),
     );
   }
 }

@@ -163,7 +163,7 @@ class AIService:
 
         yield f"data: {json.dumps({'type': 'citations', 'citations': [c.model_dump() for c in citations]})}\n\n"
 
-        context = {"user_id": user_id, "conversation_id": conversation_id}
+        context = {"user_id": user_id, "conversation_id": conversation_id, "lat": location_lat, "lon": location_lon}
         tools_payload = strategy.get_tools_for_provider()
         
         # Override intent dynamically

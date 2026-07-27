@@ -52,16 +52,24 @@ class WeatherTool(BaseTool):
         try:
             async with httpx.AsyncClient(timeout=15.0) as client:
                 if location.lower() in ["auto", "auto-detect", "here", "current_user_city", "current location", "result_from_get_user_location"]:
-                    # Use IP-based geolocation
-                    ip_resp = await client.get("http://ip-api.com/json/")
-                    if ip_resp.status_code != 200:
-                        return json.dumps({"error": "Failed to auto-detect location based on IP"})
-                    ip_data = ip_resp.json()
-                    lat = ip_data.get("lat")
-                    lon = ip_data.get("lon")
-                    city = ip_data.get("city", "Auto-detected Location")
-                    country = ip_data.get("country", "")
-                    full_name = f"{city}, {country}" if country else city
+                    ctx_lat = execution_context.get("lat")
+                    ctx_lon = execution_context.get("lon")
+                    
+                    if ctx_lat is not None and ctx_lon is not None:
+                        lat = ctx_lat
+                        lon = ctx_lon
+                        full_name = "Current Location (GPS)"
+                    else:
+                        # Fallback to IP-based geolocation
+                        ip_resp = await client.get("http://ip-api.com/json/")
+                        if ip_resp.status_code != 200:
+                            return json.dumps({"error": "Failed to auto-detect location based on IP"})
+                        ip_data = ip_resp.json()
+                        lat = ip_data.get("lat")
+                        lon = ip_data.get("lon")
+                        city = ip_data.get("city", "Auto-detected Location")
+                        country = ip_data.get("country", "")
+                        full_name = f"{city}, {country}" if country else city
                 else:
                     # 1. Geocode location to lat/lon
                     geo_resp = await client.get(f"https://geocoding-api.open-meteo.com/v1/search?name={location}&count=1&format=json")
