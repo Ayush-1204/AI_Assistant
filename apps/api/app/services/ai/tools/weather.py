@@ -17,7 +17,7 @@ class WeatherTool(BaseTool):
 
     @property
     def description(self) -> str:
-        return "Get the current weather and 5-day forecast for a specific location. Use this tool whenever the user asks for the weather, temperature, or forecast."
+        return "Get the current weather and 7-day forecast for a specific location. Use this tool whenever the user asks for the weather, temperature, or forecast. If the user does not specify a location, you MUST pass 'auto-detect' as the location parameter and the backend will automatically geo-locate them via IP."
 
     @property
     def parameters_schema(self) -> dict:
