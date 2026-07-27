@@ -11,6 +11,8 @@ class WeatherCardWidget extends StatefulWidget {
 
 class _WeatherCardWidgetState extends State<WeatherCardWidget> {
   int _selectedDayIndex = 0;
+  bool _isFahrenheit = false;
+  String _selectedMetric = 'Temperature';
 
   IconData _getIconForCondition(String condition) {
     final lower = condition.toLowerCase();
@@ -33,9 +35,11 @@ class _WeatherCardWidgetState extends State<WeatherCardWidget> {
         : null;
         
     final displayTemp = _selectedDayIndex == 0 
-        ? node.temperatureC.round() 
-        : (selectedForecast != null ? (selectedForecast['high'] as num?)?.round() ?? 0 : 0);
+        ? node.temperatureC 
+        : (selectedForecast != null ? (selectedForecast['high'] as num?)?.toDouble() ?? 0.0 : 0.0);
         
+    final displayTempConverted = _isFahrenheit ? (displayTemp * 9 / 5) + 32 : displayTemp;
+
     final displayCondition = _selectedDayIndex == 0
         ? node.condition
         : (selectedForecast != null ? selectedForecast['condition'] as String? ?? 'Unknown' : 'Unknown');
@@ -44,7 +48,9 @@ class _WeatherCardWidgetState extends State<WeatherCardWidget> {
         ? selectedForecast['hourly'] as List<dynamic>
         : <dynamic>[];
 
-    return Container(
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 500),
+      child: Container(
       margin: const EdgeInsets.symmetric(vertical: 16),
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -64,14 +70,23 @@ class _WeatherCardWidgetState extends State<WeatherCardWidget> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '$displayTemp°',
+                '${displayTempConverted.round()}°',
                 style: const TextStyle(fontSize: 64, fontWeight: FontWeight.w400, color: Colors.white, height: 1),
               ),
-              const Padding(
-                padding: EdgeInsets.only(top: 8.0, left: 8.0),
-                child: Text(
-                  'C / F',
-                  style: TextStyle(fontSize: 16, color: Colors.white70, fontWeight: FontWeight.w500),
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0, left: 8.0),
+                child: Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () => setState(() => _isFahrenheit = false),
+                      child: Text('C', style: TextStyle(fontSize: 16, color: !_isFahrenheit ? Colors.white : Colors.white54, fontWeight: FontWeight.w500)),
+                    ),
+                    const Text(' / ', style: TextStyle(fontSize: 16, color: Colors.white54)),
+                    GestureDetector(
+                      onTap: () => setState(() => _isFahrenheit = true),
+                      child: Text('F', style: TextStyle(fontSize: 16, color: _isFahrenheit ? Colors.white : Colors.white54, fontWeight: FontWeight.w500)),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -112,9 +127,9 @@ class _WeatherCardWidgetState extends State<WeatherCardWidget> {
                           const SizedBox(height: 8),
                           Icon(_getIconForCondition(f['condition'] ?? ''), color: isSelected ? Colors.blue[200] : Colors.white, size: 24),
                           const SizedBox(height: 8),
-                          Text('${(f['high'] as num?)?.round() ?? 0}°', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                          Text('${(_isFahrenheit ? (((f['high'] as num?) ?? 0) * 9/5) + 32 : ((f['high'] as num?) ?? 0)).round()}°', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
                           const SizedBox(height: 4),
-                          Text('${(f['low'] as num?)?.round() ?? 0}°', style: TextStyle(color: Colors.white.withValues(alpha: 0.5))),
+                          Text('${(_isFahrenheit ? (((f['low'] as num?) ?? 0) * 9/5) + 32 : ((f['low'] as num?) ?? 0)).round()}°', style: TextStyle(color: Colors.white.withValues(alpha: 0.5))),
                         ],
                       ),
                     ),
@@ -124,12 +139,23 @@ class _WeatherCardWidgetState extends State<WeatherCardWidget> {
             ),
             
           const SizedBox(height: 32),
-          Row(
-            children: [
-              const Text('Temperature', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-              const SizedBox(width: 4),
-              Icon(Icons.unfold_more, color: Colors.white.withValues(alpha: 0.5), size: 16),
-            ],
+          DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: _selectedMetric,
+              dropdownColor: const Color(0xFF303134),
+              icon: Icon(Icons.unfold_more, color: Colors.white.withValues(alpha: 0.5), size: 16),
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+              onChanged: (String? newValue) {
+                if (newValue != null) setState(() => _selectedMetric = newValue);
+              },
+              items: <String>['Temperature', 'Precipitation']
+                  .map<DropdownMenuItem<String>>((String value) {
+                return DropdownMenuItem<String>(
+                  value: value,
+                  child: Text(value),
+                );
+              }).toList(),
+            ),
           ),
           const SizedBox(height: 24),
           
@@ -138,7 +164,7 @@ class _WeatherCardWidgetState extends State<WeatherCardWidget> {
               height: 120,
               width: double.infinity,
               child: CustomPaint(
-                painter: _HourlyTemperaturePainter(hourly: hourlyData),
+                painter: _HourlyDataPainter(hourly: hourlyData, isFahrenheit: _isFahrenheit, metric: _selectedMetric),
               ),
             )
           else
@@ -146,25 +172,18 @@ class _WeatherCardWidgetState extends State<WeatherCardWidget> {
               height: 120,
               child: Center(child: Text("Hourly data unavailable", style: TextStyle(color: Colors.white54))),
             ),
-            
-          const SizedBox(height: 16),
-          Align(
-            alignment: Alignment.bottomRight,
-            child: Text(
-              'Give feedback',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12),
-            ),
-          )
         ],
       ),
     );
   }
 }
 
-class _HourlyTemperaturePainter extends CustomPainter {
+class _HourlyDataPainter extends CustomPainter {
   final List<dynamic> hourly;
+  final bool isFahrenheit;
+  final String metric;
 
-  _HourlyTemperaturePainter({required this.hourly});
+  _HourlyDataPainter({required this.hourly, required this.isFahrenheit, required this.metric});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -173,26 +192,35 @@ class _HourlyTemperaturePainter extends CustomPainter {
     final double width = size.width;
     final double height = size.height;
     
-    double minTemp = double.infinity;
-    double maxTemp = double.negativeInfinity;
+    double minVal = double.infinity;
+    double maxVal = double.negativeInfinity;
     for (var h in hourly) {
-      double t = (h['temp'] as num).toDouble();
-      if (t < minTemp) minTemp = t;
-      if (t > maxTemp) maxTemp = t;
+      double v = metric == 'Temperature' 
+          ? (isFahrenheit ? (((h['temp'] as num).toDouble() * 9/5) + 32) : (h['temp'] as num).toDouble())
+          : (h['precip'] as num?)?.toDouble() ?? 0.0;
+      if (v < minVal) minVal = v;
+      if (v > maxVal) maxVal = v;
     }
     
-    minTemp -= 2;
-    maxTemp += 2;
-    double range = maxTemp - minTemp;
+    if (metric == 'Temperature') {
+      minVal -= 2;
+      maxVal += 2;
+    } else {
+      minVal = 0;
+      maxVal = maxVal < 5 ? 5 : maxVal + 2; // For precipitation (mm)
+    }
+    double range = maxVal - minVal;
     if (range == 0) range = 1;
 
     final double stepX = width / (hourly.length > 1 ? hourly.length - 1 : 1);
     
     List<Offset> points = [];
     for (int i = 0; i < hourly.length; i++) {
-      double t = (hourly[i]['temp'] as num).toDouble();
+      double v = metric == 'Temperature' 
+          ? (isFahrenheit ? (((hourly[i]['temp'] as num).toDouble() * 9/5) + 32) : (hourly[i]['temp'] as num).toDouble())
+          : (hourly[i]['precip'] as num?)?.toDouble() ?? 0.0;
       double x = i * stepX;
-      double y = height - ((t - minTemp) / range) * (height - 40); 
+      double y = height - ((v - minVal) / range) * (height - 40); 
       points.add(Offset(x, y - 20)); 
     }
 
@@ -239,9 +267,13 @@ class _HourlyTemperaturePainter extends CustomPainter {
       canvas.drawCircle(p, 4, dotBgPaint);
       canvas.drawCircle(p, 3, dotPaint);
       
-      final tempStr = '${(hourly[i]['temp'] as num).round()}°';
+      double v = metric == 'Temperature' 
+          ? (isFahrenheit ? (((hourly[i]['temp'] as num).toDouble() * 9/5) + 32) : (hourly[i]['temp'] as num).toDouble())
+          : (hourly[i]['precip'] as num?)?.toDouble() ?? 0.0;
+      
+      final valStr = metric == 'Temperature' ? '${v.round()}°' : '${v.toStringAsFixed(1)}mm';
       final textPainter = TextPainter(
-        text: TextSpan(text: tempStr, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+        text: TextSpan(text: valStr, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
         textDirection: TextDirection.ltr,
       );
       textPainter.layout();

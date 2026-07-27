@@ -47,6 +47,8 @@ Return ONLY a JSON array of objects. EVERY object must have:
 - 'type': exact type from the list above
 - 'purpose': brief instruction on what this node will contain (e.g. "Main title", "Compare speed and cost")
 
+CRITICAL INSTRUCTION: If you use a rich card (like WeatherCard or NewsCard), you MUST also include a 'Paragraph' node either before or after it to provide a conversational, descriptive brief to the user.
+
 Example:
 [
   {{"id": "h1", "type": "Heading", "purpose": "Main title summarizing the topic"}},

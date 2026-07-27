@@ -81,7 +81,7 @@ class WeatherTool(BaseTool):
                 # 2. Get Weather
                 for attempt in range(3):
                     try:
-                        resp = await client.get(f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m&hourly=temperature_2m&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=auto")
+                        resp = await client.get(f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m&hourly=temperature_2m,precipitation&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=auto")
                         if resp.status_code == 200:
                             break
                         elif attempt == 2:
@@ -108,6 +108,7 @@ class WeatherTool(BaseTool):
                 hourly = data.get("hourly", {})
                 hourly_times = hourly.get("time", [])
                 hourly_temps = hourly.get("temperature_2m", [])
+                hourly_precip = hourly.get("precipitation", [])
 
                 forecast = []
                 for idx in range(min(7, len(daily_times))):
@@ -119,10 +120,10 @@ class WeatherTool(BaseTool):
                         h_idx = (idx * 24) + (i * 3)
                         if h_idx < len(hourly_times) and h_idx < len(hourly_temps):
                             dt_h = datetime.datetime.fromisoformat(hourly_times[h_idx])
-                            time_str = dt_h.strftime("%I%p").lstrip("0").lower()
                             day_hourly.append({
-                                "time": time_str,
-                                "temp": hourly_temps[h_idx]
+                                "time": dt_h.strftime("%I%p").lstrip("0").lower(),
+                                "temp": hourly_temps[h_idx],
+                                "precip": hourly_precip[h_idx] if h_idx < len(hourly_precip) else 0.0
                             })
                             
                     forecast.append({
