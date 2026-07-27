@@ -1,7 +1,8 @@
 import json
 import logging
-import httpx
 import datetime
+import traceback
+import httpx
 
 from app.services.ai.tools.base import BaseTool
 
@@ -49,7 +50,7 @@ class WeatherTool(BaseTool):
             location = "auto"
 
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            async with httpx.AsyncClient(timeout=15.0) as client:
                 if location.lower() in ["auto", "auto-detect", "here", "current_user_city", "current location", "result_from_get_user_location"]:
                     # Use IP-based geolocation
                     ip_resp = await client.get("http://ip-api.com/json/")
@@ -78,10 +79,19 @@ class WeatherTool(BaseTool):
                     full_name = f"{city}, {country}" if country else city
                 
                 # 2. Get Weather
-                resp = await client.get(f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m&hourly=temperature_2m&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=auto")
-                if resp.status_code != 200:
-                    return json.dumps({"error": "Failed to fetch weather data"})
-                    
+                for attempt in range(3):
+                    try:
+                        resp = await client.get(f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m&hourly=temperature_2m&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=auto")
+                        if resp.status_code == 200:
+                            break
+                        elif attempt == 2:
+                            return json.dumps({"error": "Failed to fetch weather data"})
+                    except httpx.ConnectError:
+                        if attempt == 2:
+                            raise
+                        import asyncio
+                        await asyncio.sleep(1)
+                
                 data = resp.json()
                 
                 # Format current weather
@@ -140,5 +150,6 @@ class WeatherTool(BaseTool):
                 return json.dumps(result)
 
         except Exception as e:
-            logger.error(f"[WeatherTool] Error: {e}")
-            return json.dumps({"error": f"Failed to execute weather tool: {str(e)}"})
+            err_msg = traceback.format_exc()
+            logger.error(f"[WeatherTool] Error: {err_msg}")
+            return json.dumps({"error": f"Failed to execute weather tool: {str(e)}\n{err_msg}"})
