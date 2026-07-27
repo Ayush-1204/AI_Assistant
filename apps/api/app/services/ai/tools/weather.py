@@ -78,7 +78,7 @@ class WeatherTool(BaseTool):
                     full_name = f"{city}, {country}" if country else city
                 
                 # 2. Get Weather
-                resp = await client.get(f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=auto")
+                resp = await client.get(f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m&hourly=temperature_2m&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=auto")
                 if resp.status_code != 200:
                     return json.dumps({"error": "Failed to fetch weather data"})
                     
@@ -96,13 +96,39 @@ class WeatherTool(BaseTool):
                 daily_codes = daily.get("weather_code", [])
                 
                 forecast = []
-                for idx in range(min(5, len(daily_times))):
+                for idx in range(min(7, len(daily_times))):
+                    dt = datetime.datetime.fromisoformat(daily_times[idx])
+                    day_str = dt.strftime("%a")
                     forecast.append({
                         "date": daily_times[idx],
+                        "day": day_str,
                         "high": daily_max[idx] if daily_max and idx < len(daily_max) else None,
                         "low": daily_min[idx] if daily_min and idx < len(daily_min) else None,
                         "condition": self._wmo_to_condition(daily_codes[idx]) if daily_codes and idx < len(daily_codes) else "Unknown"
                     })
+                    
+                hourly = data.get("hourly", {})
+                hourly_times = hourly.get("time", [])
+                hourly_temps = hourly.get("temperature_2m", [])
+                
+                # Find index closest to current time
+                now_iso = datetime.datetime.now().strftime("%Y-%m-%dT%H:00")
+                start_idx = 0
+                for i, t in enumerate(hourly_times):
+                    if t >= now_iso:
+                        start_idx = i
+                        break
+                        
+                hourly_forecast = []
+                for i in range(8):
+                    idx = start_idx + (i * 3)
+                    if idx < len(hourly_times):
+                        dt = datetime.datetime.fromisoformat(hourly_times[idx])
+                        time_str = dt.strftime("%I%p").lstrip("0").lower()
+                        hourly_forecast.append({
+                            "time": time_str,
+                            "temp": hourly_temps[idx]
+                        })
                 
                 result = {
                     "location": full_name,
@@ -114,7 +140,8 @@ class WeatherTool(BaseTool):
                         "wind_speed": f"{current.get('wind_speed_10m')} km/h",
                         "condition": self._wmo_to_condition(current_wmo)
                     },
-                    "forecast_5_days": forecast
+                    "forecast_7_days": forecast,
+                    "hourly": hourly_forecast
                 }
                 
                 return json.dumps(result)

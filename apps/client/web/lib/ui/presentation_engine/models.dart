@@ -129,6 +129,7 @@ class WeatherCardNode extends PresentationNode {
   final double temperatureC;
   final String condition;
   final List<dynamic> forecast;
+  final List<dynamic> hourly;
 
   WeatherCardNode({
     required super.id,
@@ -136,6 +137,7 @@ class WeatherCardNode extends PresentationNode {
     required this.temperatureC,
     required this.condition,
     this.forecast = const [],
+    this.hourly = const [],
   }) : super(type: 'WeatherCard');
 
   factory WeatherCardNode.fromJson(Map<String, dynamic> json) {
@@ -155,6 +157,7 @@ class WeatherCardNode extends PresentationNode {
       temperatureC: parseTemp(json['temperature_c']),
       condition: json['condition'] ?? '',
       forecast: json['forecast'] ?? [],
+      hourly: json['hourly'] ?? [],
     );
   }
 }

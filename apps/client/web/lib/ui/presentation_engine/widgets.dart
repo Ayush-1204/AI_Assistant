@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import '../markdown/ai_message_renderer.dart';
 import 'models.dart';
+import 'weather_widget.dart';
 
 class UnknownNodeWidget extends StatelessWidget {
   final UnknownNode node;
@@ -234,51 +235,4 @@ class TimelineWidget extends StatelessWidget {
   }
 }
 
-class WeatherCardWidget extends StatelessWidget {
-  final WeatherCardNode node;
-  const WeatherCardWidget({super.key, required this.node});
 
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: const LinearGradient(
-            colors: [Color(0xFF2C3E50), Color(0xFF3498DB)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  node.location,
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
-                ),
-                const Icon(Icons.cloud, color: Colors.white, size: 32),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '${node.temperatureC.toStringAsFixed(1)}°C',
-              style: const TextStyle(fontSize: 48, fontWeight: FontWeight.w900, color: Colors.white),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              node.condition,
-              style: const TextStyle(fontSize: 18, color: Colors.white70),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
