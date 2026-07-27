@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'models.dart';
 import 'widgets.dart';
+import 'weather_widget.dart';
 
 typedef WidgetBuilderFn = Widget Function(BuildContext context, PresentationNode node);
 
