@@ -50,7 +50,7 @@ class WeatherTool(BaseTool):
 
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
-                if location.lower() == "auto":
+                if location.lower() in ["auto", "auto-detect", "here"]:
                     # Use IP-based geolocation
                     ip_resp = await client.get("http://ip-api.com/json/")
                     if ip_resp.status_code != 200:
