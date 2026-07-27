@@ -11,6 +11,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:second_brain_frontend/ui/markdown/ai_message_renderer.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'api_client.dart';
@@ -18,6 +19,8 @@ import 'providers/auth_provider.dart';
 import 'providers/chat_provider.dart';
 import 'voice_view.dart';
 import 'package:markdown/markdown.dart' as md;
+import 'ui/presentation_engine/renderer.dart';
+import 'ui/presentation_engine/models.dart';
 
 class CollageSyntax extends md.InlineSyntax {
   CollageSyntax() : super(r'\[COLLAGE:(.*?)\]');
@@ -35,6 +38,71 @@ class CollageElementBuilder extends MarkdownElementBuilder {
   final BuildContext context;
   CollageElementBuilder(this.context);
 
+  Widget _buildImageTile(BuildContext context, String url, int index, List<String> allUrls, {bool isOverlay = false}) {
+    final proxyUrl = '${ApiClient.baseUrl}/media/proxy?url=${Uri.encodeComponent(url)}';
+    Widget img = Image.network(
+      proxyUrl,
+      fit: BoxFit.cover,
+      headers: const {'Accept': 'image/*'},
+      errorBuilder: (context, error, stackTrace) {
+        return Image.network(url, fit: BoxFit.cover, 
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              color: Colors.grey.withValues(alpha: 0.1),
+              child: const Center(
+                child: Icon(Icons.image_not_supported_outlined, color: Colors.white54, size: 32)
+              )
+            );
+          });
+      },
+    );
+
+    if (isOverlay && allUrls.length > 3) {
+      img = Stack(
+        fit: StackFit.expand,
+        children: [
+          img,
+          Container(
+            color: Colors.black.withValues(alpha: 0.6),
+            child: Center(
+              child: Text(
+                '+${allUrls.length - 3}',
+                style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.of(context).push(
+          PageRouteBuilder(
+            opaque: false,
+            pageBuilder: (BuildContext context, _, __) {
+              return _GalleryView(urls: allUrls, initialIndex: index);
+            },
+          ),
+        );
+      },
+      child: Container(
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 10,
+                offset: const Offset(0, 4))
+          ],
+        ),
+        child: img,
+      ),
+    );
+  }
+
   @override
   Widget visitElementAfter(md.Element element, TextStyle? preferredStyle) {
     var urls = element.textContent.split('||');
@@ -47,62 +115,43 @@ class CollageElementBuilder extends MarkdownElementBuilder {
     
     if (urls.isEmpty) return const SizedBox.shrink();
 
+    Widget content;
+    
+    if (urls.length == 1) {
+      content = ConstrainedBox(
+        constraints: const BoxConstraints(maxHeight: 350),
+        child: _buildImageTile(context, urls[0], 0, urls)
+      );
+    } else if (urls.length == 2) {
+      content = SizedBox(
+        height: 200,
+        child: Row(
+          children: [
+            Expanded(child: _buildImageTile(context, urls[0], 0, urls)),
+            const SizedBox(width: 12),
+            Expanded(child: _buildImageTile(context, urls[1], 1, urls)),
+          ],
+        ),
+      );
+    } else {
+      // 3 or more images - render a row of 3
+      content = SizedBox(
+        height: 160,
+        child: Row(
+          children: [
+            Expanded(child: _buildImageTile(context, urls[0], 0, urls)),
+            const SizedBox(width: 12),
+            Expanded(child: _buildImageTile(context, urls[1], 1, urls)),
+            const SizedBox(width: 12),
+            Expanded(child: _buildImageTile(context, urls[2], 2, urls, isOverlay: true)),
+          ],
+        ),
+      );
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        children: urls.asMap().entries.map((entry) {
-          final index = entry.key;
-          final url = entry.value;
-          final proxyUrl = '${ApiClient.baseUrl}/media/proxy?url=${Uri.encodeComponent(url)}';
-          
-          return GestureDetector(
-            onTap: () {
-              Navigator.of(context).push(
-                PageRouteBuilder(
-                  opaque: false,
-                  pageBuilder: (BuildContext context, _, __) {
-                    return _GalleryView(urls: urls, initialIndex: index);
-                  },
-                ),
-              );
-            },
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 300, maxHeight: 300),
-              clipBehavior: Clip.antiAlias,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.2),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4))
-                ],
-              ),
-              child: Image.network(
-                proxyUrl,
-                fit: BoxFit.contain,
-                headers: const {'Accept': 'image/*'},
-                errorBuilder: (context, error, stackTrace) {
-                   return Image.network(url, fit: BoxFit.contain, 
-                        errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              height: 120,
-                              width: 120,
-                              color: Colors.grey.withValues(alpha: 0.1),
-                              child: const Center(
-                                child: Icon(Icons.image_not_supported_outlined, color: Colors.white54, size: 32)
-                              )
-                            );
-                        });
-                },
-              ),
-            ),
-          );
-        }).toList(),
-      ),
+      child: content,
     );
   }
 }
@@ -817,273 +866,181 @@ class _ChatViewState extends ConsumerState<ChatView> {
                                         size: 20),
                                   ),
                                 Flexible(
-                                  child: Container(
-                                    padding: isAssistant
-                                        ? const EdgeInsets.only(
-                                            top: 8, bottom: 8)
-                                        : const EdgeInsets.all(16),
-                                    decoration: BoxDecoration(
-                                      color: isAssistant
-                                          ? Colors.transparent
-                                          : const Color(0xFF2A2A2A),
-                                      borderRadius: BorderRadius.only(
-                                        topLeft: const Radius.circular(24),
-                                        topRight: const Radius.circular(24),
-                                        bottomLeft: isAssistant
-                                            ? const Radius.circular(4)
-                                            : const Radius.circular(24),
-                                        bottomRight: isAssistant
-                                            ? const Radius.circular(24)
-                                            : const Radius.circular(4),
-                                      ),
-                                      border: isAssistant
-                                          ? null
-                                          : Border.all(
-                                              color: Colors.white
-                                                  .withValues(alpha: 0.05)),
-                                    ),
-                                    child: Builder(
-                                      builder: (context) {
-                                        final mdBody = MarkdownBody(
-                                                data: processedMsg,
-                                                extensionSet: md.ExtensionSet.gitHubFlavored,
-                                                inlineSyntaxes: [CollageSyntax()],
-                                                builders: {'collage': CollageElementBuilder(context)},
-                                                imageBuilder: (uri, title, alt) {
-                                                  final url = uri.toString();
-                                                  final lowerUrl = url.toLowerCase();
-                                                  if (lowerUrl.contains('wikimedia.org') || 
-                                                      lowerUrl.contains('wikipedia.org') || 
-                                                      lowerUrl.contains('unsplash.com')) {
-                                                    return const SizedBox.shrink();
-                                                  }
-                                                  
-                                                  final proxyUrl = '${ApiClient.baseUrl}/media/proxy?url=${Uri.encodeComponent(url)}';
-                                                  return GestureDetector(
-                                                    onTap: () {
-                                                      Navigator.of(context).push(
-                                                        PageRouteBuilder(
-                                                          opaque: false,
-                                                          pageBuilder: (context, _, __) {
-                                                            return _GalleryView(urls: [url], initialIndex: 0);
-                                                          },
-                                                        ),
-                                                      );
-                                                    },
-                                                    child: Container(
-                                                      margin: const EdgeInsets.symmetric(vertical: 8),
-                                                      constraints: const BoxConstraints(maxWidth: 400, maxHeight: 400),
-                                                      clipBehavior: Clip.antiAlias,
-                                                      decoration: BoxDecoration(
-                                                        borderRadius: BorderRadius.circular(16),
-                                                        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                                                        boxShadow: [
-                                                          BoxShadow(
-                                                            color: Colors.black.withValues(alpha: 0.2),
-                                                            blurRadius: 10,
-                                                            offset: const Offset(0, 4),
-                                                          )
-                                                        ]
-                                                      ),
-                                                      child: InteractiveViewer(
-                                                        child: Image.network(
-                                                          proxyUrl,
-                                                          fit: BoxFit.contain,
-                                                          headers: const {'Accept': 'image/*'},
-                                                          errorBuilder: (context, error, stackTrace) => Image.network(
-                                                            url,
-                                                            errorBuilder: (context, error, stackTrace) {
-                                                              return Container(
-                                                                height: 120,
-                                                                width: 120,
-                                                                color: Colors.grey.withValues(alpha: 0.1),
-                                                                child: const Center(
-                                                                  child: Icon(Icons.image_not_supported_outlined, color: Colors.white54, size: 32)
-                                                                )
-                                                              );
-                                                            }
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  );
-                                                },
-                                                selectable: true,
-                                                onTapLink: (text, href, title) async {
-                                                  if (href != null) {
-                                                    try {
-                                                      await launchUrlString(href, mode: LaunchMode.externalApplication);
-                                                    } catch (_) {
-                                                      try {
-                                                        await launchUrlString(href);
-                                                      } catch (_) {}
-                                                    }
-                                                  }
-                                                },
-                                                styleSheet: MarkdownStyleSheet(
-                                                  pPadding: const EdgeInsets.only(bottom: 12),
-                                                  listBulletPadding: const EdgeInsets.only(right: 8),
-                                                  p: TextStyle(
-                                                      fontSize: 15,
-                                                      height: 1.6,
-                                                      color: Colors.white
-                                                          .withValues(
-                                                              alpha: 0.9)),
-                                                  h1: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, height: 1.4, color: Colors.white),
-                                                  h2: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, height: 1.4, color: Colors.white),
-                                                  h3: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, height: 1.4, color: Colors.white),
-                                                  h4: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, height: 1.4, color: Colors.white),
-                                                  horizontalRuleDecoration: BoxDecoration(
-                                                    border: Border(
-                                                      top: BorderSide(
-                                                        color: Colors.white.withValues(alpha: 0.1),
-                                                        width: 1,
-                                                      )
-                                                    )
-                                                  ),
-                                                  code: TextStyle(
-                                                      fontSize: 14,
-                                                      fontFamily: 'monospace',
-                                                      color:
-                                                          Colors.orangeAccent,
-                                                      backgroundColor:
-                                                          Colors.transparent),
-                                                  codeblockPadding:
-                                                      const EdgeInsets.all(16),
-                                                  codeblockDecoration:
-                                                      BoxDecoration(
-                                                    color:
-                                                        const Color(0xFF131313),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            12),
-                                                    border: Border.all(
-                                                        color: Colors.white
-                                                            .withValues(
-                                                                alpha: 0.1)),
-                                                  ),
-                                                  blockquote: TextStyle(
-                                                      fontSize: 15,
-                                                      fontStyle:
-                                                          FontStyle.italic,
-                                                      color: Colors.white
-                                                          .withValues(
-                                                              alpha: 0.7)),
-                                                  blockquoteDecoration:
-                                                      BoxDecoration(
-                                                    border: Border(
-                                                        left: BorderSide(
-                                                            color: Theme.of(
-                                                                    context)
-                                                                .colorScheme
-                                                                .primary,
-                                                            width: 4)),
-                                                  ),
-                                                  a: TextStyle(
-                                                      color: Theme.of(context)
-                                                          .colorScheme
-                                                          .primary,
-                                                      decoration: TextDecoration
-                                                          .underline),
-                                                ),
-                                              );
-
-                                        return Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            if (!isAssistant)
-                                              _UserMessageEditor(
-                                                initialText: processedMsg,
-                                                markdownBody: mdBody,
-                                                onSave: (newText) => ref.read(chatProvider.notifier).editMessageAndSend(index - 1, newText),
-                                              )
-                                            else
-                                              mdBody,
+                                  child: Builder(
+                                    builder: (context) {
+                                        Widget mdBody;
+                                        final parsedNodes = isAssistant ? StreamingParser.parseStream(processedMsg) : <PresentationNode>[];
+                                        
+                                        if (parsedNodes.isNotEmpty) {
+                                            mdBody = PresentationRenderer(nodes: parsedNodes);
+                                        } else {
+                                            mdBody = AiMessageRenderer(
+                                              text: processedMsg,
+                                              isAssistant: isAssistant,
+                                              isStreaming: isAssistant && chatState.isSending && index - 1 == chatState.messages.length - 1,
+                                              inlineSyntaxes: [CollageSyntax()],
+                                              builders: {'collage': CollageElementBuilder(context)},
+                                          imageBuilder: (uri, title, alt) {
+                                            final url = uri.toString();
+                                            final lowerUrl = url.toLowerCase();
+                                            if (lowerUrl.contains('wikimedia.org') || 
+                                                lowerUrl.contains('wikipedia.org') || 
+                                                lowerUrl.contains('unsplash.com')) {
+                                              return const SizedBox.shrink();
+                                            }
                                             
-                                        if (isAssistant &&
-                                            chatState.messageMetadata[
-                                                    index - 1] !=
-                                                null) ...[
-                                          if (chatState.messageMetadata[
-                                                      index - 1]![
-                                                  'requires_confirmation'] ==
-                                              true)
-                                            _PlanApprovalRequestPanel(
-                                                metadata:
-                                                    chatState.messageMetadata[
-                                                        index - 1]!),
-                                          _ExplainabilityPanel(
-                                              metadata: chatState
-                                                  .messageMetadata[index - 1]),
-                                        ],
-                                        const SizedBox(height: 12),
-                                        Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            InkWell(
+                                            final proxyUrl = '${ApiClient.baseUrl}/media/proxy?url=${Uri.encodeComponent(url)}';
+                                            return GestureDetector(
                                               onTap: () {
-                                                Clipboard.setData(ClipboardData(
-                                                    text: displayMsg));
+                                                Navigator.of(context).push(
+                                                  PageRouteBuilder(
+                                                    opaque: false,
+                                                    pageBuilder: (context, _, __) {
+                                                      return _GalleryView(urls: [url], initialIndex: 0);
+                                                    },
+                                                  ),
+                                                );
                                               },
-                                              child: Icon(Icons.copy_outlined,
-                                                  size: 16,
-                                                  color: Colors.white
-                                                      .withValues(alpha: 0.5)),
-                                            ),
-                                            if (isAssistant) ...[
-                                              const SizedBox(width: 16),
-                                              InkWell(
-                                                onTap: () => ref
-                                                    .read(chatProvider.notifier)
-                                                    .readAloud(displayMsg),
-                                                child: Icon(
-                                                    Icons.volume_up_outlined,
-                                                    size: 16,
-                                                    color: Colors.white
-                                                        .withValues(
-                                                            alpha: 0.5)),
+                                              child: Container(
+                                                margin: const EdgeInsets.symmetric(vertical: 8),
+                                                constraints: const BoxConstraints(maxWidth: 400, maxHeight: 400),
+                                                clipBehavior: Clip.antiAlias,
+                                                decoration: BoxDecoration(
+                                                  borderRadius: BorderRadius.circular(16),
+                                                  border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: Colors.black.withValues(alpha: 0.2),
+                                                      blurRadius: 10,
+                                                      offset: const Offset(0, 4),
+                                                    )
+                                                  ]
+                                                ),
+                                                child: InteractiveViewer(
+                                                  child: Image.network(
+                                                    proxyUrl,
+                                                    fit: BoxFit.contain,
+                                                    headers: const {'Accept': 'image/*'},
+                                                    errorBuilder: (context, error, stackTrace) => Image.network(
+                                                      url,
+                                                      errorBuilder: (context, error, stackTrace) {
+                                                        return Container(
+                                                          height: 120,
+                                                          width: 120,
+                                                          color: Colors.grey.withValues(alpha: 0.1),
+                                                          child: const Center(
+                                                            child: Icon(Icons.image_not_supported_outlined, color: Colors.white54, size: 32)
+                                                          )
+                                                        );
+                                                      }
+                                                    ),
+                                                  ),
+                                                ),
                                               ),
-                                              const SizedBox(width: 16),
-                                              InkWell(
-                                                onTap: () {},
-                                                child: Icon(
-                                                    Icons.thumb_up_outlined,
-                                                    size: 16,
-                                                    color: Colors.white
-                                                        .withValues(
-                                                            alpha: 0.5)),
-                                              ),
-                                              const SizedBox(width: 16),
-                                              InkWell(
-                                                onTap: () {},
-                                                child: Icon(
-                                                    Icons.thumb_down_outlined,
-                                                    size: 16,
-                                                    color: Colors.white
-                                                        .withValues(
-                                                            alpha: 0.5)),
-                                              ),
-                                              const SizedBox(width: 16),
-                                              InkWell(
-                                                onTap: () => ref
-                                                    .read(chatProvider.notifier)
-                                                    .regenerateLastResponse(),
-                                                child: Icon(Icons.refresh,
-                                                    size: 16,
-                                                    color: Colors.white
-                                                        .withValues(
-                                                            alpha: 0.5)),
-                                              ),
-                                            ]
+                                            );
+                                          },
+                                        );
+                                        }
+
+                                        if (!isAssistant) {
+                                          return _UserMessageEditor(
+                                            initialText: processedMsg,
+                                            markdownBody: mdBody,
+                                            onSave: (newText) => ref.read(chatProvider.notifier).editMessageAndSend(index - 1, newText),
+                                            onCopy: () {
+                                              Clipboard.setData(ClipboardData(text: displayMsg));
+                                            },
+                                          );
+                                        }
+
+                                        return Container(
+                                          padding: const EdgeInsets.only(top: 8, bottom: 8),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                                mdBody,
+                                              
+                                          if (chatState.messageMetadata[
+                                                      index - 1] !=
+                                                  null) ...[
+                                            if (chatState.messageMetadata[
+                                                        index - 1]![
+                                                    'requires_confirmation'] ==
+                                                true)
+                                              _PlanApprovalRequestPanel(
+                                                  metadata:
+                                                      chatState.messageMetadata[
+                                                          index - 1]!),
+                                            _ExplainabilityPanel(
+                                                metadata: chatState
+                                                    .messageMetadata[index - 1]),
                                           ],
-                                        )
-                                      ],
+                                          const SizedBox(height: 12),
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              InkWell(
+                                                onTap: () {
+                                                  Clipboard.setData(ClipboardData(
+                                                      text: displayMsg));
+                                                },
+                                                child: Icon(Icons.copy_outlined,
+                                                    size: 16,
+                                                    color: Colors.white
+                                                        .withValues(alpha: 0.5)),
+                                              ),
+                                                const SizedBox(width: 16),
+                                                InkWell(
+                                                  onTap: () => ref
+                                                      .read(chatProvider.notifier)
+                                                      .readAloud(displayMsg),
+                                                  child: Icon(
+                                                      Icons.volume_up_outlined,
+                                                      size: 16,
+                                                      color: Colors.white
+                                                          .withValues(
+                                                              alpha: 0.5)),
+                                                ),
+                                                const SizedBox(width: 16),
+                                                InkWell(
+                                                  onTap: () {},
+                                                  child: Icon(
+                                                      Icons.thumb_up_outlined,
+                                                      size: 16,
+                                                      color: Colors.white
+                                                          .withValues(
+                                                              alpha: 0.5)),
+                                                ),
+                                                const SizedBox(width: 16),
+                                                InkWell(
+                                                  onTap: () {},
+                                                  child: Icon(
+                                                      Icons.thumb_down_outlined,
+                                                      size: 16,
+                                                      color: Colors.white
+                                                          .withValues(
+                                                              alpha: 0.5)),
+                                                ),
+                                                const SizedBox(width: 16),
+                                                InkWell(
+                                                  onTap: () => ref
+                                                      .read(chatProvider.notifier)
+                                                      .regenerateLastResponse(),
+                                                  child: Icon(Icons.refresh,
+                                                      size: 16,
+                                                      color: Colors.white
+                                                          .withValues(
+                                                              alpha: 0.5)),
+                                                ),
+                                            ],
+                                          )
+                                        ],
+                                          ),
                                         );
                                       }
                                     ),
                                   ),
-                                ),
                                 if (!isAssistant)
                                   Container(
                                     margin: const EdgeInsets.only(left: 16),
@@ -2739,12 +2696,14 @@ class _UserMessageEditor extends StatefulWidget {
   final String initialText;
   final Widget markdownBody;
   final Function(String) onSave;
+  final VoidCallback onCopy;
 
   const _UserMessageEditor({
     Key? key,
     required this.initialText,
     required this.markdownBody,
     required this.onSave,
+    required this.onCopy,
   }) : super(key: key);
 
   @override
@@ -2753,6 +2712,7 @@ class _UserMessageEditor extends StatefulWidget {
 
 class _UserMessageEditorState extends State<_UserMessageEditor> {
   bool _isEditing = false;
+  bool _isHovered = false;
   late TextEditingController _controller;
 
   @override
@@ -2770,68 +2730,142 @@ class _UserMessageEditorState extends State<_UserMessageEditor> {
   @override
   Widget build(BuildContext context) {
     if (!_isEditing) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          widget.markdownBody,
-          const SizedBox(height: 8),
-          InkWell(
-            onTap: () => setState(() => _isEditing = true),
-            child: Row(
+      return MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2A2A2A),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
+                  bottomLeft: Radius.circular(24),
+                  bottomRight: Radius.circular(4),
+                ),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+              ),
+              child: widget.markdownBody,
+            ),
+            const SizedBox(height: 4),
+            Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.edit, size: 14, color: Colors.white.withValues(alpha: 0.5)),
-                const SizedBox(width: 4),
-                Text("Edit", style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12)),
+                if (_isHovered) ...[
+                  Tooltip(
+                    message: "Copy",
+                    preferBelow: true,
+                    textStyle: const TextStyle(color: Colors.white, fontSize: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2A2A2A),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        hoverColor: Colors.white.withValues(alpha: 0.1),
+                        onTap: widget.onCopy,
+                        child: Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Icon(Icons.copy_outlined, size: 16, color: Colors.white.withValues(alpha: 0.6)),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Tooltip(
+                    message: "Edit message",
+                    preferBelow: true,
+                    textStyle: const TextStyle(color: Colors.white, fontSize: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2A2A2A),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        hoverColor: Colors.white.withValues(alpha: 0.1),
+                        onTap: () => setState(() => _isEditing = true),
+                        child: Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Icon(Icons.edit_outlined, size: 16, color: Colors.white.withValues(alpha: 0.6)),
+                        ),
+                      ),
+                    ),
+                  ),
+                ] else
+                  const SizedBox(height: 32), // Placeholder to prevent jump
               ],
-            ),
-          )
-        ],
+            )
+          ],
+        ),
       );
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        TextField(
-          controller: _controller,
-          style: const TextStyle(color: Colors.white, fontSize: 15),
-          maxLines: null,
-          decoration: InputDecoration(
-            isDense: true,
-            filled: true,
-            fillColor: Colors.black.withValues(alpha: 0.2),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-          ),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2A2A2A),
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
+          bottomLeft: Radius.circular(24),
+          bottomRight: Radius.circular(4),
         ),
-        const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  _isEditing = false;
-                  _controller.text = widget.initialText;
-                });
-              },
-              child: const Text("Cancel", style: TextStyle(color: Colors.white54)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          TextField(
+            controller: _controller,
+            style: const TextStyle(color: Colors.white, fontSize: 15),
+            maxLines: null,
+            decoration: InputDecoration(
+              isDense: true,
+              filled: true,
+              fillColor: const Color(0xFF2B2B2B),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
             ),
-            const SizedBox(width: 8),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Colors.white,
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    _isEditing = false;
+                    _controller.text = widget.initialText;
+                  });
+                },
+                child: const Text("Cancel", style: TextStyle(color: Colors.white54)),
               ),
-              onPressed: () {
-                setState(() => _isEditing = false);
-                widget.onSave(_controller.text);
-              },
-              child: const Text("Save & Submit"),
-            )
-          ],
-        )
-      ],
+              const SizedBox(width: 8),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  minimumSize: const Size(0, 36),
+                ),
+                onPressed: () {
+                  setState(() => _isEditing = false);
+                  widget.onSave(_controller.text);
+                },
+                child: const Text("Submit", style: TextStyle(fontWeight: FontWeight.bold)),
+              )
+            ],
+          )
+        ],
+      ),
     );
   }
 }

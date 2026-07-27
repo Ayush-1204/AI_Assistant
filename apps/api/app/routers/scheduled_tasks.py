@@ -21,6 +21,15 @@ class CreateScheduledTaskRequest(BaseModel):
     cron_expression: str | None = None
     run_at: datetime | None = None
     timezone_offset_minutes: int | None = None
+    end_repeat_at: datetime | None = None
+
+class UpdateScheduledTaskRequest(BaseModel):
+    label: str | None = None
+    directive: str | None = None
+    cron_expression: str | None = None
+    run_at: datetime | None = None
+    timezone_offset_minutes: int | None = None
+    end_repeat_at: datetime | None = None
 
 
 class ScheduledTaskResponse(BaseModel):
@@ -33,6 +42,7 @@ class ScheduledTaskResponse(BaseModel):
     status: str
     is_enabled: bool
     created_at: datetime
+    end_repeat_at: datetime | None
 
     class Config:
         from_attributes = True
@@ -100,6 +110,7 @@ async def create_scheduled_task(
             status=JobStatus.PENDING,
             is_user_defined=True,
             is_enabled=True,
+            end_repeat_at=body.end_repeat_at,
         )
         db.add(job)
         await db.commit()
@@ -143,6 +154,61 @@ async def toggle_scheduled_task(
         if not job:
             raise HTTPException(status_code=404, detail="Scheduled task not found.")
         job.is_enabled = not job.is_enabled
+        await db.commit()
+        await db.refresh(job)
+        return job
+
+@router.patch("/{task_id}", response_model=ScheduledTaskResponse)
+async def update_scheduled_task(
+    task_id: int,
+    body: UpdateScheduledTaskRequest,
+    current_user=Depends(get_current_user),
+):
+    from datetime import timezone, timedelta
+    
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(ScheduledJob).where(
+                ScheduledJob.id == task_id,
+                ScheduledJob.user_id == current_user.id,
+            )
+        )
+        job = result.scalar_one_or_none()
+        if not job:
+            raise HTTPException(status_code=404, detail="Scheduled task not found.")
+
+        if body.label is not None:
+            job.label = body.label
+        if body.directive is not None:
+            job.recurring_action = body.directive
+        if body.end_repeat_at is not None:
+            job.end_repeat_at = body.end_repeat_at
+
+        # Compute next run if time logic changes
+        if body.cron_expression is not None or body.run_at is not None:
+            if body.timezone_offset_minutes is not None:
+                user_tz = timezone(timedelta(minutes=body.timezone_offset_minutes))
+            else:
+                user_tz = timezone.utc
+            now = datetime.now(user_tz)
+
+            new_cron = body.cron_expression if body.cron_expression is not None else job.cron_expression
+            new_run_at = body.run_at if body.run_at is not None else (job.scheduled_time if not job.cron_expression else None)
+
+            if new_cron:
+                next_run = _compute_next_run(new_cron, now)
+                if not next_run:
+                    raise HTTPException(status_code=400, detail="Invalid cron_expression.")
+                job.cron_expression = new_cron
+                job.scheduled_time = next_run
+                job.next_run_at = next_run
+            elif new_run_at:
+                if new_run_at <= now:
+                    raise HTTPException(status_code=400, detail="run_at must be a future datetime.")
+                job.cron_expression = None
+                job.scheduled_time = new_run_at
+                job.next_run_at = None
+
         await db.commit()
         await db.refresh(job)
         return job

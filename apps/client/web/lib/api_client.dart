@@ -240,11 +240,21 @@ class ApiClient {
     }
   }
 
-  Future<void> updateConversationTitle(int conversationId, String title) async {
+  Future<void> updateConversationTitle(int id, String newTitle) async {
     try {
-      await _dio.patch('/conversations/$conversationId', data: {'title': title});
+      await _dio.patch('/conversations/$id', data: {'title': newTitle});
     } on DioException catch (e) {
       throw Exception(e.response?.data?['detail'] ?? 'Failed to update conversation title');
+    }
+  }
+
+  Future<String?> generateConversationTitle(int id, String aiResponse) async {
+    try {
+      final response = await _dio.post('/conversations/$id/generate-title', data: {'ai_response': aiResponse});
+      return response.data['title'] as String?;
+    } on DioException {
+      // Non-fatal, just return null if it fails
+      return null;
     }
   }
 
@@ -457,15 +467,37 @@ class ApiClient {
     required String directive,
     String? cronExpression,
     DateTime? runAt,
+    DateTime? endRepeatAt,
   }) async {
-    final body = <String, dynamic>{
+    final body = {
       'label': label,
       'directive': directive,
       if (cronExpression != null) 'cron_expression': cronExpression,
       if (runAt != null) 'run_at': runAt.toUtc().toIso8601String(),
+      if (endRepeatAt != null) 'end_repeat_at': endRepeatAt.toUtc().toIso8601String(),
       'timezone_offset_minutes': DateTime.now().timeZoneOffset.inMinutes,
     };
     final response = await _dio.post('/scheduled-tasks', data: body);
+    return response.data;
+  }
+
+  Future<dynamic> updateScheduledTask({
+    required int id,
+    String? label,
+    String? directive,
+    String? cronExpression,
+    DateTime? runAt,
+    DateTime? endRepeatAt,
+  }) async {
+    final body = {
+      if (label != null) 'label': label,
+      if (directive != null) 'directive': directive,
+      if (cronExpression != null) 'cron_expression': cronExpression,
+      if (runAt != null) 'run_at': runAt.toUtc().toIso8601String(),
+      if (endRepeatAt != null) 'end_repeat_at': endRepeatAt.toUtc().toIso8601String(),
+      'timezone_offset_minutes': DateTime.now().timeZoneOffset.inMinutes,
+    };
+    final response = await _dio.patch('/scheduled-tasks/$id', data: body);
     return response.data;
   }
 

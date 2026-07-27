@@ -139,11 +139,11 @@ class _MainLayoutState extends State<MainLayout> {
                                             ...pinned.map((s) => _SidebarHistoryItem(key: ValueKey('pinned_${s['id']}'), session: s)),
                                             const SizedBox(height: 16),
                                          ],
-                                         Padding(
-                                           padding: const EdgeInsets.symmetric(horizontal: 20),
-                                           child: Align(alignment: Alignment.centerLeft, child: Text('RECENTS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white.withValues(alpha: 0.3), letterSpacing: 1.2))),
-                                         ),
-                                         const SizedBox(height: 8),
+                                          Padding(
+                                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                                            child: Align(alignment: Alignment.centerLeft, child: Text('RECENTS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white.withValues(alpha: 0.3), letterSpacing: 1.2))),
+                                          ),
+                                          const SizedBox(height: 8),
                                          ...recent.map((s) => _SidebarHistoryItem(key: ValueKey('recent_${s['id']}'), session: s)),
                                       ]
                                    );

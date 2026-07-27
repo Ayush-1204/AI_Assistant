@@ -34,8 +34,29 @@ class BaseTool(ABC):
     def risk_level(self) -> str:
         """Risk level categorization: 'safe', 'moderate', 'destructive'."""
         return "safe"
+        
+    @property
+    def supported_intents(self) -> list[str]:
+        return ["general", "search"]
+        
+    @property
+    def expected_latency_ms(self) -> int:
+        return 1000
+        
+    @property
+    def estimated_reliability(self) -> float:
+        return 0.95
+        
+    @property
+    def fallback_tools(self) -> list[str]:
+        return []
+        
+    @property
+    def output_schema(self) -> dict:
+        """Optional JSON schema for expected structured output (for normalization)."""
+        return {}
 
     @abstractmethod
-    async def execute(self, execution_context: dict, **kwargs) -> Any:
+    async def execute(self, execution_context: dict, **kwargs: Any) -> Any:
         """Primary handler evaluating payloads properly over mapped bounds."""
         pass

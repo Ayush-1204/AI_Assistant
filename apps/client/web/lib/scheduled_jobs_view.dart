@@ -69,6 +69,30 @@ class ScheduledJobsNotifier
       rethrow;
     }
   }
+
+  Future<void> update({
+    required int id,
+    String? label,
+    String? directive,
+    String? cronExpression,
+    DateTime? runAt,
+    DateTime? endRepeatAt,
+  }) async {
+    try {
+      await _api.updateScheduledTask(
+        id: id,
+        label: label,
+        directive: directive,
+        cronExpression: cronExpression,
+        runAt: runAt,
+        endRepeatAt: endRepeatAt,
+      );
+      refresh();
+    } catch (e) {
+      debugPrint('update error: $e');
+      rethrow;
+    }
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -149,9 +173,16 @@ class ScheduledJobsView extends ConsumerWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 // JOB CARD
 // ─────────────────────────────────────────────────────────────────────────────
-class _JobCard extends ConsumerWidget {
+class _JobCard extends ConsumerStatefulWidget {
   final Map<String, dynamic> job;
   const _JobCard({required this.job});
+
+  @override
+  ConsumerState<_JobCard> createState() => _JobCardState();
+}
+
+class _JobCardState extends ConsumerState<_JobCard> {
+  bool _isHovered = false;
 
   Color _statusColor(String status) {
     switch (status.toUpperCase()) {
@@ -168,23 +199,8 @@ class _JobCard extends ConsumerWidget {
     }
   }
 
-  IconData _statusIcon(String status) {
-    switch (status.toUpperCase()) {
-      case 'PENDING':
-        return Icons.schedule;
-      case 'RUNNING':
-        return Icons.play_circle_outline;
-      case 'COMPLETED':
-        return Icons.check_circle_outline;
-      case 'FAILED':
-        return Icons.error_outline;
-      default:
-        return Icons.radio_button_unchecked;
-    }
-  }
-
   String _formatDateTime(String? iso) {
-    if (iso == null) return '—';
+    if (iso == null) return 'N/A';
     try {
       final dt = DateTime.parse(iso).toLocal();
       final months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -197,7 +213,8 @@ class _JobCard extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    final job = widget.job;
     final isEnabled = job['is_enabled'] as bool? ?? true;
     final status = job['status'] as String? ?? 'PENDING';
     final isCron = job['cron_expression'] != null;
@@ -211,206 +228,272 @@ class _JobCard extends ConsumerWidget {
         offset: Offset(0, 12 * (1 - val)),
         child: Opacity(opacity: val, child: child),
       ),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 14),
-        decoration: BoxDecoration(
-          color: const Color(0xFF151515),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: isEnabled
-                ? Colors.white.withValues(alpha: 0.08)
-                : Colors.white.withValues(alpha: 0.03),
-          ),
-          boxShadow: isEnabled
-              ? [
-                  BoxShadow(
-                    color: color.withValues(alpha: 0.04),
-                    blurRadius: 16,
-                    spreadRadius: 1,
-                  )
-                ]
-              : [],
-        ),
-        child: AnimatedOpacity(
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: AnimatedContainer(
           duration: const Duration(milliseconds: 250),
-          opacity: isEnabled ? 1.0 : 0.5,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Top row
-              Padding(
-                padding: const EdgeInsets.fromLTRB(18, 16, 14, 10),
-                child: Row(
-                  children: [
-                    // Status indicator
-                    Container(
-                      padding: const EdgeInsets.all(7),
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: color.withValues(alpha: 0.3)),
+          margin: const EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                const Color(0xFF1E1E1E).withValues(alpha: isEnabled ? 0.9 : 0.5),
+                const Color(0xFF151515).withValues(alpha: isEnabled ? 0.9 : 0.5),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: _isHovered && isEnabled
+                  ? color.withValues(alpha: 0.3)
+                  : Colors.white.withValues(alpha: 0.05),
+              width: 1.5,
+            ),
+            boxShadow: _isHovered && isEnabled
+                ? [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.08),
+                      blurRadius: 20,
+                      spreadRadius: -5,
+                    )
+                  ]
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.2),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    )
+                  ],
+          ),
+          child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 250),
+            opacity: isEnabled ? 1.0 : 0.4,
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Top row (Title, Status, Actions)
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // Glowing dot
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: color,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: color.withValues(alpha: 0.6),
+                              blurRadius: 8,
+                              spreadRadius: 2,
+                            )
+                          ],
+                        ),
                       ),
-                      child: Icon(_statusIcon(status), size: 14, color: color),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            job['label'] as String? ?? 'Unnamed Job',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
+                      const SizedBox(width: 16),
+                      // Title
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              job['label'] as String? ?? 'Unnamed Job',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.3,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 2),
-                          Row(
-                            children: [
-                              if (isCron) ...[
-                                Icon(Icons.repeat,
-                                    size: 11,
-                                    color: Colors.white.withValues(alpha: 0.35)),
-                                const SizedBox(width: 3),
-                                Text(
-                                  job['cron_expression'] as String,
-                                  style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.35),
-                                    fontSize: 11,
-                                    fontFamily: 'monospace',
+                            const SizedBox(height: 4),
+                            // Metadata (Cron/One-shot)
+                            Row(
+                              children: [
+                                if (isCron) ...[
+                                  Icon(Icons.repeat, size: 12, color: Colors.white.withValues(alpha: 0.4)),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    job['cron_expression'] as String,
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(alpha: 0.4),
+                                      fontSize: 12,
+                                      fontFamily: 'monospace',
+                                    ),
                                   ),
-                                ),
-                              ] else ...[
-                                Icon(Icons.calendar_today,
-                                    size: 11,
-                                    color: Colors.white.withValues(alpha: 0.35)),
-                                const SizedBox(width: 3),
-                                Text(
-                                  'One-shot',
-                                  style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.35),
-                                    fontSize: 11,
+                                ] else ...[
+                                  Icon(Icons.calendar_today, size: 12, color: Colors.white.withValues(alpha: 0.4)),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'One-shot',
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(alpha: 0.4),
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                                const SizedBox(width: 12),
+                                // Status Pill
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: color.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: color.withValues(alpha: 0.3)),
+                                  ),
+                                  child: Text(
+                                    status,
+                                    style: TextStyle(
+                                      color: color,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.5,
+                                    ),
                                   ),
                                 ),
                               ],
-                              const SizedBox(width: 10),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 1),
-                                decoration: BoxDecoration(
-                                  color: color.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  status,
-                                  style: TextStyle(
-                                    color: color,
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 0.5,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Toggle switch
-                    Switch.adaptive(
-                      value: isEnabled,
-                      onChanged: (_) =>
-                          ref.read(scheduledJobsProvider.notifier).toggle(job['id'] as int),
-                      activeColor: const Color(0xFF7B8CDE),
-                      inactiveThumbColor: Colors.white30,
-                      inactiveTrackColor: Colors.white10,
-                    ),
-                    // Delete
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline,
-                          size: 18, color: Colors.white30),
-                      onPressed: () async {
-                        final confirm = await showDialog<bool>(
-                          context: context,
-                          builder: (ctx) => AlertDialog(
-                            backgroundColor: const Color(0xFF1B1B1B),
-                            title: const Text('Delete Job',
-                                style: TextStyle(color: Colors.white)),
-                            content: Text(
-                              'Delete "${job['label']}"? This cannot be undone.',
-                              style: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
                             ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(ctx, false),
-                                child: const Text('Cancel',
-                                    style: TextStyle(color: Colors.white54)),
-                              ),
-                              ElevatedButton(
-                                onPressed: () => Navigator.pop(ctx, true),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.redAccent.withValues(alpha: 0.2),
-                                ),
-                                child: const Text('Delete',
-                                    style: TextStyle(color: Colors.redAccent)),
-                              ),
-                            ],
-                          ),
-                        );
-                        if (confirm == true) {
-                          ref.read(scheduledJobsProvider.notifier).delete(job['id'] as int);
-                        }
-                      },
-                    ),
-                  ],
-                ),
-              ),
-
-              // Directive
-              if (job['directive'] != null)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 0, 18, 10),
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.03),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-                    ),
-                    child: Text(
-                      job['directive'] as String,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.5),
-                        fontSize: 12,
-                        height: 1.4,
+                          ],
+                        ),
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                      
+                      // Actions
+                      AnimatedOpacity(
+                        duration: const Duration(milliseconds: 200),
+                        opacity: _isHovered ? 1.0 : 0.6,
+                        child: Row(
+                          children: [
+                            // Edit
+                            IconButton(
+                              icon: const Icon(Icons.edit_outlined, size: 20, color: Colors.white54),
+                              tooltip: 'Edit job',
+                              splashRadius: 20,
+                              onPressed: () {
+                                showDialog(
+                                  context: context,
+                                  builder: (ctx) => _TaskDialog(
+                                    job: job,
+                                    onSave: ({
+                                      required String label,
+                                      required String directive,
+                                      String? cronExpression,
+                                      DateTime? runAt,
+                                      DateTime? endRepeatAt,
+                                    }) async {
+                                      await ref.read(scheduledJobsProvider.notifier).update(
+                                            id: job['id'] as int,
+                                            label: label,
+                                            directive: directive,
+                                            cronExpression: cronExpression,
+                                            runAt: runAt,
+                                            endRepeatAt: endRepeatAt,
+                                          );
+                                    },
+                                  ),
+                                );
+                              },
+                            ),
+                            // Delete
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline, size: 20, color: Colors.white54),
+                              tooltip: 'Delete job',
+                              splashRadius: 20,
+                              onPressed: () async {
+                                final confirm = await showDialog<bool>(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    backgroundColor: const Color(0xFF1B1B1B),
+                                    title: const Text('Delete Job', style: TextStyle(color: Colors.white)),
+                                    content: Text(
+                                      'Delete "${job['label']}"? This cannot be undone.',
+                                      style: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(ctx, false),
+                                        child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+                                      ),
+                                      ElevatedButton(
+                                        onPressed: () => Navigator.pop(ctx, true),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.redAccent.withValues(alpha: 0.2),
+                                        ),
+                                        child: const Text('Delete', style: TextStyle(color: Colors.redAccent)),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (confirm == true) {
+                                  ref.read(scheduledJobsProvider.notifier).delete(job['id'] as int);
+                                }
+                              },
+                            ),
+                            const SizedBox(width: 8),
+                            // Toggle switch
+                            Switch.adaptive(
+                              value: isEnabled,
+                              onChanged: (_) =>
+                                  ref.read(scheduledJobsProvider.notifier).toggle(job['id'] as int),
+                              activeColor: const Color(0xFF7B8CDE),
+                              inactiveThumbColor: Colors.white30,
+                              inactiveTrackColor: Colors.white10,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-
-              // Footer: next run
-              Padding(
-                padding: const EdgeInsets.fromLTRB(18, 0, 18, 14),
-                child: Row(
-                  children: [
-                    Icon(Icons.access_time,
-                        size: 12, color: Colors.white.withValues(alpha: 0.25)),
-                    const SizedBox(width: 5),
-                    Text(
-                      'Next: ${_formatDateTime(job['next_run_at'] as String? ?? job['scheduled_time'] as String?)}',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.25),
-                        fontSize: 11,
+                  
+                  const SizedBox(height: 16),
+                  
+                  // Directive
+                  if (job['directive'] != null)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.02),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border(
+                          left: BorderSide(color: color.withValues(alpha: 0.5), width: 4),
+                        ),
+                      ),
+                      child: Text(
+                        job['directive'] as String,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.7),
+                          fontSize: 13,
+                          height: 1.5,
+                          fontStyle: FontStyle.italic,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                  ],
-                ),
+
+                  const SizedBox(height: 16),
+                  
+                  // Footer: Next Run
+                  Row(
+                    children: [
+                      Icon(Icons.access_time, size: 14, color: Colors.white.withValues(alpha: 0.3)),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Next: ${_formatDateTime(job['next_run_at'] as String?)}',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.4),
+                          fontSize: 12,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -418,9 +501,7 @@ class _JobCard extends ConsumerWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// EMPTY STATE
-// ─────────────────────────────────────────────────────────────────────────────
+
 class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -428,52 +509,47 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: const Color(0xFF7B8CDE).withValues(alpha: 0.08),
-              shape: BoxShape.circle,
-              border: Border.all(
-                  color: const Color(0xFF7B8CDE).withValues(alpha: 0.2)),
-            ),
-            child: const Icon(Icons.schedule_outlined,
-                size: 36, color: Color(0xFF7B8CDE)),
-          ),
-          const SizedBox(height: 20),
-          const Text(
-            'No Scheduled Jobs',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 8),
+          Icon(Icons.event_busy, size: 64, color: Colors.white.withValues(alpha: 0.1)),
+          const SizedBox(height: 16),
           Text(
-            'Create standing agent instructions that run\nautomatically on a schedule.',
-            textAlign: TextAlign.center,
+            'No scheduled jobs yet',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.4),
-              fontSize: 13,
-              height: 1.5,
+              color: Colors.white.withValues(alpha: 0.5),
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 28),
-          _NewJobButton(),
         ],
       ),
     );
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// NEW JOB BUTTON & DIALOG
-// ─────────────────────────────────────────────────────────────────────────────
 class _NewJobButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return ElevatedButton.icon(
-      onPressed: () => _showNewJobDialog(context, ref),
+      onPressed: () {
+        showDialog(
+          context: context,
+          builder: (ctx) => _TaskDialog(
+            onSave: ({
+              required String label,
+              required String directive,
+              String? cronExpression,
+              DateTime? runAt,
+              DateTime? endRepeatAt,
+            }) async {
+              await ref.read(scheduledJobsProvider.notifier).create(
+                    label: label,
+                    directive: directive,
+                    cronExpression: cronExpression,
+                    runAt: runAt,
+                  );
+            },
+          ),
+        );
+      },
       icon: const Icon(Icons.add, size: 16),
       label: const Text('New Job'),
       style: ElevatedButton.styleFrom(
@@ -485,52 +561,88 @@ class _NewJobButton extends ConsumerWidget {
       ),
     );
   }
-
-  void _showNewJobDialog(BuildContext context, WidgetRef ref) {
-    showDialog(
-      context: context,
-      builder: (ctx) => _NewJobDialog(
-        onCreate: ({
-          required String label,
-          required String directive,
-          String? cronExpression,
-          DateTime? runAt,
-        }) async {
-          await ref.read(scheduledJobsProvider.notifier).create(
-                label: label,
-                directive: directive,
-                cronExpression: cronExpression,
-                runAt: runAt,
-              );
-        },
-      ),
-    );
-  }
 }
 
-class _NewJobDialog extends StatefulWidget {
+class _TaskDialog extends StatefulWidget {
+  final Map<String, dynamic>? job;
   final Future<void> Function({
     required String label,
     required String directive,
     String? cronExpression,
     DateTime? runAt,
-  }) onCreate;
+    DateTime? endRepeatAt,
+  }) onSave;
 
-  const _NewJobDialog({required this.onCreate});
+  const _TaskDialog({required this.onSave, this.job});
 
   @override
-  State<_NewJobDialog> createState() => _NewJobDialogState();
+  State<_TaskDialog> createState() => _TaskDialogState();
 }
 
-class _NewJobDialogState extends State<_NewJobDialog> {
-  final _labelCtrl = TextEditingController();
-  final _directiveCtrl = TextEditingController();
+class _TaskDialogState extends State<_TaskDialog> {
+  late TextEditingController _labelCtrl;
+  late TextEditingController _directiveCtrl;
   bool _isCron = true;
   bool _isLoading = false;
   DateTime? _runAt;
+  
   String _repeat = 'Daily';
   String _time = 'Morning';
+  TimeOfDay? _customTime;
+  
+  String _endRepeat = 'Never';
+  DateTime? _endRepeatAt;
+  
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    final job = widget.job;
+    _labelCtrl = TextEditingController(text: job?['label'] ?? '');
+    _directiveCtrl = TextEditingController(text: job?['directive'] ?? '');
+    
+    if (job != null) {
+      if (job['cron_expression'] != null) {
+        _isCron = true;
+        _parseCron(job['cron_expression'] as String);
+      } else if (job['scheduled_time'] != null) {
+        _isCron = false;
+        _runAt = DateTime.tryParse(job['scheduled_time'] as String)?.toLocal();
+      }
+      if (job['end_repeat_at'] != null) {
+        _endRepeat = 'On Date';
+        _endRepeatAt = DateTime.tryParse(job['end_repeat_at'] as String)?.toLocal();
+      }
+    }
+  }
+  
+  void _parseCron(String cron) {
+    final parts = cron.split(' ');
+    if (parts.length >= 5) {
+      final hour = parts[1];
+      final dayOfWeek = parts[4];
+      final dom = parts[2];
+      
+      if (hour != '*') {
+        int h = int.tryParse(hour) ?? 8;
+        if (h == 8) _time = 'Morning';
+        else if (h == 14) _time = 'Afternoon';
+        else if (h == 20) _time = 'Evening';
+        else if (h == 0) _time = 'Midnight';
+        else {
+          _time = 'Custom';
+          _customTime = TimeOfDay(hour: h, minute: 0);
+        }
+      }
+      
+      if (dayOfWeek == '1-5') _repeat = 'Weekdays';
+      else if (dayOfWeek == '1') _repeat = 'Weekly';
+      else if (dom == '1' && parts[3] == '*') _repeat = 'Monthly';
+      else if (dom == '1' && parts[3] == '1') _repeat = 'Yearly';
+      else _repeat = 'Daily';
+    }
+  }
 
   @override
   void dispose() {
@@ -540,64 +652,29 @@ class _NewJobDialogState extends State<_NewJobDialog> {
   }
 
   String _generateCron() {
-    String hour = '8';
-    switch (_time) {
-      case 'Morning': hour = '8'; break;
-      case 'Afternoon': hour = '14'; break;
-      case 'Evening': hour = '20'; break;
-      case 'Midnight': hour = '0'; break;
-    }
-    
-    switch (_repeat) {
-      case 'Daily': return '0 $hour * * *';
-      case 'Weekly': return '0 $hour * * 1';
-      case 'Monthly': return '0 $hour 1 * *';
-      default: return '0 $hour * * *';
-    }
-  }
-
-  String _computeNextRunStr() {
-    final now = DateTime.now();
     int hour = 8;
+    int minute = 0;
     switch (_time) {
       case 'Morning': hour = 8; break;
       case 'Afternoon': hour = 14; break;
       case 'Evening': hour = 20; break;
       case 'Midnight': hour = 0; break;
+      case 'Custom': 
+        if (_customTime != null) {
+          hour = _customTime!.hour;
+          minute = _customTime!.minute;
+        }
+        break;
     }
-
-    DateTime next;
-    if (_repeat == 'Daily') {
-      next = DateTime(now.year, now.month, now.day, hour);
-      if (next.isBefore(now)) next = next.add(const Duration(days: 1));
-    } else if (_repeat == 'Weekly') {
-      next = DateTime(now.year, now.month, now.day, hour);
-      while (next.weekday != DateTime.monday || next.isBefore(now)) {
-        next = next.add(const Duration(days: 1));
-      }
-    } else {
-      next = DateTime(now.year, now.month, 1, hour);
-      if (next.isBefore(now)) {
-        next = DateTime(now.year, now.month + 1, 1, hour);
-      }
-    }
-
-    final today = DateTime(now.year, now.month, now.day);
-    final nextDay = DateTime(next.year, next.month, next.day);
     
-    String dayStr;
-    if (nextDay == today) {
-      dayStr = 'Today';
-    } else if (nextDay == today.add(const Duration(days: 1))) {
-      dayStr = 'Tomorrow';
-    } else {
-      final months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-      dayStr = '${months[next.month - 1]} ${next.day}';
+    switch (_repeat) {
+      case 'Daily': return '$minute $hour * * *';
+      case 'Weekdays': return '$minute $hour * * 1-5';
+      case 'Weekly': return '$minute $hour * * 1';
+      case 'Monthly': return '$minute $hour 1 * *';
+      case 'Yearly': return '$minute $hour 1 1 *';
+      default: return '$minute $hour * * *';
     }
-
-    final h = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
-    final ampm = hour < 12 ? 'AM' : 'PM';
-    return '$dayStr at $h:00 $ampm';
   }
 
   Future<void> _submit() async {
@@ -609,10 +686,13 @@ class _NewJobDialogState extends State<_NewJobDialog> {
       return;
     }
 
-
-
     if (!_isCron && _runAt == null) {
       setState(() => _error = 'Pick a date/time for the one-shot run.');
+      return;
+    }
+    
+    if (_isCron && _endRepeat == 'On Date' && _endRepeatAt == null) {
+      setState(() => _error = 'Pick an end date.');
       return;
     }
 
@@ -622,11 +702,12 @@ class _NewJobDialogState extends State<_NewJobDialog> {
     });
 
     try {
-      await widget.onCreate(
+      await widget.onSave(
         label: label,
         directive: directive,
         cronExpression: _isCron ? _generateCron() : null,
         runAt: _isCron ? null : _runAt,
+        endRepeatAt: (_isCron && _endRepeat == 'On Date') ? _endRepeatAt : null,
       );
       if (mounted) Navigator.pop(context);
     } catch (e) {
@@ -650,7 +731,6 @@ class _NewJobDialogState extends State<_NewJobDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Title
               Row(
                 children: [
                   Container(
@@ -659,13 +739,13 @@ class _NewJobDialogState extends State<_NewJobDialog> {
                       color: const Color(0xFF7B8CDE).withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.add_alarm,
-                        color: Color(0xFF7B8CDE), size: 20),
+                    child: Icon(widget.job == null ? Icons.add_alarm : Icons.edit_calendar,
+                        color: const Color(0xFF7B8CDE), size: 20),
                   ),
                   const SizedBox(width: 12),
-                  const Text(
-                    'New Scheduled Job',
-                    style: TextStyle(
+                  Text(
+                    widget.job == null ? 'New Scheduled Job' : 'Edit Scheduled Job',
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
@@ -675,13 +755,11 @@ class _NewJobDialogState extends State<_NewJobDialog> {
               ),
               const SizedBox(height: 24),
 
-              // Label
               _FieldLabel('Job Name'),
               const SizedBox(height: 6),
               _buildTextField(_labelCtrl, 'e.g. Weekly Summary Email'),
               const SizedBox(height: 16),
 
-              // Directive
               _FieldLabel('Agent Directive'),
               const SizedBox(height: 6),
               _buildTextField(
@@ -691,16 +769,15 @@ class _NewJobDialogState extends State<_NewJobDialog> {
               ),
               const SizedBox(height: 16),
 
-              // Type toggle
               Row(
                 children: [
                   _TypeChip(
-                    label: 'Recurring (Cron)',
+                    label: 'Recurring',
                     icon: Icons.repeat,
                     selected: _isCron,
                     onTap: () => setState(() => _isCron = true),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 12),
                   _TypeChip(
                     label: 'One-Shot',
                     icon: Icons.play_arrow,
@@ -713,31 +790,78 @@ class _NewJobDialogState extends State<_NewJobDialog> {
 
               if (_isCron) ...[
                 const SizedBox(height: 8),
-                _buildDropdown('Repeat', _repeat, ['Daily', 'Weekly', 'Monthly'], (v) {
+                _buildDropdown('Repeat', _repeat, ['Daily', 'Weekdays', 'Weekly', 'Monthly', 'Yearly'], (v) {
                   if (v != null) setState(() => _repeat = v);
                 }),
-                _buildDropdown('Time', _time, ['Morning', 'Afternoon', 'Evening', 'Midnight'], (v) {
-                  if (v != null) setState(() => _time = v);
-                }),
-                _buildDropdown('End repeat', 'Never', ['Never'], (v) {}),
                 
-                // Next run display
-                Container(
-                  margin: const EdgeInsets.only(top: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.02),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Next run', style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13, fontWeight: FontWeight.w500)),
-                      Text(_computeNextRunStr(), style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 13)),
-                    ],
-                  ),
-                ),
+                _buildDropdown('Time', _time, ['Morning', 'Afternoon', 'Evening', 'Midnight', 'Custom'], (v) async {
+                  if (v != null) {
+                    if (v == 'Custom') {
+                      final time = await showTimePicker(
+                        context: context, 
+                        initialTime: _customTime ?? const TimeOfDay(hour: 8, minute: 0),
+                        builder: (context, child) {
+                          return Theme(
+                            data: Theme.of(context).copyWith(
+                              colorScheme: const ColorScheme.dark(
+                                primary: Color(0xFF7B8CDE),
+                                onPrimary: Colors.white,
+                                surface: Color(0xFF1A1A1A),
+                                onSurface: Colors.white,
+                              ),
+                            ),
+                            child: child!,
+                          );
+                        }
+                      );
+                      if (time != null) {
+                        setState(() {
+                           _time = v;
+                           _customTime = time;
+                        });
+                      }
+                    } else {
+                      setState(() => _time = v);
+                    }
+                  }
+                }),
+                
+                _buildDropdown('End repeat', _endRepeat, ['Never', 'On Date'], (v) async {
+                  if (v != null) {
+                    if (v == 'On Date') {
+                      final date = await showDatePicker(
+                        context: context,
+                        initialDate: _endRepeatAt ?? DateTime.now().add(const Duration(days: 1)),
+                        firstDate: DateTime.now(),
+                        lastDate: DateTime.now().add(const Duration(days: 3650)),
+                        builder: (context, child) {
+                          return Theme(
+                            data: Theme.of(context).copyWith(
+                              colorScheme: const ColorScheme.dark(
+                                primary: Color(0xFF7B8CDE),
+                                onPrimary: Colors.white,
+                                surface: Color(0xFF1A1A1A),
+                                onSurface: Colors.white,
+                              ),
+                            ),
+                            child: child!,
+                          );
+                        }
+                      );
+                      if (date != null) {
+                        setState(() {
+                          _endRepeat = v;
+                          _endRepeatAt = date;
+                        });
+                      }
+                    } else {
+                      setState(() {
+                         _endRepeat = v;
+                         _endRepeatAt = null;
+                      });
+                    }
+                  }
+                }),
               ] else ...[
                 _FieldLabel('Run At'),
                 const SizedBox(height: 6),
@@ -748,27 +872,20 @@ class _NewJobDialogState extends State<_NewJobDialog> {
                   },
                   child: Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.04),
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.08)),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.calendar_today,
-                            size: 14, color: Colors.white54),
+                        const Icon(Icons.calendar_today, size: 14, color: Colors.white54),
                         const SizedBox(width: 8),
                         Text(
-                          _runAt == null
-                              ? 'Pick a date and time…'
-                              : _runAt.toString().substring(0, 16),
+                          _runAt == null ? 'Pick a date and time...' : _runAt.toString().substring(0, 16),
                           style: TextStyle(
-                            color: _runAt == null
-                                ? Colors.white30
-                                : Colors.white,
+                            color: _runAt == null ? Colors.white30 : Colors.white,
                             fontSize: 13,
                           ),
                         ),
@@ -785,12 +902,9 @@ class _NewJobDialogState extends State<_NewJobDialog> {
                   decoration: BoxDecoration(
                     color: Colors.redAccent.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                        color: Colors.redAccent.withValues(alpha: 0.3)),
+                    border: Border.all(color: Colors.redAccent.withValues(alpha: 0.3)),
                   ),
-                  child: Text(_error!,
-                      style: const TextStyle(
-                          color: Colors.redAccent, fontSize: 12)),
+                  child: Text(_error!, style: const TextStyle(color: Colors.redAccent, fontSize: 12)),
                 ),
               ],
 
@@ -800,8 +914,7 @@ class _NewJobDialogState extends State<_NewJobDialog> {
                 children: [
                   TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text('Cancel',
-                        style: TextStyle(color: Colors.white54)),
+                    child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
                   ),
                   const SizedBox(width: 10),
                   ElevatedButton(
@@ -809,19 +922,12 @@ class _NewJobDialogState extends State<_NewJobDialog> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF7B8CDE),
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                     ),
                     child: _isLoading
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white))
-                        : const Text('Create Job',
-                            style: TextStyle(fontWeight: FontWeight.w600)),
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : Text(widget.job == null ? 'Create Job' : 'Save Changes', style: const TextStyle(fontWeight: FontWeight.w600)),
                   ),
                 ],
               ),
@@ -832,41 +938,34 @@ class _NewJobDialogState extends State<_NewJobDialog> {
     );
   }
 
-  Widget _buildTextField(TextEditingController ctrl, String hint,
-      {int maxLines = 1, String? fontFamily}) {
+  Widget _buildTextField(TextEditingController ctrl, String hint, {int maxLines = 1, String? fontFamily}) {
     return TextField(
       controller: ctrl,
       maxLines: maxLines,
-      style: TextStyle(
-          color: Colors.white, fontSize: 13, fontFamily: fontFamily),
+      style: TextStyle(color: Colors.white, fontSize: 13, fontFamily: fontFamily),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: TextStyle(
-            color: Colors.white.withValues(alpha: 0.25), fontSize: 13),
+        hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.25), fontSize: 13),
         filled: true,
         fillColor: Colors.white.withValues(alpha: 0.04),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Color(0xFF7B8CDE)),
-        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF7B8CDE))),
       ),
     );
   }
 
   Widget _buildDropdown(String label, String value, List<String> items, ValueChanged<String?> onChanged) {
+    String displayValue = value;
+    if (label == 'Time' && value == 'Custom' && _customTime != null) {
+      displayValue = 'Custom (${_customTime!.format(context)})';
+    } else if (label == 'End repeat' && value == 'On Date' && _endRepeatAt != null) {
+      displayValue = 'On Date (${_endRepeatAt.toString().substring(0, 10)})';
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(10),
@@ -876,20 +975,43 @@ class _NewJobDialogState extends State<_NewJobDialog> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13, fontWeight: FontWeight.w500)),
-          DropdownButton<String>(
-            value: value,
-            underline: const SizedBox(),
-            dropdownColor: const Color(0xFF222222),
-            icon: const Icon(Icons.keyboard_arrow_down, size: 16, color: Colors.white54),
-            style: const TextStyle(color: Colors.white, fontSize: 13),
-            items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-            onChanged: onChanged,
+          DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: value,
+              dropdownColor: const Color(0xFF222222),
+              borderRadius: BorderRadius.circular(16),
+              icon: const Icon(Icons.keyboard_arrow_down, size: 16, color: Colors.white54),
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+              selectedItemBuilder: (BuildContext context) {
+                return items.map<Widget>((String item) {
+                  return Container(
+                    alignment: Alignment.centerRight,
+                    child: Text(displayValue, style: const TextStyle(color: Colors.white)),
+                  );
+                }).toList();
+              },
+              items: items.map((e) => DropdownMenuItem(
+                value: e,
+                child: SizedBox(
+                  width: 130,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(e),
+                      if (e == value) const Icon(Icons.check, size: 16, color: Color(0xFF7B8CDE)),
+                    ],
+                  ),
+                )
+              )).toList(),
+              onChanged: onChanged,
+            ),
           ),
         ],
       ),
     );
   }
 }
+
 
 Widget _FieldLabel(String label) => Text(
       label,

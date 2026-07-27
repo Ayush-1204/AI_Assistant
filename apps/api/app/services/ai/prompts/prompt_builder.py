@@ -22,23 +22,23 @@ class PromptBuilder:
 
     @staticmethod
     def title(
-        first_message: str,
+        ai_response: str,
     ) -> str:
         """
         Build a prompt for conversation title generation.
         """
 
         return f"""
-Generate a concise conversation title.
+Generate a concise conversation title based on a 4-word key phrase from the AI's response.
 
 Rules:
-- Maximum 5 words
+- Exactly 4 words (if possible, max 5)
 - No quotation marks
 - No punctuation
 - Title Case
 - Return ONLY the title
 
-User Message:
+AI Response:
 
-{first_message}
+{ai_response}
 """

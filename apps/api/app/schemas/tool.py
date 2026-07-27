@@ -2,6 +2,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from app.schemas.ai_pipeline import NormalizedToolResult
+
 
 class ToolRequest(BaseModel):
     id: str | None = None
@@ -14,3 +16,4 @@ class ToolResponse(BaseModel):
     content: str
     is_error: bool = False
     requires_confirmation: bool = False
+    normalized_result: NormalizedToolResult | None = None

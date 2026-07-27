@@ -217,10 +217,14 @@ class AIService:
                 executor = AgentExecutor(planner, self.tool_orchestrator, strategy, intent=intent)
                 
                 async for chunk in executor.stream_run(prompt, context, messages, tools_payload):
-                    if chunk.startswith("data: ") and '"delta"' in chunk:
+                    if chunk.startswith("data: "):
                         try:
-                            delta = json.loads(chunk[6:])['delta']
-                            final_response += delta
+                            data_payload = json.loads(chunk[6:])
+                            if "delta" in data_payload:
+                                final_response += data_payload['delta']
+                            elif data_payload.get("type") == "presentation_node":
+                                # Accumulate JSON lines as the final text
+                                final_response += json.dumps(data_payload["node"]) + "\n"
                         except:
                             pass
                     yield chunk

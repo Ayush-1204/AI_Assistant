@@ -158,3 +158,14 @@ This document aggregates the implementation plans and walkthrough summaries for 
   - Exposed POST `/conversations/{conversation_id}/truncate` in the backend API to handle truncation requests securely.
   - Built `_UserMessageEditor` widget in `chat_view.dart` to support inline editing of User messages while preserving markdown layout.
   - Updated `ChatProvider` to slice local state arrays and resubmit the conversation payload natively after truncation.
+  - **UI/UX Refinements**: Redesigned the User Message pill layout to correctly encapsulate only the markdown body. Moved Edit and Copy icons into a unified `MouseRegion` right-aligned beneath the pill that appears natively exclusively on hover. Updated the editor Save button to a clean "Submit" in black text over a white background.
+
+## Phase 32: Adaptive AI Pipeline Resilience & Split-Intent Routing
+**Status**: Completed
+- **Plan**: Eliminate extreme latency bottlenecks during provider failovers (e.g., Groq rate limits) and optimize the AI pipeline to stream simple conversational queries without triggering heavy JSON UI layout planners.
+- **Implementation**:
+  - **Concurrent Health Checks**: Refactored _get_available_providers in outer.py to use syncio.gather, executing health pings concurrently to reduce N*5s sequential blocking overhead to a flat 5s max.
+  - **Inference Verification**: Updated openai_provider.py health check to ping the actual /chat/completions inference endpoint (rather than the lightweight /models) to accurately map strict provider rate limits and timeouts.
+  - **Split-Intent JSON Routing**: Established a "structured" routing intent mapped strictly to highly capable models (Gemini Flash, Llama 70B). Updated UpfrontPlanner, PresentationPlanner, ValidatorStage, EditorStage, and ToolRouter to use "structured", eliminating invalid JSON syntax errors previously caused by smaller 8B models.
+  - **Conversational Bypass**: Refactored AgentExecutor.stream_run to bypass PresentationPlanner and heavy JSON layout stages entirely when 	ools_needed == False, streaming raw conversational text natively for basic queries.
+  - **Weather Geolocation Fallback**: Enhanced WeatherTool to interpret location: "auto" dynamically fetching real-time coordinates via IP-geolocation, resolving hallucinations where the AI fetched weather for the village of "Auto, American Samoa".

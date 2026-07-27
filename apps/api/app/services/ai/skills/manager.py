@@ -5,8 +5,10 @@ import aiohttp
 
 logger = logging.getLogger(__name__)
 
+from typing import Any
+
 class SkillManager:
-    def __init__(self, registry):
+    def __init__(self, registry: Any) -> None:
         self.registry = registry
         ai_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.dynamic_dir = os.path.join(ai_dir, "tools", "dynamic")
@@ -21,7 +23,10 @@ class SkillManager:
             async with aiohttp.ClientSession() as session:
                 async with session.get(raw_url) as resp:
                     if resp.status != 200:
-                        logger.error(f"[SkillManager] Failed downloading skill {skill_name}: HTTP {resp.status}")
+                        logger.error(
+                            f"[SkillManager] Failed downloading skill {skill_name}: "
+                            f"HTTP {resp.status}"
+                        )
                         return False
                     
                     code_content = await resp.text()

@@ -166,8 +166,9 @@ class NativeFunctionStrategy(ToolInvocationStrategy):
     def format_assistant_message(self, response_text_or_obj: Any) -> list[dict]:
         # Google expects native history appending to encompass function calls explicitly via Parts list
         parts = []
-        if hasattr(response_text_or_obj, "text") and response_text_or_obj.text:
-             parts.append({"text": response_text_or_obj.text})
+        text_content = self.get_text_from_response(response_text_or_obj)
+        if text_content:
+             parts.append({"text": text_content})
              
         if hasattr(response_text_or_obj, "function_calls") and response_text_or_obj.function_calls:
              for call in response_text_or_obj.function_calls:
@@ -197,7 +198,25 @@ class NativeFunctionStrategy(ToolInvocationStrategy):
     def get_text_from_response(self, response_text_or_obj: Any) -> str:
         if isinstance(response_text_or_obj, str):
             return response_text_or_obj
-        if hasattr(response_text_or_obj, "text"):
-            return response_text_or_obj.text or ""
-        return ""
+            
+        text_content = ""
+        # Avoid accessing .text directly if there are function calls to prevent Google GenAI SDK warnings
+        if hasattr(response_text_or_obj, "candidates") and response_text_or_obj.candidates:
+             try:
+                 for part in response_text_or_obj.candidates[0].content.parts:
+                     if hasattr(part, "text") and part.text:
+                          text_content += part.text
+                     elif isinstance(part, dict) and "text" in part:
+                          text_content += part["text"]
+             except Exception:
+                 pass
+                 
+        if not text_content and hasattr(response_text_or_obj, "text"):
+             try:
+                 if not (hasattr(response_text_or_obj, "function_calls") and response_text_or_obj.function_calls):
+                     text_content = response_text_or_obj.text or ""
+             except Exception:
+                 pass
+                 
+        return text_content
 

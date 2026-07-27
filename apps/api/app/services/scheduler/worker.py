@@ -85,6 +85,12 @@ class SchedulerWorker:
             try:
                 cron = croniter(job.cron_expression, now)
                 next_time = cron.get_next(datetime)
+                
+                if job.end_repeat_at and next_time > job.end_repeat_at:
+                    logger.info(f"[Worker] Cron job {job.id} reached end_repeat_at. Leaving as COMPLETED.")
+                    job.is_enabled = False
+                    continue
+
                 job.scheduled_time = next_time
                 job.next_run_at = next_time
                 job.status = JobStatus.PENDING

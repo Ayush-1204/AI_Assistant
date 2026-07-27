@@ -98,6 +98,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
   StreamSubscription? _ampSub;
   StreamSubscription? _voiceStreamSub;
   StreamSubscription? _wsStreamSub;
+  Timer? _sessionsRefreshTimer;
   WebSocketChannel? _dictateChannel;
   StreamSubscription? _dictateStreamSub;
   String? _recordPath;
@@ -124,6 +125,9 @@ class ChatNotifier extends StateNotifier<ChatState> {
       }
     });
     _initializeConversation();
+    _sessionsRefreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      refreshSessions();
+    });
   }
 
   Future<void> _initializeConversation() async {
@@ -143,8 +147,17 @@ class ChatNotifier extends StateNotifier<ChatState> {
     }
   }
 
+  Future<void> refreshSessions() async {
+    try {
+      final conversations = await _apiClient.fetchConversations();
+      state = state.copyWith(sessions: conversations);
+    } catch (e) {
+      debugPrint("Failed to refresh sessions: $e");
+    }
+  }
+
   Future<void> _cleanupGhostChat() async {
-    if (state.conversationId != null && state.messages.length <= 1) {
+    if (state.conversationId != null && state.messages.isEmpty) {
       final oldId = state.conversationId!;
       try {
         await _apiClient.deleteConversation(oldId);
@@ -597,6 +610,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
       if (state.conversationId == null) {
          final newId = await _apiClient.createConversation("New Chat");
          state = state.copyWith(conversationId: newId);
+         refreshSessions(); // Ensure sidebar updates immediately
          if (state.isContinuousVoiceMode) {
            _initWebSocket();
          }
@@ -645,6 +659,22 @@ class ChatNotifier extends StateNotifier<ChatState> {
                   newMeta[msgIndex] = data;
                   state = state.copyWith(messageMetadata: newMeta);
               }
+           } else if (data['type'] == 'presentation_node') {
+              if (state.isProcessing) {
+                  state = state.copyWith(isProcessing: false);
+              }
+              if (!firstChunkReceived) {
+                  firstChunkReceived = true;
+                  state = state.copyWith(messages: [...state.messages, "Assistant: "]);
+                  msgIndex = state.messages.length - 1;
+              }
+              accumulated += jsonEncode(data['node']) + "\n";
+              
+              final newMsgs = List<String>.from(state.messages);
+              if (msgIndex >= 0 && msgIndex < newMsgs.length) {
+                  newMsgs[msgIndex] = "Assistant: " + accumulated;
+                  state = state.copyWith(messages: newMsgs);
+              }
            } else if (data['type'] == 'tool') {
               final name = data['name'] as String? ?? 'Executing tools...';
               state = state.copyWith(loadingText: name.contains('Searching') ? 'Searching the web...' : name);
@@ -666,11 +696,13 @@ class ChatNotifier extends StateNotifier<ChatState> {
       }
       
       // Auto-edit title on first user/assistant exchange
-      if (state.messages.length <= 3) {
+      if (state.messages.length <= 3 && state.conversationId != null) {
         String cleaned = accumulated.replaceAll(RegExp(r'\n|#|\*'), ' ').trim();
-        String newTitle = cleaned.length > 25 ? "${cleaned.substring(0, 25).trim()}..." : cleaned;
-        if (newTitle.isNotEmpty) {
-           await updateChatTitle(state.conversationId!, newTitle);
+        if (cleaned.isNotEmpty) {
+           final newTitle = await _apiClient.generateConversationTitle(state.conversationId!, cleaned);
+           if (newTitle != null && newTitle.isNotEmpty) {
+              await updateChatTitle(state.conversationId!, newTitle);
+           }
         }
       }
       
@@ -696,6 +728,8 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
   @override
   void dispose() {
+    _silenceTimer?.cancel();
+    _sessionsRefreshTimer?.cancel();
     _ampSub?.cancel();
     _voiceStreamSub?.cancel();
     _wsStreamSub?.cancel();

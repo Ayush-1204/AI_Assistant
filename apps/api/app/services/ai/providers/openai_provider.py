@@ -43,9 +43,19 @@ class OpenAICompatibleProvider(BaseLLMProvider):
 
     async def check_health(self) -> bool:
         try:
-            # We can perform a lightweight list models request
+            # We can perform a lightweight ping to the actual chat endpoint to verify it's responsive
+            payload = {
+                "model": self.model,
+                "messages": [{"role": "user", "content": "ping"}],
+                "max_tokens": 1
+            }
             async with httpx.AsyncClient() as client:
-                res = await client.get(f"{self.base_url}/models", headers=self.headers, timeout=5.0)
+                res = await client.post(
+                    f"{self.base_url}/chat/completions", 
+                    headers=self.headers, 
+                    json=payload, 
+                    timeout=5.0
+                )
                 return res.status_code == 200
         except Exception:
             return False
@@ -199,8 +209,8 @@ class OpenAICompatibleProvider(BaseLLMProvider):
         except Exception as e:
             raise ProviderTransientError(f"{self.provider_name} API failure: {str(e)}")
 
-    async def generate_title(self, first_message: str) -> str:
-        prompt = PromptBuilder.title(first_message)
+    async def generate_title(self, ai_response: str) -> str:
+        prompt = PromptBuilder.title(ai_response)
         msgs = [{"role": "user", "content": prompt}]
         try:
             res = await self.chat(msgs)

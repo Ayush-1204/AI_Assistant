@@ -108,18 +108,20 @@ class GeminiProvider(BaseLLMProvider):
                     model=self.model,
                     contents=contents,
                 )
-            # We return the response object rather than just string for tools strategy to inspect
-            return response
+            # Return the raw object if it contains function calls, otherwise return text
+            if response.function_calls:
+                return response
+            return response.text or ""
         except Exception as e:
             raise ProviderTransientError(f"Gemini API failure: {str(e)}")
 
     async def generate_title(
         self,
-        first_message: str,
+        ai_response: str,
     ) -> str:
 
         prompt = PromptBuilder.title(
-            first_message,
+            ai_response,
         )
 
         response = await self.client.aio.models.generate_content(

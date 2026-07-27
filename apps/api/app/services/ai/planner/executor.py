@@ -1,18 +1,34 @@
+import asyncio
 import json
 import logging
+import uuid
 from collections.abc import AsyncGenerator
+from datetime import datetime
 
 from app.config import settings
-from app.schemas.tool import ToolResponse
+from app.schemas.ai_pipeline import CuratedContext, ExecutionTrace, NormalizedToolResult, ValidationReport
+from app.schemas.tool import ToolRequest, ToolResponse
+from app.services.ai.planner.editor import EditorStage
+from app.services.ai.planner.evaluator import EvaluatorStage
+from app.services.ai.planner.planner import Planner
+from app.services.ai.planner.presentation_planner import PresentationPlanner
+from app.services.ai.planner.upfront_planner import UpfrontPlanner
+from app.services.ai.planner.validator import ValidatorStage
 from app.services.ai.tools.orchestrator import ToolOrchestrator
+from app.services.ai.tools.router import ToolRouter
 from app.services.ai.tools.strategies import ToolInvocationStrategy
-
-from .planner import Planner
-from .state import ExecutionStateManager
 
 logger = logging.getLogger(__name__)
 
 class AgentExecutor:
+    """
+    Phase 3 Adaptive Graph Executor:
+    Replaces the static DAG with an adaptive pipeline supporting:
+    - Capability-Based Routing
+    - Partial Replanning
+    - Execution Tracing
+    - Final Quality Evaluation
+    """
     def __init__(
         self,
         planner: Planner,
@@ -24,128 +40,187 @@ class AgentExecutor:
         self.orchestrator = orchestrator
         self.strategy = strategy
         self.intent = intent
+        self.upfront = UpfrontPlanner(self.planner.provider)
+        self.validator = ValidatorStage(self.planner.provider)
+        self.editor = EditorStage(self.planner.provider)
+        self.evaluator = EvaluatorStage(self.planner.provider)
+        self.tool_router = ToolRouter(self.planner.provider, self.orchestrator.registry)
+        self.presentation_planner = PresentationPlanner(self.planner.provider)
+
+    async def execute_task_graph(self, tasks: list[dict], context: dict, trace: ExecutionTrace) -> list[NormalizedToolResult]:
+        """
+        Executes a list of DAG tasks using capability routing.
+        """
+        results = []
+        
+        async def run_task(task_def: dict) -> NormalizedToolResult:
+            trace.tasks_executed += 1
+            capability = str(task_def.get("capability") or "")
+            
+            # Step 1: Capability Routing
+            tool_name = await self.tool_router.resolve_capability(capability) if capability else None
+            if not tool_name:
+                trace.tasks_failed += 1
+                return NormalizedToolResult(
+                    tool_name=capability or "Unknown",
+                    source="Router",
+                    confidence=0.0,
+                    rawData=f"Failed to find tool for capability: {capability}"
+                )
+                
+            req = ToolRequest(
+                id=task_def.get("id"),
+                name=tool_name,
+                arguments=task_def.get("tool_arguments", {})
+            )
+            
+            # Step 2: Execution
+            resp = await self.orchestrator.execute_tool(req, context)
+            if resp.normalized_result:
+                return resp.normalized_result
+            else:
+                trace.tasks_failed += 1
+                return NormalizedToolResult(
+                    tool_name=req.name,
+                    source=req.name,
+                    confidence=0.0,
+                    rawData="Failed to normalize result."
+                )
+
+        tasks_to_run = [t for t in tasks if not t.get("dependencies")]
+        if tasks_to_run:
+            coroutines = [run_task(t) for t in tasks_to_run]
+            batch_results = await asyncio.gather(*coroutines, return_exceptions=True)
+            for res in batch_results:
+                if isinstance(res, NormalizedToolResult):
+                    results.append(res)
+                elif isinstance(res, Exception):
+                    trace.tasks_failed += 1
+                    logger.error(f"Task failed with exception: {res}")
+                    results.append(NormalizedToolResult(
+                        tool_name="Unknown",
+                        source="Executor",
+                        confidence=0.0,
+                        rawData=f"Fatal exception during task execution: {str(res)}"
+                    ))
+                    
+        return results
 
     async def run(self, query: str, context: dict, messages: list[dict], tools_payload: list[dict]) -> str:
-        state_mgr = ExecutionStateManager(query)
-        final_answer = ""
+        trace = ExecutionTrace(id=str(uuid.uuid4()))
         
-        max_steps = settings.MAX_AGENT_STEPS if settings.ENABLE_MULTI_STEP_AGENT else 1
+        # Step 1: Upfront Planning
+        plan = await self.upfront.generate_plan(query)
+        if not plan or not plan.get("tools_needed", False):
+            res, _, _, text = await self.planner.plan_step(messages, tools_payload)
+            empty_context = CuratedContext(summary=text, missing_information=[])
+            layout = await self.presentation_planner.plan_layout(query, empty_context)
+            nodes = await self.presentation_planner.generate_content(query, layout, empty_context)
+            final_presentation_json = json.dumps(nodes, indent=2)
+            
+            trace.end_time = datetime.now()
+            logger.info(f"[Trace] {trace.model_dump_json()}")
+            return final_presentation_json
+
+        # Step 2: Parallel Tool Execution (DAG)
+        raw_results = await self.execute_task_graph(plan.get("tasks", []), context, trace)
         
-        while state_mgr.state.current_step < max_steps:
-            state_mgr.increment_step()
-            
-            raw_response, has_tool, tool_requests, direct_text = await self.planner.plan_step(messages, tools_payload)
-            
-            if not has_tool:
-                final_answer = direct_text
-                break
+        # Step 3: Validation & Adaptive Replanning
+        valid_results = []
+        for i, r in enumerate(raw_results):
+            report = await self.validator.validate(query, r)
+            if report.is_trustworthy:
+                valid_results.append(r)
+            else:
+                logger.warning(f"Task result rejected by validator: {r.tool_name}. Reason: {report.reason}")
+                trace.tasks_failed += 1
                 
-            messages.extend(self.strategy.format_assistant_message(raw_response))
-            
-            tool_responses: list[ToolResponse] = []
-            for req in tool_requests:
-                if settings.ENABLE_TOOL_RESULT_CACHE:
-                    cached_res = state_mgr.check_duplicate(req)
-                    if cached_res:
-                        logger.info(f"Using cached result for tool {req.name}")
-                        tool_responses.append(cached_res)
-                        state_mgr.record_skip(req)
-                        continue
+                # Adaptive Replan Trigger
+                original_task = plan.get("tasks", [])[i] if i < len(plan.get("tasks", [])) else {}
+                replan_task = await self.upfront.replan_branch(query, original_task, report.reason)
                 
-                tool_instance = self.orchestrator.registry.get_tool(req.name)
-                if tool_instance:
-                     req_conf = False
+                if replan_task:
+                    trace.replans_triggered += 1
+                    logger.info(f"Executing replanned task: {replan_task.get('name')}")
+                    replan_results = await self.execute_task_graph([replan_task], context, trace)
+                    for rr in replan_results:
+                        rr_report = await self.validator.validate(query, rr)
+                        if rr_report.is_trustworthy:
+                            valid_results.append(rr)
                 
-                try:
-                    res = await self.orchestrator.execute_tool(req, context)
-                    state_mgr.record_tool_result(req, res)
-                    tool_responses.append(res)
-                except Exception as e:
-                    err_res = ToolResponse(id=req.id, name=req.name, content=str(e), is_error=True)
-                    state_mgr.record_tool_result(req, err_res)
-                    tool_responses.append(err_res)
+        # Step 4: Editor Layer
+        curated_context = await self.editor.curate(query, valid_results)
+        
+        # Step 5: Presentation Planning (Decide UI First)
+        layout = await self.presentation_planner.plan_layout(query, curated_context)
+        
+        # Step 6: Content Generation (Fill in the UI)
+        presentation_nodes = await self.presentation_planner.generate_content(query, layout, curated_context)
+        final_presentation_json = json.dumps(presentation_nodes, indent=2)
+        
+        # Step 7: Final Quality Evaluation
+        passed = await self.evaluator.evaluate(final_presentation_json, curated_context)
+        trace.final_quality_score = 1.0 if passed else 0.0
+        
+        if not passed:
+            logger.warning("[Executor] Final response failed quality check. Triggering rewrite.")
+            # Simple rewrite logic: Re-generate content using the same layout
+            presentation_nodes = await self.presentation_planner.generate_content(
+                query + " (Ensure you STRICTLY follow the Curated Context)", 
+                layout, 
+                curated_context
+            )
+            final_presentation_json = json.dumps(presentation_nodes, indent=2)
             
-            messages.extend(self.strategy.format_responses_to_messages(tool_responses, raw_tool_call=raw_response))
-            
-        state_mgr.terminate(final_answer)
-        logger.info(f"Agent finished in {state_mgr.state.completed_steps} steps. State: {state_mgr.execution_id}")
-        return final_answer
+        trace.end_time = datetime.now()
+        logger.info(f"[Trace] {trace.model_dump_json()}")
+        return final_presentation_json
         
     async def stream_run(self, query: str, context: dict, messages: list[dict], tools_payload: list[dict]) -> AsyncGenerator[str, None]:
-        state_mgr = ExecutionStateManager(query)
-        final_answer = ""
+        trace = ExecutionTrace(id=str(uuid.uuid4()))
+        plan = await self.upfront.generate_plan(query)
+        if not plan or not plan.get("tools_needed", False):
+            # No tools needed, stream raw conversational text directly using the fast model
+            import typing
+            from app.services.ai.providers.router import ProviderRouter
+            router_inst = typing.cast(ProviderRouter, self.planner.provider)
+            
+            async for chunk in router_inst.stream_chat(messages, tools=None, intent=self.intent):
+                if isinstance(chunk, str):
+                    payload = json.dumps({"type": "content", "delta": chunk})
+                    yield f"data: {payload}\n\n"
+            
+            trace.end_time = datetime.now()
+            logger.info(f"[Trace] Raw text stream completed. {trace.model_dump_json()}")
+            return
+
+        raw_results = await self.execute_task_graph(plan.get("tasks", []), context, trace)
         
-        max_steps = settings.MAX_AGENT_STEPS if settings.ENABLE_MULTI_STEP_AGENT else 1
+        valid_results = []
+        for i, r in enumerate(raw_results):
+            report = await self.validator.validate(query, r)
+            if report.is_trustworthy:
+                valid_results.append(r)
+            else:
+                original_task = plan.get("tasks", [])[i] if i < len(plan.get("tasks", [])) else {}
+                replan_task = await self.upfront.replan_branch(query, original_task, report.reason)
+                if replan_task:
+                    replan_results = await self.execute_task_graph([replan_task], context, trace)
+                    for rr in replan_results:
+                        rr_report = await self.validator.validate(query, rr)
+                        if rr_report.is_trustworthy:
+                            valid_results.append(rr)
+                
+        curated_context = await self.editor.curate(query, valid_results)
         
-        while state_mgr.state.current_step < max_steps:
-            state_mgr.increment_step()
-            
-            collected_response_obj = None
-            full_text = ""
-            yielded_text = ""
-            is_tool_call_predicted = False
-            
-            async for chunk in self.planner.provider.stream_chat(messages, tools=tools_payload, intent=self.intent):
-                if not isinstance(chunk, str):
-                    is_tool_call_predicted = True
-                    collected_response_obj = chunk
-                    continue
-                    
-                full_text += chunk
-                # Buffer streaming immediately when encountering <tool to prevent UI leakage
-                if "<tool" in full_text:
-                    is_tool_call_predicted = True
-                    continue
-
-                yielded_text += chunk
-                yield f"data: {json.dumps({'type': 'content', 'delta': chunk})}\n\n"
-
-            if not is_tool_call_predicted:
-                final_answer = full_text
-                break
-                
-            source_payload = collected_response_obj if collected_response_obj else full_text
-            has_tool, tool_requests = self.strategy.extract_requests(source_payload)
-            
-            if not has_tool:
-                # False positive tool call hallucination. Release the withheld buffer safely.
-                import re
-                remaining = full_text[len(yielded_text):]
-                cleaned_remaining = re.sub(r'<tool[\s\S]*?</tool[^>]*>', '', remaining)
-                cleaned_remaining = re.sub(r'<tool[^>]*>[\s\S]*', '', cleaned_remaining).lstrip()
-                if cleaned_remaining:
-                    yield f"data: {json.dumps({'type': 'content', 'delta': cleaned_remaining})}\n\n"
-                    
-                final_answer = yielded_text + cleaned_remaining
-                break
-                
-            requires_approval = False
-            # Plan approval bypassed based on user request for full automation
-
-            yield f"data: {json.dumps({'type': 'tool', 'name': 'Executing tools...'})}\n\n"
-            
-            messages.extend(self.strategy.format_assistant_message(source_payload))
-            
-            tool_responses: list[ToolResponse] = []
-            for req in tool_requests:
-                if settings.ENABLE_TOOL_RESULT_CACHE:
-                    cached_res = state_mgr.check_duplicate(req)
-                    if cached_res:
-                        logger.info(f"Using cached result for tool {req.name}")
-                        tool_responses.append(cached_res)
-                        state_mgr.record_skip(req)
-                        continue
-                
-                try:
-                    res = await self.orchestrator.execute_tool(req, context)
-                    state_mgr.record_tool_result(req, res)
-                    tool_responses.append(res)
-                except Exception as e:
-                    err_res = ToolResponse(id=req.id, name=req.name, content=str(e), is_error=True)
-                    state_mgr.record_tool_result(req, err_res)
-                    tool_responses.append(err_res)
-                    
-            messages.extend(self.strategy.format_responses_to_messages(tool_responses, raw_tool_call=source_payload))
-            
-        state_mgr.terminate(final_answer)
-        logger.info(f"Streaming Agent finished in {state_mgr.state.completed_steps} steps. State: {state_mgr.execution_id}")
+        # Stream Mode: Decide UI, then Generate Content directly
+        layout = await self.presentation_planner.plan_layout(query, curated_context)
+        presentation_nodes = await self.presentation_planner.generate_content(query, layout, curated_context)
+        
+        # Stream out the Presentation Nodes as JSON-lines for progressive rendering in Flutter
+        for node in presentation_nodes:
+            payload = json.dumps({"type": "presentation_node", "node": node})
+            yield f"data: {payload}\n\n"
+                 
+        trace.end_time = datetime.now()
+        logger.info(f"[Trace] Streaming completed. {trace.model_dump_json()}")

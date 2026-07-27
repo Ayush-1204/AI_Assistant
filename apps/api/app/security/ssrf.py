@@ -49,7 +49,7 @@ def check_ssrf(url: str) -> str | None:
     try:
         resolved = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
         for _, _, _, _, sockaddr in resolved:
-            ip = sockaddr[0]
+            ip = str(sockaddr[0])
             if is_private_ip(ip):
                 return f"URL resolves to private IP: {ip}"
     except socket.gaierror:

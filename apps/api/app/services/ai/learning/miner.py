@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.message import Message
 from app.db.session import AsyncSessionLocal
-from app.services.ai.memory.memory_service import MemoryExtractor
+from app.services.ai.memory.memory_extractor import MemoryExtractor
 from app.services.ai.providers.router import ProviderRouter
 
 logger = logging.getLogger(__name__)
@@ -25,7 +25,12 @@ class TraceMinerLoop:
         """
         Pull recent user trajectories from the db and compress memory facts out of them.
         """
-        stmt = select(Message).where(Message.role == "user").order_by(Message.created_at.desc()).limit(batch_size)
+        stmt = (
+            select(Message)
+            .where(Message.role == "user")
+            .order_by(Message.created_at.desc())
+            .limit(batch_size)
+        )
         result = await db.execute(stmt)
         messages = result.scalars().all()
         
@@ -33,7 +38,7 @@ class TraceMinerLoop:
         for msg in messages:
             try:
                 # Re-using the memory extractor natively during downtime
-                fact = await self.extractor.extract_memory(msg.content)
+                fact = await self.extractor.extract(msg.content)
                 if fact:
                     # In a full implementation, we'd persist the memory item to the Memory table here.
                     logger.info(f"[Trace Miner] Extracted new artifact: {fact}")
@@ -43,7 +48,7 @@ class TraceMinerLoop:
                 
         return extracted_count
 
-    async def start(self, poll_interval: int = 300):
+    async def start(self, poll_interval: int = 300) -> None:
         """
         Downtime loop executing background mining of traces.
         """
@@ -53,7 +58,10 @@ class TraceMinerLoop:
                 async with AsyncSessionLocal() as db:
                     yielded = await self.mine_batch(db)
                     if yielded > 0:
-                        logger.info(f"Trace Miner round successful. Yielded {yielded} structural optimizations.")
+                        logger.info(
+                            f"Trace Miner round successful. "
+                            f"Yielded {yielded} structural optimizations."
+                        )
             except Exception as e:
                 logger.error(f"Miner loop fatal error: {str(e)}")
             

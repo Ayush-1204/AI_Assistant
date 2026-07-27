@@ -89,7 +89,8 @@ class ProviderRouter(BaseLLMProvider):
             "coding": ["groq-qwen3.6-27b", "groq-qwen3-32b", "ollama-coder", "gemini-3.5-flash"],
             "reasoning": ["groq-compound", "groq-compound-mini", "openrouter-gpt-oss-safeguard-20b", "gemini-3.5-flash"],
             "vision": ["openrouter-orpheus-vl-english", "gemini-3.5-flash"],
-            "general": ["groq-llama-3.3-70b-versatile", "gemini-flash", "groq-qwen3-32b", "ollama-default"]
+            "structured": ["gemini-3.1-flash-lite", "gemini-2.5-flash", "groq-llama-3.3-70b-versatile"],
+            "general": ["groq-llama-3.1-8b-instant", "groq-llama-3.3-70b-versatile", "gemini-flash", "groq-qwen3-32b", "ollama-default"]
         })
             
         self.lb_type = self.settings.load_balancing_strategy
@@ -153,18 +154,29 @@ class ProviderRouter(BaseLLMProvider):
     async def _get_available_providers(self, requires_vision: bool = False) -> list[str]:
         local_override = getattr(self.settings, "LOCAL_ONLY_MODE", False)
         
+        provider_names = [
+            name for name in self.providers 
+            if not (local_override and "ollama" not in name.lower())
+        ]
+        
+        # Concurrently check health to avoid sequential 5s blocking timeouts
+        health_results = await asyncio.gather(
+            *[self._is_provider_healthy(name) for name in provider_names],
+            return_exceptions=True
+        )
+        
         available = []
         vision_available = []
-        for name in list(self.providers):
-            if local_override and "ollama" not in name.lower():
-                continue
-                
-            if await self._is_provider_healthy(name):
+        
+        for name, is_healthy in zip(provider_names, health_results):
+            if isinstance(is_healthy, bool) and is_healthy:
                 available.append(name)
-                # Cache checking
-                meta = await self.providers[name].get_metadata()
-                if meta.supports_vision:
-                    vision_available.append(name)
+                try:
+                    meta = await self.providers[name].get_metadata()
+                    if getattr(meta, "supports_vision", False):
+                        vision_available.append(name)
+                except Exception:
+                    pass
                     
         # Give preference to vision models if requested. Fallback linearly if all vision orchestrators are down.
         if requires_vision and vision_available:
@@ -256,8 +268,14 @@ class ProviderRouter(BaseLLMProvider):
                         await asyncio.sleep(self.settings.retry_backoff * (2 ** attempt))
                     else:
                         logger.warning(f"Provider {provider.name} exhausted retries falling over safely.")
+                        if provider.name in self._health_cache:
+                            self._health_cache[provider.name]["is_healthy"] = False
+                            self._health_cache[provider.name]["last_checked"] = time.time()
                 except ProviderError as e:
                     logger.error(f"Non-transient rejection spanning {provider.name}. Dropping.", extra={"error": str(e)})
+                    if provider.name in self._health_cache:
+                        self._health_cache[provider.name]["is_healthy"] = False
+                        self._health_cache[provider.name]["last_checked"] = time.time()
                     break
                     
         raise AllProvidersFailedError("All providers fallback chain entirely failed.")
@@ -265,8 +283,8 @@ class ProviderRouter(BaseLLMProvider):
     async def chat(self, messages: list[dict], tools: list[dict] | None = None, intent: str = "general") -> str:
         return await self._execute_with_router("chat", messages, tools=tools, intent=intent)
 
-    async def generate_title(self, first_message: str) -> str:
-        return await self._execute_with_router("generate_title", first_message)
+    async def generate_title(self, ai_response: str) -> str:
+        return await self._execute_with_router("generate_title", ai_response)
 
     async def extract_memory(self, message: str) -> dict | None:
         return await self._execute_with_router("extract_memory", message)
@@ -316,8 +334,14 @@ class ProviderRouter(BaseLLMProvider):
                         await asyncio.sleep(self.settings.retry_backoff * (2 ** attempt))
                     else:
                         logger.warning(f"Provider {provider.name} exhausted streaming retries falling over.")
+                        if provider.name in self._health_cache:
+                            self._health_cache[provider.name]["is_healthy"] = False
+                            self._health_cache[provider.name]["last_checked"] = time.time()
                 except ProviderError as e:
                     logger.error(f"Non-transient streaming rejection skipping {provider.name}.", extra={"error": str(e)})
+                    if provider.name in self._health_cache:
+                        self._health_cache[provider.name]["is_healthy"] = False
+                        self._health_cache[provider.name]["last_checked"] = time.time()
                     break
 
         raise AllProvidersFailedError("All providers failed establishing stream pipelines.")

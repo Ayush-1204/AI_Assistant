@@ -20,6 +20,7 @@ if config.config_file_name is not None:
 
 # Import all models so SQLAlchemy registers them
 from app.db.base import Base
+import app.db.models  # Ensure all models are registered
 
 target_metadata = Base.metadata
 

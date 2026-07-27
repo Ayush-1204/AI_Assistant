@@ -44,7 +44,7 @@ class BaseLLMProvider(ABC):
     @abstractmethod
     async def generate_title(
         self,
-        first_message: str,
+        ai_response: str,
     ) -> str:
         pass
 

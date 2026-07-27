@@ -1,6 +1,8 @@
 import logging
 import time
+from datetime import datetime
 
+from app.schemas.ai_pipeline import NormalizedToolResult
 from app.schemas.tool import ToolRequest, ToolResponse
 from app.services.ai.tools.registry import ToolRegistry
 
@@ -34,12 +36,32 @@ class ToolOrchestrator:
             logger.info("Tool executed successfully", extra={"tool": request.name, "latency_ms": latency})
             from app.security.credential_stripper import CredentialStripper
             safe_content = CredentialStripper().strip(str(result))
-            return ToolResponse(id=request.id, name=request.name, content=safe_content, is_error=False)
+            
+            # Normalization
+            if isinstance(result, NormalizedToolResult):
+                norm = result
+            else:
+                norm = NormalizedToolResult(
+                    tool_name=request.name,
+                    source=request.name,
+                    timestamp=datetime.now(),
+                    confidence=getattr(tool, "estimated_reliability", 1.0),
+                    rawData=result,
+                    normalizedData={"content": safe_content}
+                )
+            return ToolResponse(id=request.id, name=request.name, content=safe_content, is_error=False, normalized_result=norm)
             
         except Exception as e:
             msg = f"Error executing internal tool: {str(e)}"
             logger.error(msg, exc_info=True)
-            return ToolResponse(id=request.id, name=request.name, content=msg, is_error=True)
+            norm = NormalizedToolResult(
+                tool_name=request.name,
+                source=request.name,
+                timestamp=datetime.now(),
+                confidence=0.0,
+                rawData=msg
+            )
+            return ToolResponse(id=request.id, name=request.name, content=msg, is_error=True, normalized_result=norm)
             
     async def execute_all(self, requests: list[ToolRequest], context: dict) -> list[ToolResponse]:
         responses = []

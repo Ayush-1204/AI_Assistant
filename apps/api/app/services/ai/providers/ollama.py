@@ -98,11 +98,11 @@ class OllamaProvider(BaseLLMProvider):
 
     async def generate_title(
         self,
-        first_message: str,
+        ai_response: str,
     ) -> str:
 
         prompt = PromptBuilder.title(
-            first_message,
+            ai_response,
         )
 
         response = ollama.chat(

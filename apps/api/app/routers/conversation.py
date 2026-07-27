@@ -5,6 +5,7 @@ from app.dependencies import (
     get_conversation_service,
     get_message_service,
     get_current_user,
+    get_ai_service,
 )
 from app.schemas.conversation import (
     ConversationCreate,
@@ -14,10 +15,16 @@ from app.schemas.conversation import (
 )
 from app.services.conversation_service import ConversationService
 from app.services.message_service import MessageService
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from app.services.ai.ai_service import AIService
 from pydantic import BaseModel
 
 class TruncateRequest(BaseModel):
     from_index: int
+
+class GenerateTitleRequest(BaseModel):
+    ai_response: str
 
 
 router = APIRouter(
@@ -131,4 +138,26 @@ async def truncate_conversation(
     await service.get_by_id(conversation_id, current_user.id)
     # Truncate messages
     await message_service.delete_messages_from_index(conversation_id, data.from_index)
-    return {"status": "ok"}
+    return {"status": "ok"}
+
+
+@router.post(
+    "/{conversation_id}/generate-title",
+    response_model=ConversationResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def generate_conversation_title(
+    conversation_id: int,
+    data: GenerateTitleRequest,
+    current_user: User = Depends(get_current_user),
+    service: ConversationService = Depends(get_conversation_service),
+    ai_service: 'AIService' = Depends(get_ai_service),
+):
+    # Verify the conversation belongs to the user
+    await service.get_by_id(conversation_id, current_user.id)
+    
+    title = await ai_service.provider.generate_title(data.ai_response)
+    if not title:
+        title = "New Conversation"
+        
+    return await service.update_title(conversation_id, current_user.id, title)

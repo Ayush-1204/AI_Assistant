@@ -26,7 +26,7 @@ class WeatherTool(BaseTool):
             "properties": {
                 "location": {
                     "type": "string",
-                    "description": "The city or location name to get the weather for. Examples: 'Delhi', 'New York', 'Paris'."
+                    "description": "The city or location name to get the weather for. Examples: 'Delhi', 'New York', 'Paris'. If the user asks for the weather 'here' or doesn't specify a location, pass 'auto'."
                 }
             },
             "required": ["location"]
@@ -50,20 +50,32 @@ class WeatherTool(BaseTool):
 
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
-                # 1. Geocode location to lat/lon
-                geo_resp = await client.get(f"https://geocoding-api.open-meteo.com/v1/search?name={location}&count=1&format=json")
-                if geo_resp.status_code != 200:
-                    return json.dumps({"error": "Failed to geocode location"})
-                
-                geo_data = geo_resp.json()
-                if not geo_data.get("results"):
-                    return json.dumps({"error": f"Could not find coordinates for location: {location}"})
+                if location.lower() == "auto":
+                    # Use IP-based geolocation
+                    ip_resp = await client.get("http://ip-api.com/json/")
+                    if ip_resp.status_code != 200:
+                        return json.dumps({"error": "Failed to auto-detect location based on IP"})
+                    ip_data = ip_resp.json()
+                    lat = ip_data.get("lat")
+                    lon = ip_data.get("lon")
+                    city = ip_data.get("city", "Auto-detected Location")
+                    country = ip_data.get("country", "")
+                    full_name = f"{city}, {country}" if country else city
+                else:
+                    # 1. Geocode location to lat/lon
+                    geo_resp = await client.get(f"https://geocoding-api.open-meteo.com/v1/search?name={location}&count=1&format=json")
+                    if geo_resp.status_code != 200:
+                        return json.dumps({"error": "Failed to geocode location"})
                     
-                lat = geo_data["results"][0]["latitude"]
-                lon = geo_data["results"][0]["longitude"]
-                city = geo_data["results"][0].get("name", location)
-                country = geo_data["results"][0].get("country", "")
-                full_name = f"{city}, {country}" if country else city
+                    geo_data = geo_resp.json()
+                    if not geo_data.get("results"):
+                        return json.dumps({"error": f"Could not find coordinates for location: {location}"})
+                        
+                    lat = geo_data["results"][0]["latitude"]
+                    lon = geo_data["results"][0]["longitude"]
+                    city = geo_data["results"][0].get("name", location)
+                    country = geo_data["results"][0].get("country", "")
+                    full_name = f"{city}, {country}" if country else city
                 
                 # 2. Get Weather
                 resp = await client.get(f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=auto")

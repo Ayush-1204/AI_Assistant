@@ -37,6 +37,7 @@ class ScheduledJob(Base):
     is_user_defined: Mapped[bool] = mapped_column(Boolean, default=False)  # True = created by user via UI
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=True)  # Toggle without deleting
     next_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # Cached next fire time
+    end_repeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True)) # End date for recurring jobs
     
     retry_count: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[JobStatus] = mapped_column(String, default=JobStatus.PENDING)

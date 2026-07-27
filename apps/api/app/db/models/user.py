@@ -45,6 +45,7 @@ class User(Base):
     
     last_known_lat: Mapped[float | None] = mapped_column(Float, nullable=True)
     last_known_lon: Mapped[float | None] = mapped_column(Float, nullable=True)
+    timezone: Mapped[str] = mapped_column(String(50), default="UTC", server_default="UTC")
 
     conversations = relationship(
         "Conversation",
