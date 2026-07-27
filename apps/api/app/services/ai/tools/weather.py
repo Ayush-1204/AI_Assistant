@@ -95,40 +95,34 @@ class WeatherTool(BaseTool):
                 daily_min = daily.get("temperature_2m_min", [])
                 daily_codes = daily.get("weather_code", [])
                 
+                hourly = data.get("hourly", {})
+                hourly_times = hourly.get("time", [])
+                hourly_temps = hourly.get("temperature_2m", [])
+
                 forecast = []
                 for idx in range(min(7, len(daily_times))):
                     dt = datetime.datetime.fromisoformat(daily_times[idx])
                     day_str = dt.strftime("%a")
+                    
+                    day_hourly = []
+                    for i in range(8):
+                        h_idx = (idx * 24) + (i * 3)
+                        if h_idx < len(hourly_times) and h_idx < len(hourly_temps):
+                            dt_h = datetime.datetime.fromisoformat(hourly_times[h_idx])
+                            time_str = dt_h.strftime("%I%p").lstrip("0").lower()
+                            day_hourly.append({
+                                "time": time_str,
+                                "temp": hourly_temps[h_idx]
+                            })
+                            
                     forecast.append({
                         "date": daily_times[idx],
                         "day": day_str,
                         "high": daily_max[idx] if daily_max and idx < len(daily_max) else None,
                         "low": daily_min[idx] if daily_min and idx < len(daily_min) else None,
-                        "condition": self._wmo_to_condition(daily_codes[idx]) if daily_codes and idx < len(daily_codes) else "Unknown"
+                        "condition": self._wmo_to_condition(daily_codes[idx]) if daily_codes and idx < len(daily_codes) else "Unknown",
+                        "hourly": day_hourly
                     })
-                    
-                hourly = data.get("hourly", {})
-                hourly_times = hourly.get("time", [])
-                hourly_temps = hourly.get("temperature_2m", [])
-                
-                # Find index closest to current time
-                now_iso = datetime.datetime.now().strftime("%Y-%m-%dT%H:00")
-                start_idx = 0
-                for i, t in enumerate(hourly_times):
-                    if t >= now_iso:
-                        start_idx = i
-                        break
-                        
-                hourly_forecast = []
-                for i in range(8):
-                    idx = start_idx + (i * 3)
-                    if idx < len(hourly_times):
-                        dt = datetime.datetime.fromisoformat(hourly_times[idx])
-                        time_str = dt.strftime("%I%p").lstrip("0").lower()
-                        hourly_forecast.append({
-                            "time": time_str,
-                            "temp": hourly_temps[idx]
-                        })
                 
                 result = {
                     "location": full_name,
@@ -140,8 +134,7 @@ class WeatherTool(BaseTool):
                         "wind_speed": f"{current.get('wind_speed_10m')} km/h",
                         "condition": self._wmo_to_condition(current_wmo)
                     },
-                    "forecast_7_days": forecast,
-                    "hourly": hourly_forecast
+                    "forecast_7_days": forecast
                 }
                 
                 return json.dumps(result)

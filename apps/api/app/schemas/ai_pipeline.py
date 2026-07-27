@@ -64,3 +64,4 @@ class CuratedContext(BaseModel):
     curated_images: list[ImageReference] = Field(default_factory=list)
     citations: list[Citation] = Field(default_factory=list)
     missing_information: list[str] = Field(default_factory=list)
+    raw_data: Any | None = None

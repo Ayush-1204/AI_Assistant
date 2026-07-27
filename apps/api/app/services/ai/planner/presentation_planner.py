@@ -82,8 +82,11 @@ Example:
         prompt = f"""You are a UI Content Writer. Your job is to fill in the exact content for a predefined UI Layout.
 You must use the Curated Context to populate the fields. DO NOT invent facts.
 
-Curated Context:
-{json.dumps(context.model_dump(), indent=2)}
+Curated Context Summary & Facts:
+{json.dumps(context.model_dump(exclude={{'raw_data'}}), indent=2)}
+
+Raw Tool Data (Use this for precise arrays, charts, forecasts, etc):
+{json.dumps(context.raw_data, indent=2)}
 
 Predefined UI Layout:
 {json.dumps(layout, indent=2)}
@@ -94,7 +97,7 @@ Node Field Requirements:
 - BulletList: 'id', 'type', 'items' (array of strings)
 - NumberedList: 'id', 'type', 'items' (array of strings)
 - NewsCard: 'id', 'type', 'title', 'summary', 'source', 'url' (optional), 'imageUrl' (optional)
-- WeatherCard: 'id', 'type', 'location', 'temperature_c', 'condition', 'forecast' (array of {{day, icon, high, low}}), 'hourly' (array of {{time, temp}})
+- WeatherCard: 'id', 'type', 'location', 'temperature_c', 'condition', 'forecast' (array of {{day, condition, high, low, hourly: array of {{time, temp}}}})
 - ComparisonTable: 'id', 'type', 'headers' (array), 'rows' (array of arrays)
 - CodeBlock: 'id', 'type', 'language', 'code'
 - ImageGallery: 'id', 'type', 'images' (array of {{url, alt}})

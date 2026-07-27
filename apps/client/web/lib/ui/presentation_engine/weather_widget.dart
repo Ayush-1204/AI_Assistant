@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
 import 'models.dart';
 
-class WeatherCardWidget extends StatelessWidget {
+class WeatherCardWidget extends StatefulWidget {
   final WeatherCardNode node;
   const WeatherCardWidget({super.key, required this.node});
+
+  @override
+  State<WeatherCardWidget> createState() => _WeatherCardWidgetState();
+}
+
+class _WeatherCardWidgetState extends State<WeatherCardWidget> {
+  int _selectedDayIndex = 0;
 
   IconData _getIconForCondition(String condition) {
     final lower = condition.toLowerCase();
@@ -17,6 +24,26 @@ class WeatherCardWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final node = widget.node;
+    final hasForecast = node.forecast.isNotEmpty;
+    
+    // Determine which day's data to show
+    final selectedForecast = hasForecast && _selectedDayIndex < node.forecast.length 
+        ? node.forecast[_selectedDayIndex] 
+        : null;
+        
+    final displayTemp = _selectedDayIndex == 0 
+        ? node.temperatureC.round() 
+        : (selectedForecast != null ? (selectedForecast['high'] as num?)?.round() ?? 0 : 0);
+        
+    final displayCondition = _selectedDayIndex == 0
+        ? node.condition
+        : (selectedForecast != null ? selectedForecast['condition'] as String? ?? 'Unknown' : 'Unknown');
+
+    final hourlyData = selectedForecast != null && selectedForecast['hourly'] != null
+        ? selectedForecast['hourly'] as List<dynamic>
+        : <dynamic>[];
+
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 16),
       padding: const EdgeInsets.all(24),
@@ -37,7 +64,7 @@ class WeatherCardWidget extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '${node.temperatureC.round()}°',
+                '$displayTemp°',
                 style: const TextStyle(fontSize: 64, fontWeight: FontWeight.w400, color: Colors.white, height: 1),
               ),
               const Padding(
@@ -51,31 +78,48 @@ class WeatherCardWidget extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            node.condition,
+            displayCondition,
             style: const TextStyle(fontSize: 18, color: Colors.white),
           ),
           const SizedBox(height: 32),
           
-          if (node.forecast.isNotEmpty)
+          if (hasForecast)
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
-                children: node.forecast.map((f) {
-                  return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Column(
-                      children: [
-                        Text(f['day'] ?? '', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 8),
-                        Icon(_getIconForCondition(f['condition'] ?? ''), color: Colors.white, size: 24),
-                        const SizedBox(height: 8),
-                        Text('${(f['high'] as num?)?.round() ?? 0}°', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 4),
-                        Text('${(f['low'] as num?)?.round() ?? 0}°', style: TextStyle(color: Colors.white.withValues(alpha: 0.5))),
-                      ],
+                children: List.generate(node.forecast.length, (index) {
+                  final f = node.forecast[index];
+                  final isSelected = index == _selectedDayIndex;
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _selectedDayIndex = index;
+                      });
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: isSelected ? Colors.white.withValues(alpha: 0.1) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                        border: isSelected 
+                            ? Border.all(color: Colors.blue.withValues(alpha: 0.5)) 
+                            : Border.all(color: Colors.transparent),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(f['day'] ?? '', style: TextStyle(color: isSelected ? Colors.white : Colors.white70, fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 8),
+                          Icon(_getIconForCondition(f['condition'] ?? ''), color: isSelected ? Colors.blue[200] : Colors.white, size: 24),
+                          const SizedBox(height: 8),
+                          Text('${(f['high'] as num?)?.round() ?? 0}°', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 4),
+                          Text('${(f['low'] as num?)?.round() ?? 0}°', style: TextStyle(color: Colors.white.withValues(alpha: 0.5))),
+                        ],
+                      ),
                     ),
                   );
-                }).toList(),
+                }),
               ),
             ),
             
@@ -89,13 +133,18 @@ class WeatherCardWidget extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           
-          if (node.hourly.isNotEmpty)
+          if (hourlyData.isNotEmpty)
             SizedBox(
               height: 120,
               width: double.infinity,
               child: CustomPaint(
-                painter: _HourlyTemperaturePainter(hourly: node.hourly),
+                painter: _HourlyTemperaturePainter(hourly: hourlyData),
               ),
+            )
+          else
+            const SizedBox(
+              height: 120,
+              child: Center(child: Text("Hourly data unavailable", style: TextStyle(color: Colors.white54))),
             ),
             
           const SizedBox(height: 16),
@@ -144,7 +193,7 @@ class _HourlyTemperaturePainter extends CustomPainter {
       double t = (hourly[i]['temp'] as num).toDouble();
       double x = i * stepX;
       double y = height - ((t - minTemp) / range) * (height - 40); 
-      points.add(Offset(x, y - 20)); // Adjust y upwards for labels
+      points.add(Offset(x, y - 20)); 
     }
 
     Path path = Path();
