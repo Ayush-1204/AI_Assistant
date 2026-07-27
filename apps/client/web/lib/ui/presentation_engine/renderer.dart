@@ -21,13 +21,15 @@ class PresentationRenderer extends StatelessWidget {
       return MarkdownBody(data: fallbackMarkdown!);
     }
 
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: nodes.length,
-      itemBuilder: (context, index) {
-        return PresentationRegistry.buildWidget(context, nodes[index]);
-      },
+    return SelectionArea(
+      child: ListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: nodes.length,
+        itemBuilder: (context, index) {
+          return PresentationRegistry.buildWidget(context, nodes[index]);
+        },
+      ),
     );
   }
 }
