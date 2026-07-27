@@ -29,7 +29,7 @@ class WeatherTool(BaseTool):
                     "description": "The city or location name to get the weather for. Examples: 'Delhi', 'New York', 'Paris'. If the user asks for the weather 'here' or doesn't specify a location, pass 'auto'."
                 }
             },
-            "required": ["location"]
+            "required": []
         }
 
     def _wmo_to_condition(self, wmo: int) -> str:
@@ -46,11 +46,11 @@ class WeatherTool(BaseTool):
     async def execute(self, execution_context: dict, **kwargs) -> str:
         location = kwargs.get("location")
         if not location:
-            return json.dumps({"error": "Missing 'location' parameter"})
+            location = "auto"
 
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
-                if location.lower() in ["auto", "auto-detect", "here"]:
+                if location.lower() in ["auto", "auto-detect", "here", "current_user_city", "current location", "result_from_get_user_location"]:
                     # Use IP-based geolocation
                     ip_resp = await client.get("http://ip-api.com/json/")
                     if ip_resp.status_code != 200:
