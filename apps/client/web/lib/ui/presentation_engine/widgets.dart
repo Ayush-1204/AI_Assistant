@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import '../markdown/ai_message_renderer.dart';
 import 'models.dart';
 
 class UnknownNodeWidget extends StatelessWidget {
@@ -33,10 +34,10 @@ class HeadingWidget extends StatelessWidget {
     }
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12.0),
-      child: Text(
-        node.text,
-        style: TextStyle(fontSize: fontSize, fontWeight: weight),
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: AiMessageRenderer(
+        text: '${'#' * node.level} ${node.text}',
+        wrapInSelectionArea: false,
       ),
     );
   }
@@ -49,10 +50,10 @@ class ParagraphWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0),
-      child: Text(
-        node.text,
-        style: const TextStyle(fontSize: 16, height: 1.5),
+      padding: const EdgeInsets.only(bottom: 0.0),
+      child: AiMessageRenderer(
+        text: node.text,
+        wrapInSelectionArea: false,
       ),
     );
   }
@@ -64,20 +65,12 @@ class BulletListWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final listMarkdown = node.items.map((item) => '* $item').join('\n');
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: node.items.map((item) => Padding(
-          padding: const EdgeInsets.only(bottom: 6.0),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(' • ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              Expanded(child: Text(item, style: const TextStyle(fontSize: 16, height: 1.4))),
-            ],
-          ),
-        )).toList(),
+      padding: const EdgeInsets.only(bottom: 0.0),
+      child: AiMessageRenderer(
+        text: listMarkdown,
+        wrapInSelectionArea: false,
       ),
     );
   }

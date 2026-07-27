@@ -17,6 +17,7 @@ class AiMessageRenderer extends StatelessWidget {
   final Map<String, MarkdownElementBuilder>? builders;
   final Iterable<md.InlineSyntax>? inlineSyntaxes;
   final Iterable<md.BlockSyntax>? blockSyntaxes;
+  final bool wrapInSelectionArea;
 
   const AiMessageRenderer({
     Key? key,
@@ -27,6 +28,7 @@ class AiMessageRenderer extends StatelessWidget {
     this.builders,
     this.inlineSyntaxes,
     this.blockSyntaxes,
+    this.wrapInSelectionArea = true,
   }) : super(key: key);
 
   @override
@@ -122,6 +124,16 @@ class AiMessageRenderer extends StatelessWidget {
       ],
     );
 
+    Widget finalTree = Container(
+      width: isAssistant ? double.infinity : null,
+      color: Colors.transparent,
+      child: body,
+    );
+
+    if (wrapInSelectionArea) {
+      finalTree = SelectionArea(child: finalTree);
+    }
+
     return Theme(
       data: Theme.of(context).copyWith(
         textSelectionTheme: const TextSelectionThemeData(
@@ -129,13 +141,7 @@ class AiMessageRenderer extends StatelessWidget {
           selectionHandleColor: Color(0xFF0337A1),
         ),
       ),
-      child: SelectionArea(
-        child: Container(
-          width: isAssistant ? double.infinity : null,
-          color: Colors.transparent,
-          child: body,
-        ),
-      ),
+      child: finalTree,
     );
   }
 }
