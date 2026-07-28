@@ -74,31 +74,32 @@ class WeatherTool(BaseTool):
                         except Exception:
                             pass
                     else:
-                        # Fallback to IP-based geolocation
-                        ip_resp = await client.get("http://ip-api.com/json/")
-                        if ip_resp.status_code != 200:
-                            return json.dumps({"error": "Failed to auto-detect location based on IP"})
-                        ip_data = ip_resp.json()
-                        lat = ip_data.get("lat")
-                        lon = ip_data.get("lon")
-                        city = ip_data.get("city", "Auto-detected Location")
-                        country = ip_data.get("country", "")
-                        full_name = f"{city}, {country}" if country else city
+                        return json.dumps({"error": "Precise GPS coordinates (lat, lon) not provided in execution context. Please enable location permissions."})
                 else:
                     # 1. Geocode location to lat/lon
                     geo_resp = await client.get(f"https://geocoding-api.open-meteo.com/v1/search?name={location}&count=1&format=json")
-                    if geo_resp.status_code != 200:
-                        return json.dumps({"error": "Failed to geocode location"})
+                    geo_data = geo_resp.json() if geo_resp.status_code == 200 else {}
                     
-                    geo_data = geo_resp.json()
                     if not geo_data.get("results"):
-                        return json.dumps({"error": f"Could not find coordinates for location: {location}"})
-                        
-                    lat = geo_data["results"][0]["latitude"]
-                    lon = geo_data["results"][0]["longitude"]
-                    city = geo_data["results"][0].get("name", location)
-                    country = geo_data["results"][0].get("country", "")
-                    full_name = f"{city}, {country}" if country else city
+                        # Fallback to Nominatim for tricky locations like 'Sahara'
+                        nom_resp = await client.get(
+                            f"https://nominatim.openstreetmap.org/search?q={location}&format=json&limit=1",
+                            headers={"User-Agent": "AIAssistant/1.0"}
+                        )
+                        if nom_resp.status_code == 200 and nom_resp.json():
+                            nom_data = nom_resp.json()[0]
+                            lat = float(nom_data["lat"])
+                            lon = float(nom_data["lon"])
+                            # Nominatim display_name is very long, just take the first part
+                            full_name = nom_data.get("display_name", location).split(",")[0]
+                        else:
+                            return json.dumps({"error": f"Could not find coordinates for location: {location}"})
+                    else:
+                        lat = geo_data["results"][0]["latitude"]
+                        lon = geo_data["results"][0]["longitude"]
+                        city = geo_data["results"][0].get("name", location)
+                        country = geo_data["results"][0].get("country", "")
+                        full_name = f"{city}, {country}" if country else city
                 
                 # 2. Get Weather
                 for attempt in range(3):

@@ -269,18 +269,9 @@ async def get_dashboard_widgets(
     lon = request.headers.get("X-User-Lon")
 
     if not lat or not lon:
-        try:
-            async with httpx.AsyncClient(timeout=2.0) as client:
-                resp = await client.get("http://ip-api.com/json/")
-                if resp.status_code == 200:
-                    data = resp.json()
-                    lat = str(data.get("lat", "28.6139"))
-                    lon = str(data.get("lon", "77.2090"))
-                else:
-                    lat, lon = "28.6139", "77.2090"
-        except Exception as e:
-            logger.warning(f"Failed to fetch IP location for dashboard widgets: {e}")
-            lat, lon = "28.6139", "77.2090"
+        # Per user request, strictly rely on client-provided coordinates (X-User-Lat/Lon).
+        # Disable IP geolocation fallbacks.
+        lat, lon = "28.6139", "77.2090"
 
     weather, _ = await asyncio.gather(fetch_weather(lat, lon), fetch_news())
     calendar_grid, today, today_events = await _generate_calendar_grid(user.id, db)
