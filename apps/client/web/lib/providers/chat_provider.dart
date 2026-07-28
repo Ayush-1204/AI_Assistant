@@ -475,6 +475,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
   }
 
   Future<void> _processAudioQueue() async {
+    _isPlayingAudio = true;
     state = state.copyWith(isSpeaking: true); // Mute mic naturally occurs as toggleVoiceTyping is exited before TTS starts
     final bytes = _audioQueue.removeAt(0);
     
