@@ -502,6 +502,15 @@ class ChatNotifier extends StateNotifier<ChatState> {
                 final type = node['type'];
                 if (['Heading', 'Paragraph', 'Math', 'Code', 'Markdown'].contains(type)) {
                   result += (node['text']?.toString() ?? '') + ' ';
+                } else if (type == 'Timeline') {
+                  final events = node['events'] as List<dynamic>? ?? [];
+                  for (final event in events) {
+                    if (event is Map) {
+                      result += '${event['time'] ?? ''}. ${event['title'] ?? ''}. ${event['description'] ?? ''} ';
+                    }
+                  }
+                } else if (type == 'Accordion') {
+                  result += '${node['title'] ?? ''}. ${node['content'] ?? ''} ';
                 }
                 // Skip structural widgets completely
                 continue;

@@ -155,6 +155,21 @@ class StreamingCoordinator:
                                     if sentence_buffer.strip().endswith((".", "!", "?", "\n")) and len(sentence_buffer) > 15:
                                         await self.tts.process_text(sentence_buffer)
                                         sentence_buffer = ""
+                            elif node_type == "Timeline":
+                                events = node.get("events", [])
+                                node_text = " ".join([f"{e.get('time', '')}. {e.get('title', '')}. {e.get('description', '')}" for e in events])
+                                if node_text:
+                                    sentence_buffer += node_text + " "
+                                    if sentence_buffer.strip().endswith((".", "!", "?", "\n")) and len(sentence_buffer) > 15:
+                                        await self.tts.process_text(sentence_buffer)
+                                        sentence_buffer = ""
+                            elif node_type == "Accordion":
+                                node_text = f"{node.get('title', '')}. {node.get('content', '')}"
+                                if node_text:
+                                    sentence_buffer += node_text + " "
+                                    if sentence_buffer.strip().endswith((".", "!", "?", "\n")) and len(sentence_buffer) > 15:
+                                        await self.tts.process_text(sentence_buffer)
+                                        sentence_buffer = ""
                     except Exception as e:
                         logger.warning(f"[Voice] Error parsing presentation node for TTS: {e}")
             
