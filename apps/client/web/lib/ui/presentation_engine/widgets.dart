@@ -276,4 +276,31 @@ class TimelineWidget extends StatelessWidget {
   }
 }
 
+class AccordionWidget extends StatelessWidget {
+  final AccordionNode node;
+  const AccordionWidget({super.key, required this.node});
 
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.symmetric(vertical: 8.0),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: Colors.grey.withOpacity(0.3)),
+      ),
+      child: ExpansionTile(
+        title: Text(node.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 16.0),
+            child: AiMessageRenderer(
+              text: node.content,
+              wrapInSelectionArea: false,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
