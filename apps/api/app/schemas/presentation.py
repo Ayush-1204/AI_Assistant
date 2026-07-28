@@ -31,6 +31,7 @@ class NewsCardNode(BasePresentationNode):
     source: str
     url: str | None = None
     imageUrl: str | None = None
+    imageUrls: list[str] = Field(default_factory=list)
 
 class WeatherCardNode(BasePresentationNode):
     type: Literal["WeatherCard"] = "WeatherCard"

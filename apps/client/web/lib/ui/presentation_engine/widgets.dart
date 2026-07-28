@@ -151,17 +151,58 @@ class NewsCardWidget extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (node.imageUrl != null && node.imageUrl!.isNotEmpty)
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-              child: Image.network(
-                node.imageUrl!,
+          Builder(
+            builder: (context) {
+              final allImages = <String>[];
+              if (node.imageUrl != null && node.imageUrl!.isNotEmpty) {
+                allImages.add(node.imageUrl!);
+              }
+              allImages.addAll(node.imageUrls.where((url) => url.isNotEmpty));
+              
+              if (allImages.isEmpty) return const SizedBox.shrink();
+
+              if (allImages.length == 1) {
+                return ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                  child: Image.network(
+                    allImages.first,
+                    height: 150,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                  ),
+                );
+              }
+
+              return SizedBox(
                 height: 150,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-              ),
-            ),
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: allImages.length,
+                  itemBuilder: (context, index) {
+                    final isFirst = index == 0;
+                    final isLast = index == allImages.length - 1;
+                    return Padding(
+                      padding: EdgeInsets.only(right: isLast ? 0 : 2.0),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.only(
+                          topLeft: isFirst ? const Radius.circular(12) : Radius.zero,
+                          topRight: isLast ? const Radius.circular(12) : Radius.zero,
+                        ),
+                        child: Image.network(
+                          allImages[index],
+                          height: 150,
+                          width: 200,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              );
+            },
+          ),
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(

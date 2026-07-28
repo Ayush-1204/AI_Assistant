@@ -98,7 +98,7 @@ Node Field Requirements:
 - Paragraph: 'id', 'type', 'text'
 - BulletList: 'id', 'type', 'items' (array of strings)
 - NumberedList: 'id', 'type', 'items' (array of strings)
-- NewsCard: 'id', 'type', 'title', 'summary', 'source', 'url' (optional), 'imageUrl' (optional)
+- NewsCard: 'id', 'type', 'title', 'summary', 'source', 'url' (optional), 'imageUrl' (optional), 'imageUrls' (optional array of strings)
 - WeatherCard: 'id', 'type', 'location', 'temperature_c', 'condition', 'forecast' (array of {{day, condition, high, low, hourly: array of {{time, temp}}}})
 - ComparisonTable: 'id', 'type', 'headers' (array), 'rows' (array of arrays)
 - CodeBlock: 'id', 'type', 'language', 'code'
