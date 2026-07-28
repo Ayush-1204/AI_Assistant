@@ -52,8 +52,8 @@ class _WeatherCardWidgetState extends State<WeatherCardWidget> {
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 500),
       child: Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: const Color(0xFF202124),
         borderRadius: BorderRadius.circular(24),
@@ -72,10 +72,10 @@ class _WeatherCardWidgetState extends State<WeatherCardWidget> {
             children: [
               Text(
                 '${displayTempConverted.round()}°',
-                style: const TextStyle(fontSize: 48, fontWeight: FontWeight.w400, color: Colors.white, height: 1),
+                style: const TextStyle(fontSize: 64, fontWeight: FontWeight.w400, color: Colors.white, height: 1),
               ),
               Padding(
-                padding: const EdgeInsets.only(top: 4.0, left: 8.0),
+                padding: const EdgeInsets.only(top: 8.0, left: 8.0),
                 child: Row(
                   children: [
                     GestureDetector(
@@ -97,7 +97,7 @@ class _WeatherCardWidgetState extends State<WeatherCardWidget> {
             displayCondition,
             style: const TextStyle(fontSize: 18, color: Colors.white),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 32),
           
           if (hasForecast)
             Row(
@@ -114,7 +114,7 @@ class _WeatherCardWidgetState extends State<WeatherCardWidget> {
                     },
                     child: Container(
                       margin: const EdgeInsets.only(right: 4),
-                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                       decoration: BoxDecoration(
                         color: isSelected ? Colors.white.withValues(alpha: 0.1) : Colors.transparent,
                         borderRadius: BorderRadius.circular(12),
@@ -125,11 +125,11 @@ class _WeatherCardWidgetState extends State<WeatherCardWidget> {
                       child: Column(
                         children: [
                           Text(f['day'] ?? '', style: TextStyle(color: isSelected ? Colors.white : Colors.white70, fontWeight: FontWeight.w600, fontSize: 13)),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 8),
                           Text(_getEmojiForCondition(f['condition'] ?? ''), style: const TextStyle(fontSize: 24)),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 8),
                           Text('${(_isFahrenheit ? (((f['high'] as num?) ?? 0) * 9/5) + 32 : ((f['high'] as num?) ?? 0)).round()}°', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14)),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 4),
                           Text('${(_isFahrenheit ? (((f['low'] as num?) ?? 0) * 9/5) + 32 : ((f['low'] as num?) ?? 0)).round()}°', style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12)),
                         ],
                       ),
@@ -140,7 +140,7 @@ class _WeatherCardWidgetState extends State<WeatherCardWidget> {
             ),
             
           if (hourlyData.isNotEmpty) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
           DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: _selectedMetric,
@@ -159,10 +159,10 @@ class _WeatherCardWidgetState extends State<WeatherCardWidget> {
               }).toList(),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 24),
           
           SizedBox(
-            height: 80,
+            height: 120,
             width: double.infinity,
             child: CustomPaint(
               painter: _HourlyDataPainter(hourly: hourlyData, isFahrenheit: _isFahrenheit, metric: _selectedMetric),

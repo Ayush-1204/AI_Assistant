@@ -167,4 +167,84 @@ Return ONLY a JSON array containing the fully populated nodes from the Predefine
             }
         ]
 
+    async def generate_content_stream(self, query: str, layout: list[dict[str, Any]], context: CuratedContext):
+        """
+        Step 2 (Streaming): Generates content progressively and yields each PresentationNode as soon as it is complete.
+        """
+        prompt = f"""You are a UI Content Writer. Your job is to fill in the exact content for a predefined UI Layout.
+You must use the Curated Context to populate the fields. DO NOT invent facts.
+
+Curated Context Summary & Facts:
+{json.dumps(context.model_dump(exclude={'raw_data'}), indent=2)}
+
+Raw Tool Data (Use this for precise arrays, charts, forecasts, etc):
+{json.dumps(context.raw_data, indent=2)}
+
+Predefined UI Layout:
+{json.dumps(layout, indent=2)}
+
+Node Field Requirements:
+- Heading: 'id', 'type', 'text', 'level' (1, 2, or 3)
+- Paragraph: 'id', 'type', 'text'
+- BulletList: 'id', 'type', 'items' (array of strings)
+- NumberedList: 'id', 'type', 'items' (array of strings)
+- NewsCard: 'id', 'type', 'title', 'summary', 'source', 'url' (optional), 'imageUrl' (optional), 'imageUrls' (optional array of strings)
+- WeatherCard: 'id', 'type', 'location', 'temperature_c', 'condition', 'forecast' (array of {{day, condition, high, low, hourly: array of {{time, temp}}}})
+- ComparisonTable: 'id', 'type', 'headers' (array), 'rows' (array of arrays)
+- CodeBlock: 'id', 'type', 'language', 'code'
+- ImageGallery: 'id', 'type', 'images' (array of {{url, alt}})
+- Timeline: 'id', 'type', 'events' (array of {{time, title, description}})
+- Accordion: 'id', 'type', 'title', 'content'
+
+Return ONLY a JSON array containing the fully populated nodes from the Predefined UI Layout. Do not change the IDs or Types.
+"""
+        messages = [
+            {"role": "system", "content": "You are a UI Content Writer outputting ONLY a populated JSON array."},
+            {"role": "user", "content": prompt}
+        ]
+
+        from app.services.ai.planner.json_streamer import parse_json_objects_from_stream
+        import typing
+        from app.services.ai.providers.router import ProviderRouter
+        
+        try:
+            router_inst = typing.cast(ProviderRouter, self.provider)
+            buffer = ""
+            
+            async for chunk in router_inst.chat_stream(messages, intent="structured"):
+                buffer += chunk
+                objects, buffer = parse_json_objects_from_stream(buffer)
+                
+                for node in objects:
+                    if not isinstance(node, dict):
+                        continue
+                        
+                    if node.get("type") == "WeatherCard" and context.raw_data:
+                        weather_data = context.raw_data.get("get_weather", {})
+                        if weather_data:
+                            node["location"] = weather_data.get("location", node.get("location"))
+                            
+                            current_data = weather_data.get("current", {})
+                            if "temperature" in current_data:
+                                temp_str = str(current_data["temperature"]).replace("AC", "").replace("C", "").strip()
+                                try:
+                                    node["temperature_c"] = float(temp_str)
+                                except ValueError:
+                                    node["temperature_c"] = temp_str
+                            if "condition" in current_data:
+                                node["condition"] = current_data["condition"]
+                                
+                            if "forecast_7_days" in weather_data:
+                                node["forecast"] = weather_data["forecast_7_days"]
+                                
+                    yield node
+                    
+        except Exception as e:
+            logger.warning(f"[PresentationPlanner] Failed to generate content stream: {str(e)}")
+            yield {
+                "id": "fallback_1",
+                "type": "Paragraph",
+                "text": "Failed to format content progressively. Check curated context."
+            }
+
 

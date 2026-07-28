@@ -213,12 +213,11 @@ class AgentExecutor:
                 
         curated_context = await self.editor.curate(query, valid_results)
         
-        # Stream Mode: Decide UI, then Generate Content directly
+        # Stream Mode: Decide UI, then Generate Content progressively
         layout = await self.presentation_planner.plan_layout(query, curated_context)
-        presentation_nodes = await self.presentation_planner.generate_content(query, layout, curated_context)
         
-        # Stream out the Presentation Nodes as JSON-lines for progressive rendering in Flutter
-        for node in presentation_nodes:
+        # Stream out the Presentation Nodes as they are completed
+        async for node in self.presentation_planner.generate_content_stream(query, layout, curated_context):
             payload = json.dumps({"type": "presentation_node", "node": node})
             yield f"data: {payload}\n\n"
                  
