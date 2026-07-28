@@ -14,14 +14,15 @@ class _WeatherCardWidgetState extends State<WeatherCardWidget> {
   bool _isFahrenheit = false;
   String _selectedMetric = 'Temperature';
 
-  IconData _getIconForCondition(String condition) {
+  String _getEmojiForCondition(String condition) {
     final lower = condition.toLowerCase();
-    if (lower.contains('rain')) return Icons.water_drop;
-    if (lower.contains('snow')) return Icons.ac_unit;
-    if (lower.contains('cloud')) return Icons.cloud;
-    if (lower.contains('storm')) return Icons.thunderstorm;
-    if (lower.contains('fog')) return Icons.foggy;
-    return Icons.wb_sunny;
+    if (lower.contains('storm')) return '⛈️';
+    if (lower.contains('rain') || lower.contains('drizzle')) return '🌧️';
+    if (lower.contains('snow')) return '❄️';
+    if (lower.contains('cloud') || lower.contains('overcast')) return '☁️';
+    if (lower.contains('fog')) return '🌫️';
+    if (lower.contains('clear')) return '☀️';
+    return '⛅';
   }
 
   @override
@@ -51,8 +52,8 @@ class _WeatherCardWidgetState extends State<WeatherCardWidget> {
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 500),
       child: Container(
-      margin: const EdgeInsets.symmetric(vertical: 16),
-      padding: const EdgeInsets.all(24),
+      margin: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: const Color(0xFF202124),
         borderRadius: BorderRadius.circular(24),
@@ -99,21 +100,21 @@ class _WeatherCardWidgetState extends State<WeatherCardWidget> {
           const SizedBox(height: 32),
           
           if (hasForecast)
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: List.generate(node.forecast.length, (index) {
-                  final f = node.forecast[index];
-                  final isSelected = index == _selectedDayIndex;
-                  return GestureDetector(
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: List.generate(node.forecast.length, (index) {
+                final f = node.forecast[index];
+                final isSelected = index == _selectedDayIndex;
+                return Expanded(
+                  child: GestureDetector(
                     onTap: () {
                       setState(() {
                         _selectedDayIndex = index;
                       });
                     },
                     child: Container(
-                      margin: const EdgeInsets.only(right: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      margin: const EdgeInsets.only(right: 4),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                       decoration: BoxDecoration(
                         color: isSelected ? Colors.white.withValues(alpha: 0.1) : Colors.transparent,
                         borderRadius: BorderRadius.circular(12),
@@ -123,22 +124,23 @@ class _WeatherCardWidgetState extends State<WeatherCardWidget> {
                       ),
                       child: Column(
                         children: [
-                          Text(f['day'] ?? '', style: TextStyle(color: isSelected ? Colors.white : Colors.white70, fontWeight: FontWeight.w600)),
+                          Text(f['day'] ?? '', style: TextStyle(color: isSelected ? Colors.white : Colors.white70, fontWeight: FontWeight.w600, fontSize: 13)),
                           const SizedBox(height: 8),
-                          Icon(_getIconForCondition(f['condition'] ?? ''), color: isSelected ? Colors.blue[200] : Colors.white, size: 24),
+                          Text(_getEmojiForCondition(f['condition'] ?? ''), style: const TextStyle(fontSize: 24)),
                           const SizedBox(height: 8),
-                          Text('${(_isFahrenheit ? (((f['high'] as num?) ?? 0) * 9/5) + 32 : ((f['high'] as num?) ?? 0)).round()}°', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                          Text('${(_isFahrenheit ? (((f['high'] as num?) ?? 0) * 9/5) + 32 : ((f['high'] as num?) ?? 0)).round()}°', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14)),
                           const SizedBox(height: 4),
-                          Text('${(_isFahrenheit ? (((f['low'] as num?) ?? 0) * 9/5) + 32 : ((f['low'] as num?) ?? 0)).round()}°', style: TextStyle(color: Colors.white.withValues(alpha: 0.5))),
+                          Text('${(_isFahrenheit ? (((f['low'] as num?) ?? 0) * 9/5) + 32 : ((f['low'] as num?) ?? 0)).round()}°', style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12)),
                         ],
                       ),
                     ),
-                  );
-                }),
-              ),
+                  ),
+                );
+              }),
             ),
             
-          const SizedBox(height: 32),
+          if (hourlyData.isNotEmpty) ...[
+            const SizedBox(height: 24),
           DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: _selectedMetric,
@@ -159,19 +161,13 @@ class _WeatherCardWidgetState extends State<WeatherCardWidget> {
           ),
           const SizedBox(height: 24),
           
-          if (hourlyData.isNotEmpty)
-            SizedBox(
-              height: 120,
-              width: double.infinity,
-              child: CustomPaint(
-                painter: _HourlyDataPainter(hourly: hourlyData, isFahrenheit: _isFahrenheit, metric: _selectedMetric),
-              ),
-            )
-          else
-            const SizedBox(
-              height: 120,
-              child: Center(child: Text("Hourly data unavailable", style: TextStyle(color: Colors.white54))),
+          SizedBox(
+            height: 120,
+            width: double.infinity,
+            child: CustomPaint(
+              painter: _HourlyDataPainter(hourly: hourlyData, isFahrenheit: _isFahrenheit, metric: _selectedMetric),
             ),
+          )
         ],
       ),
       ),
