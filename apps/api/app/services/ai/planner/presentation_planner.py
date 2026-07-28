@@ -211,7 +211,7 @@ Return ONLY a JSON array containing the fully populated nodes from the Predefine
             router_inst = typing.cast(ProviderRouter, self.provider)
             buffer = ""
             
-            async for chunk in router_inst.chat_stream(messages, intent="structured"):
+            async for chunk in router_inst.stream_chat(messages, intent="structured"):
                 buffer += chunk
                 objects, buffer = parse_json_objects_from_stream(buffer)
                 
