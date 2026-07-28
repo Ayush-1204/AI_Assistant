@@ -123,6 +123,17 @@ Return ONLY a JSON array containing the fully populated nodes from the Predefine
             end = result.rfind("]") + 1
             if start != -1 and end != -1:
                 nodes = json.loads(result[start:end])
+                
+                # Post-process to inject exact raw data for complex cards to prevent LLM truncation
+                for node in nodes:
+                    if node.get("type") == "WeatherCard" and context.raw_data:
+                        weather_data = context.raw_data.get("get_weather", {})
+                        if weather_data:
+                            node["location"] = weather_data.get("location", node.get("location"))
+                            node["temperature_c"] = weather_data.get("temperature_c", node.get("temperature_c"))
+                            node["condition"] = weather_data.get("condition", node.get("condition"))
+                            node["forecast"] = weather_data.get("forecast", node.get("forecast"))
+                            
                 logger.info(f"[PresentationPlanner] Populated content for {len(nodes)} nodes.")
                 return nodes
         except Exception as e:

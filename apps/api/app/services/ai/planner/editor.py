@@ -59,16 +59,24 @@ Return EXACTLY a JSON object matching this schema:
                 # Curate images (e.g. sort by relevance or dedup)
                 unique_urls = set()
                 curated_images = []
+                raw_data_map = {}
                 for img in all_images:
                     if img.url not in unique_urls:
                         unique_urls.add(img.url)
                         curated_images.append(img)
                         
+                for r in results:
+                    try:
+                        raw_data_map[r.tool_name] = json.loads(r.rawData) if isinstance(r.rawData, str) else r.rawData
+                    except:
+                        raw_data_map[r.tool_name] = r.rawData
+                        
                 return CuratedContext(
                     summary=edit_json.get("summary", ""),
                     merged_facts=edit_json.get("merged_facts", []),
                     missing_information=edit_json.get("missing_information", []),
-                    curated_images=curated_images
+                    curated_images=curated_images,
+                    raw_data=raw_data_map
                 )
         except Exception as e:
             logger.warning(f"[Editor] Failed to run LLM edit: {str(e)}")
