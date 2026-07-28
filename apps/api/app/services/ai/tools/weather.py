@@ -103,7 +103,7 @@ class WeatherTool(BaseTool):
                 # 2. Get Weather
                 for attempt in range(3):
                     try:
-                        resp = await client.get(f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m&hourly=temperature_2m,precipitation&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=auto")
+                        resp = await client.get(f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m&hourly=temperature_2m,precipitation_probability&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=auto")
                         if resp.status_code == 200:
                             break
                         elif attempt == 2:
@@ -130,7 +130,7 @@ class WeatherTool(BaseTool):
                 hourly = data.get("hourly", {})
                 hourly_times = hourly.get("time", [])
                 hourly_temps = hourly.get("temperature_2m", [])
-                hourly_precip = hourly.get("precipitation", [])
+                hourly_precip = hourly.get("precipitation_probability", [])
 
                 forecast = []
                 for idx in range(min(7, len(daily_times))):

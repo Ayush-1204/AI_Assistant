@@ -205,85 +205,116 @@ class _HourlyDataPainter extends CustomPainter {
       maxVal += 2;
     } else {
       minVal = 0;
-      maxVal = maxVal < 5 ? 5 : maxVal + 2; // For precipitation (mm)
+      maxVal = maxVal < 20 ? 20 : (maxVal > 100 ? 100 : maxVal * 1.5);
     }
     double range = maxVal - minVal;
     if (range == 0) range = 1;
 
-    final double stepX = width / (hourly.length > 1 ? hourly.length - 1 : 1);
-    
-    List<Offset> points = [];
-    for (int i = 0; i < hourly.length; i++) {
-      double v = metric == 'Temperature' 
-          ? (isFahrenheit ? (((hourly[i]['temp'] as num).toDouble() * 9/5) + 32) : (hourly[i]['temp'] as num).toDouble())
-          : (hourly[i]['precip'] as num?)?.toDouble() ?? 0.0;
-      double x = i * stepX;
-      double y = height - ((v - minVal) / range) * (height - 40); 
-      points.add(Offset(x, y - 20)); 
-    }
+    if (metric == 'Precipitation') {
+      // Draw Bar Chart
+      final Paint barPaint = Paint()
+        ..color = const Color(0xFF356AC2)
+        ..style = PaintingStyle.fill;
+        
+      final double barWidth = width / hourly.length;
+      
+      for (int i = 0; i < hourly.length; i++) {
+        double v = (hourly[i]['precip'] as num?)?.toDouble() ?? 0.0;
+        double barHeight = (v / maxVal) * (height - 40);
+        if (barHeight < 2) barHeight = 2; // small baseline
+        
+        Rect barRect = Rect.fromLTWH(i * barWidth, height - 20 - barHeight, barWidth, barHeight);
+        canvas.drawRect(barRect, barPaint);
+        
+        final valStr = '${v.round()}%';
+        final textPainter = TextPainter(
+          text: TextSpan(text: valStr, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+          textDirection: TextDirection.ltr,
+        );
+        textPainter.layout();
+        textPainter.paint(canvas, Offset(i * barWidth + (barWidth - textPainter.width) / 2, height - 20 - barHeight - 18));
+        
+        final timeStr = hourly[i]['time'] ?? '';
+        final timePainter = TextPainter(
+          text: TextSpan(text: timeStr, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12)),
+          textDirection: TextDirection.ltr,
+        );
+        timePainter.layout();
+        timePainter.paint(canvas, Offset(i * barWidth + (barWidth - timePainter.width) / 2, height - 15));
+      }
+    } else {
+      // Draw Line Chart for Temperature
+      final double stepX = width / (hourly.length > 1 ? hourly.length - 1 : 1);
+      
+      List<Offset> points = [];
+      for (int i = 0; i < hourly.length; i++) {
+        double v = (isFahrenheit ? (((hourly[i]['temp'] as num).toDouble() * 9/5) + 32) : (hourly[i]['temp'] as num).toDouble());
+        double x = i * stepX;
+        double y = height - ((v - minVal) / range) * (height - 40); 
+        points.add(Offset(x, y - 20)); 
+      }
 
-    Path path = Path();
-    path.moveTo(points.first.dx, points.first.dy);
-    
-    for (int i = 0; i < points.length - 1; i++) {
-      final p0 = points[i];
-      final p1 = points[i + 1];
+      Path path = Path();
+      path.moveTo(points.first.dx, points.first.dy);
       
-      final cx = (p0.dx + p1.dx) / 2;
-      path.cubicTo(cx, p0.dy, cx, p1.dy, p1.dx, p1.dy);
-    }
+      for (int i = 0; i < points.length - 1; i++) {
+        final p0 = points[i];
+        final p1 = points[i + 1];
+        
+        final cx = (p0.dx + p1.dx) / 2;
+        path.cubicTo(cx, p0.dy, cx, p1.dy, p1.dx, p1.dy);
+      }
 
-    final linePaint = Paint()
-      ..color = Colors.white
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke;
-    canvas.drawPath(path, linePaint);
+      final linePaint = Paint()
+        ..color = Colors.white
+        ..strokeWidth = 2
+        ..style = PaintingStyle.stroke;
+      canvas.drawPath(path, linePaint);
 
-    Path fillPath = Path.from(path);
-    fillPath.lineTo(points.last.dx, height - 20);
-    fillPath.lineTo(points.first.dx, height - 20);
-    fillPath.close();
+      Path fillPath = Path.from(path);
+      fillPath.lineTo(points.last.dx, height - 20);
+      fillPath.lineTo(points.first.dx, height - 20);
+      fillPath.close();
 
-    final fillPaint = Paint()
-      ..shader = LinearGradient(
-        colors: [
-          Colors.orange.withValues(alpha: 0.3),
-          Colors.orange.withValues(alpha: 0.0),
-        ],
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-      ).createShader(Rect.fromLTWH(0, 0, width, height));
-      
-    canvas.drawPath(fillPath, fillPaint);
+      final fillPaint = Paint()
+        ..shader = LinearGradient(
+          colors: [
+            Colors.orange.withValues(alpha: 0.3),
+            Colors.orange.withValues(alpha: 0.0),
+          ],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ).createShader(Rect.fromLTWH(0, 0, width, height));
+        
+      canvas.drawPath(fillPath, fillPaint);
 
-    final dotPaint = Paint()..color = Colors.white;
-    final dotBgPaint = Paint()..color = const Color(0xFF202124);
-    
-    for (int i = 0; i < points.length; i++) {
-      final p = points[i];
+      final dotPaint = Paint()..color = Colors.white;
+      final dotBgPaint = Paint()..color = const Color(0xFF202124);
       
-      canvas.drawCircle(p, 4, dotBgPaint);
-      canvas.drawCircle(p, 3, dotPaint);
-      
-      double v = metric == 'Temperature' 
-          ? (isFahrenheit ? (((hourly[i]['temp'] as num).toDouble() * 9/5) + 32) : (hourly[i]['temp'] as num).toDouble())
-          : (hourly[i]['precip'] as num?)?.toDouble() ?? 0.0;
-      
-      final valStr = metric == 'Temperature' ? '${v.round()}°' : '${v.toStringAsFixed(1)}mm';
-      final textPainter = TextPainter(
-        text: TextSpan(text: valStr, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-        textDirection: TextDirection.ltr,
-      );
-      textPainter.layout();
-      textPainter.paint(canvas, Offset(p.dx - textPainter.width / 2, p.dy - 20));
-      
-      final timeStr = hourly[i]['time'] ?? '';
-      final timePainter = TextPainter(
-        text: TextSpan(text: timeStr, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12)),
-        textDirection: TextDirection.ltr,
-      );
-      timePainter.layout();
-      timePainter.paint(canvas, Offset(p.dx - timePainter.width / 2, height - 15));
+      for (int i = 0; i < points.length; i++) {
+        final p = points[i];
+        
+        canvas.drawCircle(p, 4, dotBgPaint);
+        canvas.drawCircle(p, 3, dotPaint);
+        
+        double v = (isFahrenheit ? (((hourly[i]['temp'] as num).toDouble() * 9/5) + 32) : (hourly[i]['temp'] as num).toDouble());
+        
+        final valStr = '${v.round()}°';
+        final textPainter = TextPainter(
+          text: TextSpan(text: valStr, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+          textDirection: TextDirection.ltr,
+        );
+        textPainter.layout();
+        textPainter.paint(canvas, Offset(p.dx - textPainter.width / 2, p.dy - 20));
+        
+        final timeStr = hourly[i]['time'] ?? '';
+        final timePainter = TextPainter(
+          text: TextSpan(text: timeStr, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12)),
+          textDirection: TextDirection.ltr,
+        );
+        timePainter.layout();
+        timePainter.paint(canvas, Offset(p.dx - timePainter.width / 2, height - 15));
+      }
     }
   }
 
