@@ -524,8 +524,30 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
       final cleanText = extractText(text);
       if (cleanText.isEmpty) return;
-      final bytes = await _apiClient.textToSpeech(cleanText);
-      await _playAudioBytes(bytes);
+
+      final chunks = <String>[];
+      String currentChunk = '';
+      final words = cleanText.split(' ');
+      for (final word in words) {
+        currentChunk += word + ' ';
+        if (currentChunk.trim().length > 15 && RegExp(r'[.!?\n]$').hasMatch(word)) {
+          chunks.add(currentChunk.trim());
+          currentChunk = '';
+        }
+      }
+      if (currentChunk.trim().isNotEmpty) {
+        chunks.add(currentChunk.trim());
+      }
+
+      for (final chunk in chunks) {
+        if (chunk.isEmpty) continue;
+        try {
+          final bytes = await _apiClient.textToSpeech(chunk);
+          await _playAudioBytes(bytes);
+        } catch (e) {
+          debugPrint("Chunk read aloud failed: $e");
+        }
+      }
     } catch (e) {
       debugPrint("Read aloud failed: $e");
     }
