@@ -33,6 +33,7 @@ You must decide:
 5. `reasoning`: A short explanation of why this plan was chosen.
 
 CRITICAL INSTRUCTION: If the request requires multiple independent facts or news topics, you MUST break them down into separate, independent tasks in the `tasks` array. Do NOT group them into a single broad task.
+- For weather requests, the 'Local Weather' capability automatically handles user geolocation internally. Do NOT create separate geolocation tasks for weather.
 
 Return EXACTLY and ONLY a valid JSON object matching the above keys.
 """
