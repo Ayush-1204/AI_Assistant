@@ -168,6 +168,7 @@ class _WeatherCardWidgetState extends State<WeatherCardWidget> {
               painter: _HourlyDataPainter(hourly: hourlyData, isFahrenheit: _isFahrenheit, metric: _selectedMetric),
             ),
           )
+          ]
         ],
       ),
       ),
