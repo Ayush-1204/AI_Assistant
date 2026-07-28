@@ -59,6 +59,20 @@ class WeatherTool(BaseTool):
                         lat = ctx_lat
                         lon = ctx_lon
                         full_name = "Current Location (GPS)"
+                        try:
+                            rev_resp = await client.get(
+                                f"https://nominatim.openstreetmap.org/reverse?lat={lat}&lon={lon}&format=json",
+                                headers={"User-Agent": "AIAssistant/1.0"}
+                            )
+                            if rev_resp.status_code == 200:
+                                rev_data = rev_resp.json()
+                                address = rev_data.get("address", {})
+                                city = address.get("city") or address.get("town") or address.get("village") or address.get("county")
+                                if city:
+                                    country = address.get("country", "")
+                                    full_name = f"{city}, {country}" if country else city
+                        except Exception:
+                            pass
                     else:
                         # Fallback to IP-based geolocation
                         ip_resp = await client.get("http://ip-api.com/json/")
