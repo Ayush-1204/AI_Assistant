@@ -124,15 +124,35 @@ Return ONLY a JSON array containing the fully populated nodes from the Predefine
             if start != -1 and end != -1:
                 nodes = json.loads(result[start:end])
                 
+                # If LLM returns a single object instead of an array, wrap it in a list
+                if isinstance(nodes, dict):
+                    nodes = [nodes]
+                    
                 # Post-process to inject exact raw data for complex cards to prevent LLM truncation
                 for node in nodes:
+                    if not isinstance(node, dict):
+                        continue
+                        
                     if node.get("type") == "WeatherCard" and context.raw_data:
                         weather_data = context.raw_data.get("get_weather", {})
                         if weather_data:
                             node["location"] = weather_data.get("location", node.get("location"))
-                            node["temperature_c"] = weather_data.get("temperature_c", node.get("temperature_c"))
-                            node["condition"] = weather_data.get("condition", node.get("condition"))
-                            node["forecast"] = weather_data.get("forecast", node.get("forecast"))
+                            
+                            # Extract current temperature/condition from nested dict if present
+                            current_data = weather_data.get("current", {})
+                            if "temperature" in current_data:
+                                # try to extract number from "32°C"
+                                temp_str = str(current_data["temperature"]).replace("°C", "").replace("C", "").strip()
+                                try:
+                                    node["temperature_c"] = float(temp_str)
+                                except ValueError:
+                                    node["temperature_c"] = temp_str
+                            if "condition" in current_data:
+                                node["condition"] = current_data["condition"]
+                                
+                            # The raw tool outputs "forecast_7_days" but UI expects "forecast"
+                            if "forecast_7_days" in weather_data:
+                                node["forecast"] = weather_data["forecast_7_days"]
                             
                 logger.info(f"[PresentationPlanner] Populated content for {len(nodes)} nodes.")
                 return nodes
