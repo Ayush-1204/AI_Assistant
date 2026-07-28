@@ -489,7 +489,31 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
   Future<void> readAloud(String text) async {
     try {
-      final cleanText = text.replaceAll(RegExp(r'\*|_|#'), '').trim();
+      String extractText(String input) {
+        String result = '';
+        final lines = input.split('\n');
+        for (final line in lines) {
+          final trimmed = line.trim();
+          if (trimmed.isEmpty) continue;
+          if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+            try {
+              final node = jsonDecode(trimmed);
+              if (node is Map && node.containsKey('type')) {
+                final type = node['type'];
+                if (['Heading', 'Paragraph', 'Math', 'Code', 'Markdown'].contains(type)) {
+                  result += (node['text']?.toString() ?? '') + ' ';
+                }
+                // Skip structural widgets completely
+                continue;
+              }
+            } catch (_) {}
+          }
+          result += line + ' ';
+        }
+        return result.replaceAll(RegExp(r'\*|_|#'), '').trim();
+      }
+
+      final cleanText = extractText(text);
       if (cleanText.isEmpty) return;
       final bytes = await _apiClient.textToSpeech(cleanText);
       await _playAudioBytes(bytes);
