@@ -213,9 +213,6 @@ class AgentExecutor:
                 
         curated_context = await self.editor.curate(query, valid_results)
         
-        # Inject raw data into curated_context so the presentation planner has access to full arrays
-        curated_context.raw_data = [r.normalizedData.get("content", r.rawData) for r in valid_results]
-        
         # Stream Mode: Decide UI, then Generate Content directly
         layout = await self.presentation_planner.plan_layout(query, curated_context)
         presentation_nodes = await self.presentation_planner.generate_content(query, layout, curated_context)
