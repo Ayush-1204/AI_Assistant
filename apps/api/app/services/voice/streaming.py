@@ -139,9 +139,24 @@ class StreamingCoordinator:
                             pass
                             
                         # Flush when we hit boundary punctuation to ensure smooth sentence synthesis
-                        if any(p in text_tok for p in ['.', '!', '?', '\n']):
+                        if sentence_buffer.endswith((".", "!", "?", "\n")) and len(sentence_buffer) > 15:
                             await self.tts.process_text(sentence_buffer)
                             sentence_buffer = ""
+                elif chunk.startswith("data: ") and '"presentation_node"' in chunk:
+                    try:
+                        p_data = json.loads(chunk[6:])
+                        if p_data.get("type") == "presentation_node":
+                            node = p_data.get("node", {})
+                            node_type = node.get("type")
+                            if node_type in ["Heading", "Paragraph", "Math", "Code", "Markdown"]:
+                                node_text = node.get("text", "")
+                                if node_text:
+                                    sentence_buffer += node_text + " "
+                                    if sentence_buffer.strip().endswith((".", "!", "?", "\n")) and len(sentence_buffer) > 15:
+                                        await self.tts.process_text(sentence_buffer)
+                                        sentence_buffer = ""
+                    except Exception as e:
+                        logger.warning(f"[Voice] Error parsing presentation node for TTS: {e}")
             
             # Flush any remaining buffer
             if sentence_buffer:
