@@ -142,10 +142,15 @@ Return ONLY a JSON array containing the fully populated nodes from the Predefine
                             current_data = weather_data.get("current", {})
                             if "temperature" in current_data:
                                 # try to extract number from "32°C"
-                                temp_str = str(current_data["temperature"]).replace("°C", "").replace("C", "").strip()
-                                try:
-                                    node["temperature_c"] = float(temp_str)
-                                except ValueError:
+                                import re
+                                temp_str = str(current_data["temperature"])
+                                match = re.search(r'-?\d+(?:\.\d+)?', temp_str)
+                                if match:
+                                    try:
+                                        node["temperature_c"] = float(match.group(0))
+                                    except ValueError:
+                                        node["temperature_c"] = temp_str
+                                else:
                                     node["temperature_c"] = temp_str
                             if "condition" in current_data:
                                 node["condition"] = current_data["condition"]
@@ -226,10 +231,15 @@ Return ONLY a JSON array containing the fully populated nodes from the Predefine
                             
                             current_data = weather_data.get("current", {})
                             if "temperature" in current_data:
-                                temp_str = str(current_data["temperature"]).replace("AC", "").replace("C", "").strip()
-                                try:
-                                    node["temperature_c"] = float(temp_str)
-                                except ValueError:
+                                import re
+                                temp_str = str(current_data["temperature"])
+                                match = re.search(r'-?\d+(?:\.\d+)?', temp_str)
+                                if match:
+                                    try:
+                                        node["temperature_c"] = float(match.group(0))
+                                    except ValueError:
+                                        node["temperature_c"] = temp_str
+                                else:
                                     node["temperature_c"] = temp_str
                             if "condition" in current_data:
                                 node["condition"] = current_data["condition"]

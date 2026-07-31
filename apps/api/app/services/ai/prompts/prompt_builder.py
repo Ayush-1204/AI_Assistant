@@ -32,7 +32,7 @@ class PromptBuilder:
 Generate a concise conversation title based on a 4-word key phrase from the AI's response.
 
 Rules:
-- Exactly 4 words (if possible, max 5)
+- Max 4 words 
 - No quotation marks
 - No punctuation
 - Title Case
