@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import uuid
 from typing import Any
 
@@ -7,6 +8,62 @@ from app.schemas.ai_pipeline import CuratedContext
 from app.services.ai.providers.base import BaseLLMProvider
 
 logger = logging.getLogger(__name__)
+
+
+def _build_news_index(raw_data: dict) -> list[dict]:
+    """Extracts the article list from raw news_search tool data."""
+    news_raw = raw_data.get("news_search", {})
+    if isinstance(news_raw, str):
+        try:
+            news_raw = json.loads(news_raw)
+        except Exception:
+            return []
+    return news_raw.get("articles", [])
+
+
+def _inject_news_data(node: dict, articles: list[dict]) -> dict:
+    """
+    Matches a NewsCard node to the closest article by title similarity
+    and overwrites url / imageUrl with the exact values from raw data.
+    """
+    if not articles:
+        return node
+
+    node_title = node.get("title", "").lower().strip()
+
+    best_article = None
+    best_score = 0
+
+    for article in articles:
+        article_title = article.get("title", "").lower().strip()
+        # Count common words (simple overlap score)
+        node_words = set(node_title.split())
+        art_words = set(article_title.split())
+        score = len(node_words & art_words)
+        if score > best_score:
+            best_score = score
+            best_article = article
+
+    # Fallback: use first article if no title match
+    if best_article is None:
+        best_article = articles[0]
+
+    # Always overwrite with exact raw data — never trust LLM for URLs
+    exact_url = best_article.get("url", "")
+    if exact_url:
+        node["url"] = exact_url
+
+    og_image = best_article.get("imageUrl")
+    if og_image:
+        node["imageUrl"] = og_image
+    else:
+        node.pop("imageUrl", None)  # remove if LLM hallucinated one
+
+    if not node.get("source"):
+        node["source"] = best_article.get("source", "")
+
+    return node
+
 
 class PresentationPlanner:
     """
@@ -130,11 +187,15 @@ Return ONLY a JSON array containing the fully populated nodes from the Predefine
                     nodes = [nodes]
                     
                 # Post-process to inject exact raw data for complex cards to prevent LLM truncation
+                articles = _build_news_index(context.raw_data) if context.raw_data else []
                 for node in nodes:
                     if not isinstance(node, dict):
                         continue
-                        
-                    if node.get("type") == "WeatherCard" and context.raw_data:
+
+                    if node.get("type") == "NewsCard":
+                        node = _inject_news_data(node, articles)
+
+                    elif node.get("type") == "WeatherCard" and context.raw_data:
                         weather_data = context.raw_data.get("get_weather", {})
                         if weather_data:
                             node["location"] = weather_data.get("location", node.get("location"))
@@ -225,8 +286,12 @@ Return ONLY a JSON array containing the fully populated nodes from the Predefine
                 for node in objects:
                     if not isinstance(node, dict):
                         continue
-                        
-                    if node.get("type") == "WeatherCard" and context.raw_data:
+
+                    if node.get("type") == "NewsCard" and context.raw_data:
+                        articles = _build_news_index(context.raw_data)
+                        node = _inject_news_data(node, articles)
+
+                    elif node.get("type") == "WeatherCard" and context.raw_data:
                         weather_data = context.raw_data.get("get_weather", {})
                         if weather_data:
                             node["location"] = weather_data.get("location", node.get("location"))
