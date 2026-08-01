@@ -2,7 +2,8 @@ import json
 import logging
 import re
 import uuid
-from typing import Any
+import typing
+from typing import Any, AsyncGenerator
 
 from app.schemas.ai_pipeline import CuratedContext
 from app.services.ai.providers.base import BaseLLMProvider
@@ -10,7 +11,7 @@ from app.services.ai.providers.base import BaseLLMProvider
 logger = logging.getLogger(__name__)
 
 
-def _build_news_index(raw_data: dict) -> list[dict]:
+def _build_news_index(raw_data: dict[str, Any]) -> list[dict[str, Any]]:
     """Extracts the article list from raw news_search tool data."""
     news_raw = raw_data.get("news_search", {})
     if isinstance(news_raw, str):
@@ -18,51 +19,40 @@ def _build_news_index(raw_data: dict) -> list[dict]:
             news_raw = json.loads(news_raw)
         except Exception:
             return []
-    return news_raw.get("articles", [])
+            
+    if isinstance(news_raw, dict):
+        articles = news_raw.get("articles", [])
+        if isinstance(articles, list):
+            return [a for a in articles if isinstance(a, dict)]
+    return []
 
 
-def _inject_news_data(node: dict, articles: list[dict]) -> dict:
+def _inject_all_news_cards(nodes: list[dict], articles: list[dict]) -> list[dict]:
     """
-    Matches a NewsCard node to the closest article by title similarity
-    and overwrites url / imageUrl with the exact values from raw data.
+    Sequentially assigns raw articles to NewsCard nodes in the order they appear.
+    Article[0] → first NewsCard, Article[1] → second NewsCard, etc.
+    This is far more reliable than fuzzy title matching because the LLM rewrites titles.
+    We overwrite: title, source, url, imageUrl directly from raw data.
     """
-    if not articles:
-        return node
-
-    node_title = node.get("title", "").lower().strip()
-
-    best_article = None
-    best_score = 0
-
-    for article in articles:
-        article_title = article.get("title", "").lower().strip()
-        # Count common words (simple overlap score)
-        node_words = set(node_title.split())
-        art_words = set(article_title.split())
-        score = len(node_words & art_words)
-        if score > best_score:
-            best_score = score
-            best_article = article
-
-    # Fallback: use first article if no title match
-    if best_article is None:
-        best_article = articles[0]
-
-    # Always overwrite with exact raw data — never trust LLM for URLs
-    exact_url = best_article.get("url", "")
-    if exact_url:
-        node["url"] = exact_url
-
-    og_image = best_article.get("imageUrl")
-    if og_image:
-        node["imageUrl"] = og_image
-    else:
-        node.pop("imageUrl", None)  # remove if LLM hallucinated one
-
-    if not node.get("source"):
-        node["source"] = best_article.get("source", "")
-
-    return node
+    article_idx = 0
+    out = []
+    for node in nodes:
+        if isinstance(node, dict) and node.get("type") == "NewsCard":
+            if article_idx < len(articles):
+                art = articles[article_idx]
+                article_idx += 1
+                # Overwrite fields the LLM cannot be trusted to set correctly
+                node["title"] = art.get("title") or node.get("title", "")
+                node["url"] = art.get("url", "")
+                node["source"] = art.get("source", node.get("source", ""))
+                img = art.get("imageUrl")
+                if img:
+                    node["imageUrl"] = img
+                else:
+                    node.pop("imageUrl", None)
+                # Keep LLM-generated summary & category as they add value
+        out.append(node)
+    return out
 
 
 class PresentationPlanner:
@@ -126,13 +116,16 @@ Example:
             start = result.find("[")
             end = result.rfind("]") + 1
             if start != -1 and end != -1:
-                layout = json.loads(result[start:end])
-                logger.info(f"[PresentationPlanner] Designed layout with {len(layout)} nodes.")
-                return layout
+                layout_raw = json.loads(result[start:end])
+                if isinstance(layout_raw, list):
+                    layout = [n for n in layout_raw if isinstance(n, dict)]
+                    logger.info(f"[PresentationPlanner] Designed layout with {len(layout)} nodes.")
+                    return layout
         except Exception as e:
             logger.warning(f"[PresentationPlanner] Failed to plan layout: {str(e)}")
             
-        return [{"id": "fallback_1", "type": "Paragraph", "purpose": "Display raw response"}]
+        fallback: list[dict[str, Any]] = [{"id": "fallback_1", "type": "Paragraph", "purpose": "Display raw response"}]
+        return fallback
 
     async def generate_content(self, query: str, layout: list[dict[str, Any]], context: CuratedContext) -> list[dict[str, Any]]:
         """
@@ -180,22 +173,24 @@ Return ONLY a JSON array containing the fully populated nodes from the Predefine
             start = result.find("[")
             end = result.rfind("]") + 1
             if start != -1 and end != -1:
-                nodes = json.loads(result[start:end])
+                nodes_raw = json.loads(result[start:end])
                 
                 # If LLM returns a single object instead of an array, wrap it in a list
-                if isinstance(nodes, dict):
-                    nodes = [nodes]
+                if isinstance(nodes_raw, dict):
+                    nodes_raw = [nodes_raw]
                     
-                # Post-process to inject exact raw data for complex cards to prevent LLM truncation
+                if isinstance(nodes_raw, list):
+                    nodes = [n for n in nodes_raw if isinstance(n, dict)]
+                else:
+                    nodes = []
+                    
+                # Post-process: inject exact raw data for complex cards
                 articles = _build_news_index(context.raw_data) if context.raw_data else []
+                # Sequential assignment for NewsCards (article[0]→card[0], etc.)
+                nodes = _inject_all_news_cards(nodes, articles)
+
                 for node in nodes:
-                    if not isinstance(node, dict):
-                        continue
-
-                    if node.get("type") == "NewsCard":
-                        node = _inject_news_data(node, articles)
-
-                    elif node.get("type") == "WeatherCard" and context.raw_data:
+                    if node.get("type") == "WeatherCard" and context.raw_data:
                         weather_data = context.raw_data.get("get_weather", {})
                         if weather_data:
                             node["location"] = weather_data.get("location", node.get("location"))
@@ -226,15 +221,16 @@ Return ONLY a JSON array containing the fully populated nodes from the Predefine
         except Exception as e:
             logger.warning(f"[PresentationPlanner] Failed to generate content: {str(e)}")
             
-        return [
+        fallback: list[dict[str, Any]] = [
             {
                 "id": "fallback_1",
                 "type": "Paragraph",
                 "text": "Failed to format content. Check curated context."
             }
         ]
+        return fallback
 
-    async def generate_content_stream(self, query: str, layout: list[dict[str, Any]], context: CuratedContext):
+    async def generate_content_stream(self, query: str, layout: list[dict[str, Any]], context: CuratedContext) -> typing.AsyncGenerator[dict[str, Any], None]:
         """
         Step 2 (Streaming): Generates content progressively and yields each PresentationNode as soon as it is complete.
         """
@@ -278,18 +274,32 @@ Return ONLY a JSON array containing the fully populated nodes from the Predefine
         try:
             router_inst = typing.cast(ProviderRouter, self.provider)
             buffer = ""
-            
+            # Mutable counter for sequential NewsCard → article mapping
+            news_counter = {"idx": 0}
+            articles_for_stream = _build_news_index(context.raw_data) if context.raw_data else []
+
             async for chunk in router_inst.stream_chat(messages, intent="structured"):
                 buffer += chunk
                 objects, buffer = parse_json_objects_from_stream(buffer)
-                
+
                 for node in objects:
                     if not isinstance(node, dict):
                         continue
 
-                    if node.get("type") == "NewsCard" and context.raw_data:
-                        articles = _build_news_index(context.raw_data)
-                        node = _inject_news_data(node, articles)
+                    if node.get("type") == "NewsCard":
+                        # Sequential positional assignment from pre-built articles list
+                        idx = news_counter["idx"]
+                        if idx < len(articles_for_stream):
+                            art = articles_for_stream[idx]
+                            node["title"] = art.get("title") or node.get("title", "")
+                            node["url"] = art.get("url", "")
+                            node["source"] = art.get("source", node.get("source", ""))
+                            img = art.get("imageUrl")
+                            if img:
+                                node["imageUrl"] = img
+                            else:
+                                node.pop("imageUrl", None)
+                        news_counter["idx"] += 1
 
                     elif node.get("type") == "WeatherCard" and context.raw_data:
                         weather_data = context.raw_data.get("get_weather", {})
@@ -318,10 +328,11 @@ Return ONLY a JSON array containing the fully populated nodes from the Predefine
                     
         except Exception as e:
             logger.warning(f"[PresentationPlanner] Failed to generate content stream: {str(e)}")
-            yield {
+            fallback: dict[str, Any] = {
                 "id": "fallback_1",
                 "type": "Paragraph",
                 "text": "Failed to format content progressively. Check curated context."
             }
+            yield fallback
 
 

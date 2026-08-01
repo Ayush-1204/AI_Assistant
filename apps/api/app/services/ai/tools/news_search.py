@@ -2,7 +2,6 @@ import asyncio
 import json
 import logging
 import re
-from typing import Any
 
 import httpx
 
@@ -22,6 +21,8 @@ TRUSTED_SOURCES: dict[str, list[str]] = {
         "moneycontrol.com",
         "indianexpress.com",
         "businesstoday.in",
+        "firstpost.com",
+        "news18.com",
     ],
     "us": [
         "reuters.com",
@@ -32,6 +33,8 @@ TRUSTED_SOURCES: dict[str, list[str]] = {
         "theguardian.com",
         "npr.org",
         "bloomberg.com",
+        "cnbc.com",
+        "techcrunch.com",
     ],
     "uk": [
         "bbc.co.uk",
@@ -47,54 +50,128 @@ TRUSTED_SOURCES: dict[str, list[str]] = {
         "bbc.com",
         "theguardian.com",
         "bloomberg.com",
+        "techcrunch.com",
+        "cnbc.com",
     ],
 }
+
+# Always exclude these — they produce irrelevant or non-article content
+EXCLUDED_DOMAINS = [
+    "youtube.com",
+    "youtu.be",
+    "reddit.com",
+    "twitter.com",
+    "x.com",
+    "tiktok.com",
+    "facebook.com",
+    "instagram.com",
+    "linkedin.com",
+    "pinterest.com",
+    "quora.com",
+    "wikipedia.org",
+]
+
 
 def _detect_region(location_hint: str | None) -> str:
     """Map a location hint string to a region key."""
     if not location_hint:
         return "global"
     loc = location_hint.lower()
-    if any(kw in loc for kw in ["india", "delhi", "mumbai", "bangalore", "hyderabad", "chennai", "kolkata", "faridabad", "noida", "gurgaon"]):
+    if any(kw in loc for kw in ["india", "delhi", "mumbai", "bangalore", "hyderabad",
+                                  "chennai", "kolkata", "faridabad", "noida", "gurgaon",
+                                  "pune", "ahmedabad", "jaipur"]):
         return "india"
-    if any(kw in loc for kw in ["united states", "usa", "us ", "new york", "california", "texas"]):
+    if any(kw in loc for kw in ["united states", "usa", " us,", "new york",
+                                  "california", "texas", "washington dc"]):
         return "us"
-    if any(kw in loc for kw in ["united kingdom", "uk ", "london", "england", "scotland"]):
+    if any(kw in loc for kw in ["united kingdom", "uk,", "london", "england", "scotland"]):
         return "uk"
     return "global"
 
 
-async def _fetch_og_image(url: str, timeout: float = 4.0) -> str | None:
+def _extract_domain(url: str) -> str:
+    """Extract clean domain name (e.g. 'reuters.com') from a URL."""
+    match = re.search(r"(?:https?://)?(?:www\.)?([^/?#]+)", url)
+    return match.group(1) if match else url
+
+
+async def _fetch_og_image(url: str, timeout: float = 5.0) -> str | None:
     """
-    Attempts to extract the og:image or twitter:image meta tag from a news article URL.
-    Returns None if unavailable or on timeout/error.
+    Attempts to extract the og:image / twitter:image from a news article page.
+    Returns None on any failure.
     """
     try:
-        headers = {"User-Agent": "Mozilla/5.0 (compatible; NewsBot/1.0)"}
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/124.0.0.0 Safari/537.36"
+            ),
+            "Accept": "text/html",
+        }
         async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
             resp = await client.get(url, headers=headers)
             if resp.status_code != 200:
                 return None
-            # Only parse the <head> portion for speed
-            html = resp.text[:20000]
-            # og:image
-            match = re.search(r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\'](https?://[^"\']+)["\']', html, re.IGNORECASE)
-            if not match:
-                match = re.search(r'<meta[^>]+content=["\'](https?://[^"\']+)["\'][^>]+property=["\']og:image["\']', html, re.IGNORECASE)
-            if not match:
-                # twitter:image fallback
-                match = re.search(r'<meta[^>]+name=["\']twitter:image["\'][^>]+content=["\'](https?://[^"\']+)["\']', html, re.IGNORECASE)
-            if match:
-                return match.group(1)
+            html = resp.text[:25000]  # only need <head>
+
+            patterns = [
+                r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\'](https?://[^"\'>\s]+)["\']',
+                r'<meta[^>]+content=["\'](https?://[^"\'>\s]+)["\'][^>]+property=["\']og:image["\']',
+                r'<meta[^>]+name=["\']twitter:image["\'][^>]+content=["\'](https?://[^"\'>\s]+)["\']',
+                r'<meta[^>]+content=["\'](https?://[^"\'>\s]+)["\'][^>]+name=["\']twitter:image["\']',
+            ]
+            for pattern in patterns:
+                m = re.search(pattern, html, re.IGNORECASE)
+                if m:
+                    img_url = m.group(1)
+                    # Skip 1×1 tracking pixels and svg icons
+                    if "1x1" not in img_url and not img_url.endswith(".svg"):
+                        return img_url
     except Exception:
         pass
     return None
 
 
+async def _tavily_search(
+    query: str,
+    include_domains: list[str],
+    max_results: int,
+) -> tuple[list[dict], list[str]]:
+    """
+    Direct Tavily API call with include_domains / exclude_domains support.
+    Returns (raw_results, images).
+    """
+    from app.config import get_settings
+    settings = get_settings()
+    api_key = settings.TAVILY_API_KEY
+    if not api_key:
+        raise ValueError("Tavily API key not configured")
+
+    payload = {
+        "api_key": api_key,
+        "query": query,
+        "search_depth": "basic",
+        "include_answer": False,
+        "include_images": True,
+        "include_raw_content": False,
+        "max_results": max_results,
+        "include_domains": include_domains,
+        "exclude_domains": EXCLUDED_DOMAINS,
+    }
+
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        response = await client.post("https://api.tavily.com/search", json=payload)
+        response.raise_for_status()
+        data = response.json()
+
+    return data.get("results", []), data.get("images", [])
+
+
 class NewsSearchTool(BaseTool):
     """
-    Searches for news from trusted, location-aware sources.
-    Returns structured articles with titles, summaries, source names, URLs, and og:image thumbnails.
+    Searches for news from trusted, location-aware publishers.
+    Returns structured articles with exact title, URL, source domain, and image.
     """
 
     @property
@@ -117,7 +194,7 @@ class NewsSearchTool(BaseTool):
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "The news topic or search query (e.g., 'AI regulation latest news', 'India economy 2025')."
+                    "description": "The news topic or search query."
                 },
                 "max_results": {
                     "type": "integer",
@@ -130,7 +207,7 @@ class NewsSearchTool(BaseTool):
 
     async def execute(self, execution_context: dict, **kwargs) -> str:
         query: str = kwargs.get("query", "")
-        max_results: int = int(kwargs.get("max_results", 5))
+        max_results: int = min(int(kwargs.get("max_results", 5)), 8)
 
         if not query:
             return json.dumps({"error": "Missing 'query' parameter."})
@@ -143,52 +220,79 @@ class NewsSearchTool(BaseTool):
         region = _detect_region(location_hint)
         trusted_domains = TRUSTED_SOURCES.get(region, TRUSTED_SOURCES["global"])
 
-        logger.info(f"[NewsSearch] Region='{region}', query='{query}', sources={trusted_domains[:3]}...")
+        logger.info(f"[NewsSearch] Region='{region}', query='{query}', domains={trusted_domains[:3]}...")
 
         try:
-            from app.integrations.search.tavily import TavilySearchProvider
-            provider = TavilySearchProvider()
+            # --- Phase 1: Fetch articles with domain filter ---
+            raw_results, tavily_images = await _tavily_search(
+                query=query,
+                include_domains=trusted_domains,
+                max_results=max_results + 3,  # fetch a few extra, filter below
+            )
 
-            # Build site: restricted query for Tavily
-            site_filter = " OR ".join([f"site:{d}" for d in trusted_domains])
-            constrained_query = f"{query} ({site_filter})"
+            # Fallback: no results with domain filter → try without
+            if not raw_results:
+                logger.warning("[NewsSearch] No results with trusted domains, falling back to plain query.")
+                raw_results, tavily_images = await _tavily_search(
+                    query=query,
+                    include_domains=[],
+                    max_results=max_results,
+                )
 
-            results, _ = await provider.search(constrained_query, max_results=max(max_results + 2, 8))
+            # --- Phase 2: Filter out excluded domains just in case ---
+            filtered = [
+                r for r in raw_results
+                if not any(excl in r.get("url", "") for excl in EXCLUDED_DOMAINS)
+            ]
+            if not filtered:
+                filtered = raw_results  # if somehow all excluded, keep originals
 
-            if not results:
-                # Fallback: try without site restriction
-                logger.warning(f"[NewsSearch] No results with site filter, falling back to plain query.")
-                results, _ = await provider.search(query, max_results=max_results)
+            # Cap to requested count
+            filtered = filtered[:max_results]
 
-            # Build article list (cap at max_results)
+            # --- Phase 3: Build article stubs ---
             articles_raw = []
-            for r in results[:max_results]:
-                url_str = str(r.url) if hasattr(r, "url") else ""
-                # Extract source name from domain
-                domain_match = re.search(r"(?:https?://)?(?:www\.)?([^/]+)", url_str)
-                source_name = domain_match.group(1) if domain_match else r.source if hasattr(r, "source") else "Unknown"
-
+            for r in filtered:
+                url_str = r.get("url", "")
                 articles_raw.append({
-                    "title": r.title,
+                    "title": r.get("title", ""),
                     "url": url_str,
-                    "snippet": r.snippet,
-                    "source": source_name,
-                    "imageUrl": None,  # will be filled below
+                    "snippet": r.get("content", ""),
+                    "source": _extract_domain(url_str),
+                    "imageUrl": None,
                 })
 
-            # Fetch og:image thumbnails concurrently (with a timeout guard)
+            # --- Phase 4: Fetch og:image concurrently ---
             og_tasks = [_fetch_og_image(a["url"]) for a in articles_raw]
             og_results = await asyncio.gather(*og_tasks, return_exceptions=True)
+
+            # Use Tavily images as ordered fallback pool
+            tavily_image_pool = [
+                img for img in tavily_images
+                if isinstance(img, str) and img.startswith("http")
+                and "youtube.com" not in img
+                and "ytimg.com" not in img
+            ]
+            tavily_pool_index = 0
 
             articles_out = []
             for article, og_image in zip(articles_raw, og_results):
                 if isinstance(og_image, str) and og_image.startswith("http"):
                     article["imageUrl"] = og_image
+                elif tavily_pool_index < len(tavily_image_pool):
+                    # Use next Tavily image as fallback
+                    article["imageUrl"] = tavily_image_pool[tavily_pool_index]
+                    tavily_pool_index += 1
                 else:
-                    article["imageUrl"] = None  # frontend will show no image
+                    article["imageUrl"] = None
+
                 articles_out.append(article)
 
-            logger.info(f"[NewsSearch] Returning {len(articles_out)} articles (region={region}).")
+            logger.info(
+                f"[NewsSearch] {len(articles_out)} articles returned. "
+                f"OG images: {sum(1 for a in articles_out if a['imageUrl'])}/{len(articles_out)}"
+            )
+
             return json.dumps({
                 "region": region,
                 "sources_used": trusted_domains,
