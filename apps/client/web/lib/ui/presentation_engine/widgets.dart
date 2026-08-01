@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../markdown/ai_message_renderer.dart';
 import 'models.dart';
-import 'weather_widget.dart';
+import 'weather_widget.dart' show WeatherCardWidget;
 
 class UnknownNodeWidget extends StatelessWidget {
   final UnknownNode node;
@@ -25,15 +24,6 @@ class HeadingWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    double fontSize = 24.0;
-    FontWeight weight = FontWeight.bold;
-    if (node.level == 1) {
-      fontSize = 32.0;
-      weight = FontWeight.w900;
-    } else if (node.level == 3) {
-      fontSize = 20.0;
-      weight = FontWeight.w600;
-    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -183,7 +173,7 @@ class NewsCardWidget extends StatelessWidget {
           child: Container(
             decoration: BoxDecoration(
               border: Border.all(
-                color: theme.dividerColor.withOpacity(0.3),
+                color: theme.dividerColor.withValues(alpha: 0.3),
                 width: 1,
               ),
               borderRadius: BorderRadius.circular(12),
@@ -203,7 +193,7 @@ class NewsCardWidget extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
-                              color: theme.colorScheme.primary.withOpacity(0.12),
+                              color: theme.colorScheme.primary.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
@@ -233,7 +223,7 @@ class NewsCardWidget extends StatelessWidget {
                         Text(
                           node.summary,
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withOpacity(0.65),
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
                             height: 1.4,
                           ),
                           maxLines: 3,
@@ -262,13 +252,13 @@ class NewsCardWidget extends StatelessWidget {
                                 node.publishedAt!,
                                 style: TextStyle(
                                   fontSize: 11,
-                                  color: theme.colorScheme.onSurface.withOpacity(0.45),
+                                  color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
                                 ),
                               ),
                             ],
                             if (hasUrl) ...[
                               const SizedBox(width: 6),
-                              Icon(Icons.open_in_new, size: 12, color: theme.colorScheme.primary.withOpacity(0.7)),
+                              Icon(Icons.open_in_new, size: 12, color: theme.colorScheme.primary.withValues(alpha: 0.7)),
                             ],
                           ],
                         ),
@@ -369,7 +359,7 @@ class AccordionWidget extends StatelessWidget {
       margin: const EdgeInsets.symmetric(vertical: 8.0),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: Colors.grey.withOpacity(0.3)),
+        side: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
       ),
       child: ExpansionTile(
         title: Text(node.title, style: const TextStyle(fontWeight: FontWeight.bold)),
