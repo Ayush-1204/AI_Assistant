@@ -506,6 +506,7 @@ def get_tool_orchestrator(
     from app.services.ai.tools.wolfram import WolframAlphaTool
     from app.services.ai.tools.arxiv import ArxivTool
     from app.services.ai.tools.semantic_scholar import SemanticScholarTool
+    from app.services.ai.tools.news_search import NewsSearchTool
     
     registry = ToolRegistry()
     registry.register(CurrentTimeTool())
@@ -548,6 +549,7 @@ def get_tool_orchestrator(
         
         if search_provider:
             registry.register(WebSearchTool(search_provider))
+            registry.register(NewsSearchTool())
             
     return ToolOrchestrator(registry)
 

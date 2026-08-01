@@ -32,6 +32,8 @@ class NewsCardNode(BasePresentationNode):
     url: str | None = None
     imageUrl: str | None = None
     imageUrls: list[str] = Field(default_factory=list)
+    publishedAt: str | None = None   # ISO date string or human-readable
+    category: str | None = None      # e.g. "Technology", "Business"
 
 class WeatherCardNode(BasePresentationNode):
     type: Literal["WeatherCard"] = "WeatherCard"

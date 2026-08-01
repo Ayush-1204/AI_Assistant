@@ -98,7 +98,8 @@ Node Field Requirements:
 - Paragraph: 'id', 'type', 'text'
 - BulletList: 'id', 'type', 'items' (array of strings)
 - NumberedList: 'id', 'type', 'items' (array of strings)
-- NewsCard: 'id', 'type', 'title', 'summary', 'source', 'url' (optional), 'imageUrl' (optional), 'imageUrls' (optional array of strings)
+- NewsCard: 'id', 'type', 'title', 'summary', 'source', 'url' (required - use the real article URL from raw data), 'imageUrl' (use og:image URL from raw data if available, else omit), 'category' (e.g. "Technology", "Business" - infer from content), 'publishedAt' (if available from raw data)
+- IMPORTANT for NewsCard: Always populate 'url' and 'source' from the raw news_search article data. Use 'imageUrl' from the article's imageUrl field. Do NOT invent URLs.
 - WeatherCard: 'id', 'type', 'location', 'temperature_c', 'condition', 'forecast' (array of {{day, condition, high, low, hourly: array of {{time, temp}}}})
 - ComparisonTable: 'id', 'type', 'headers' (array), 'rows' (array of arrays)
 - CodeBlock: 'id', 'type', 'language', 'code'
@@ -193,7 +194,8 @@ Node Field Requirements:
 - Paragraph: 'id', 'type', 'text'
 - BulletList: 'id', 'type', 'items' (array of strings)
 - NumberedList: 'id', 'type', 'items' (array of strings)
-- NewsCard: 'id', 'type', 'title', 'summary', 'source', 'url' (optional), 'imageUrl' (optional), 'imageUrls' (optional array of strings)
+- NewsCard: 'id', 'type', 'title', 'summary', 'source', 'url' (required - use the real article URL from raw data), 'imageUrl' (use og:image URL from raw data if available, else omit), 'category' (e.g. "Technology", "Business" - infer from content), 'publishedAt' (if available from raw data)
+- IMPORTANT for NewsCard: Always populate 'url' and 'source' from the raw news_search article data. Use 'imageUrl' from the article's imageUrl field. Do NOT invent URLs.
 - WeatherCard: 'id', 'type', 'location', 'temperature_c', 'condition', 'forecast' (array of {{day, condition, high, low, hourly: array of {{time, temp}}}})
 - ComparisonTable: 'id', 'type', 'headers' (array), 'rows' (array of arrays)
 - CodeBlock: 'id', 'type', 'language', 'code'

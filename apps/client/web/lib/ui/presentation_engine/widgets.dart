@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../markdown/ai_message_renderer.dart';
 import 'models.dart';
 import 'weather_widget.dart';
@@ -142,87 +143,168 @@ class NewsCardWidget extends StatelessWidget {
   final NewsCardNode node;
   const NewsCardWidget({super.key, required this.node});
 
+  String? get _imageUrl {
+    if (node.imageUrl != null && node.imageUrl!.isNotEmpty) return node.imageUrl;
+    if (node.imageUrls.isNotEmpty) return node.imageUrls.first;
+    return null;
+  }
+
+  void _openUrl(BuildContext context) async {
+    final rawUrl = node.url;
+    if (rawUrl == null || rawUrl.isEmpty) return;
+    try {
+      final uri = Uri.parse(rawUrl);
+      // ignore: deprecated_member_use
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open article')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
-      margin: const EdgeInsets.symmetric(vertical: 12.0),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Builder(
-            builder: (context) {
-              final allImages = <String>[];
-              if (node.imageUrl != null && node.imageUrl!.isNotEmpty) {
-                allImages.add(node.imageUrl!);
-              }
-              allImages.addAll(node.imageUrls.where((url) => url.isNotEmpty));
-              
-              if (allImages.isEmpty) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    final hasUrl = node.url != null && node.url!.isNotEmpty;
+    final imageUrl = _imageUrl;
 
-              if (allImages.length == 1) {
-                return ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                  child: Image.network(
-                    allImages.first,
-                    height: 150,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                  ),
-                );
-              }
-
-              return SizedBox(
-                height: 150,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: allImages.length,
-                  itemBuilder: (context, index) {
-                    final isFirst = index == 0;
-                    final isLast = index == allImages.length - 1;
-                    return Padding(
-                      padding: EdgeInsets.only(right: isLast ? 0 : 2.0),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.only(
-                          topLeft: isFirst ? const Radius.circular(12) : Radius.zero,
-                          topRight: isLast ? const Radius.circular(12) : Radius.zero,
-                        ),
-                        child: Image.network(
-                          allImages[index],
-                          height: 150,
-                          width: 200,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              );
-            },
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(node.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                Text(node.summary, style: const TextStyle(fontSize: 14, color: Colors.grey)),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    const Icon(Icons.source, size: 14, color: Colors.blueAccent),
-                    const SizedBox(width: 4),
-                    Text(node.source, style: const TextStyle(fontSize: 12, color: Colors.blueAccent, fontWeight: FontWeight.w600)),
-                  ],
-                ),
-              ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      child: Material(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: hasUrl ? () => _openUrl(context) : null,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: theme.dividerColor.withOpacity(0.3),
+                width: 1,
+              ),
+              borderRadius: BorderRadius.circular(12),
             ),
-          )
-        ],
+            child: Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // --- Text Content (left) ---
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Category chip
+                        if (node.category != null && node.category!.isNotEmpty) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.primary.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              node.category!.toUpperCase(),
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: theme.colorScheme.primary,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                        ],
+                        // Title
+                        Text(
+                          node.title,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            height: 1.35,
+                          ),
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 6),
+                        // Summary
+                        Text(
+                          node.summary,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface.withOpacity(0.65),
+                            height: 1.4,
+                          ),
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 10),
+                        // Source + date + arrow row
+                        Row(
+                          children: [
+                            Icon(Icons.article_outlined, size: 12, color: theme.colorScheme.primary),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                node.source,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: theme.colorScheme.primary,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (node.publishedAt != null && node.publishedAt!.isNotEmpty) ...[
+                              const SizedBox(width: 8),
+                              Text(
+                                node.publishedAt!,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: theme.colorScheme.onSurface.withOpacity(0.45),
+                                ),
+                              ),
+                            ],
+                            if (hasUrl) ...[
+                              const SizedBox(width: 6),
+                              Icon(Icons.open_in_new, size: 12, color: theme.colorScheme.primary.withOpacity(0.7)),
+                            ],
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  // --- Thumbnail (right) ---
+                  if (imageUrl != null) ...[
+                    const SizedBox(width: 12),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        imageUrl,
+                        width: 80,
+                        height: 80,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                        loadingBuilder: (_, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Container(
+                            width: 80,
+                            height: 80,
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.surfaceContainer,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

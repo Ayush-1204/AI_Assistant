@@ -103,6 +103,8 @@ class NewsCardNode extends PresentationNode {
   final String? url;
   final String? imageUrl;
   final List<String> imageUrls;
+  final String? publishedAt;
+  final String? category;
 
   NewsCardNode({
     required super.id,
@@ -112,6 +114,8 @@ class NewsCardNode extends PresentationNode {
     this.url,
     this.imageUrl,
     this.imageUrls = const [],
+    this.publishedAt,
+    this.category,
   }) : super(type: 'NewsCard');
 
   factory NewsCardNode.fromJson(Map<String, dynamic> json) {
@@ -123,6 +127,8 @@ class NewsCardNode extends PresentationNode {
       url: json['url'],
       imageUrl: json['imageUrl'],
       imageUrls: (json['imageUrls'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      publishedAt: json['publishedAt'],
+      category: json['category'],
     );
   }
 }
