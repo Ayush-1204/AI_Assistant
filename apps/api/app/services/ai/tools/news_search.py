@@ -95,42 +95,61 @@ def _extract_domain(url: str) -> str:
     return match.group(1) if match else url
 
 
-async def _fetch_og_image(url: str, timeout: float = 5.0) -> str | None:
+def _fetch_og_image_sync(url: str, timeout: float = 6.0) -> str | None:
+    """Synchronous cloudscraper fetch to bypass WAFs and bot protection."""
+    try:
+        import cloudscraper
+        scraper = cloudscraper.create_scraper(
+            browser={
+                'browser': 'chrome',
+                'platform': 'windows',
+                'desktop': True
+            }
+        )
+        
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Referer": "https://www.google.com/",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "cross-site",
+            "Sec-Ch-Ua": '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+            "Sec-Ch-Ua-Mobile": "?0",
+            "Sec-Ch-Ua-Platform": '"Windows"',
+        }
+        
+        resp = scraper.get(url, headers=headers, timeout=timeout)
+        if resp.status_code != 200:
+            return None
+            
+        html = resp.text[:30000]  # only need <head>
+
+        patterns = [
+            r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\'](https?://[^"\'>\s]+)["\']',
+            r'<meta[^>]+content=["\'](https?://[^"\'>\s]+)["\'][^>]+property=["\']og:image["\']',
+            r'<meta[^>]+name=["\']twitter:image["\'][^>]+content=["\'](https?://[^"\'>\s]+)["\']',
+            r'<meta[^>]+content=["\'](https?://[^"\'>\s]+)["\'][^>]+name=["\']twitter:image["\']',
+        ]
+        for pattern in patterns:
+            m = re.search(pattern, html, re.IGNORECASE)
+            if m:
+                img_url = m.group(1)
+                # Skip 1×1 tracking pixels and svg icons
+                if "1x1" not in img_url and not img_url.endswith(".svg"):
+                    return img_url
+    except Exception as e:
+        logger.debug(f"[NewsSearch] Failed to fetch image for {url}: {e}")
+    return None
+
+
+async def _fetch_og_image(url: str, timeout: float = 6.0) -> str | None:
     """
     Attempts to extract the og:image / twitter:image from a news article page.
-    Returns None on any failure.
+    Uses cloudscraper in a background thread to bypass Cloudflare/WAFs.
     """
-    try:
-        headers = {
-            "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/124.0.0.0 Safari/537.36"
-            ),
-            "Accept": "text/html",
-        }
-        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
-            resp = await client.get(url, headers=headers)
-            if resp.status_code != 200:
-                return None
-            html = resp.text[:25000]  # only need <head>
-
-            patterns = [
-                r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\'](https?://[^"\'>\s]+)["\']',
-                r'<meta[^>]+content=["\'](https?://[^"\'>\s]+)["\'][^>]+property=["\']og:image["\']',
-                r'<meta[^>]+name=["\']twitter:image["\'][^>]+content=["\'](https?://[^"\'>\s]+)["\']',
-                r'<meta[^>]+content=["\'](https?://[^"\'>\s]+)["\'][^>]+name=["\']twitter:image["\']',
-            ]
-            for pattern in patterns:
-                m = re.search(pattern, html, re.IGNORECASE)
-                if m:
-                    img_url = m.group(1)
-                    # Skip 1×1 tracking pixels and svg icons
-                    if "1x1" not in img_url and not img_url.endswith(".svg"):
-                        return img_url
-    except Exception:
-        pass
-    return None
+    return await asyncio.to_thread(_fetch_og_image_sync, url, timeout)
 
 
 async def _tavily_search(
@@ -261,7 +280,7 @@ class NewsSearchTool(BaseTool):
                 })
 
             # --- Phase 4: Fetch og:image concurrently ---
-            og_tasks = [_fetch_og_image(a["url"]) for a in articles_raw]
+            og_tasks = [_fetch_og_image(str(a.get("url", ""))) for a in articles_raw]
             og_results = await asyncio.gather(*og_tasks, return_exceptions=True)
 
             # Use Tavily images as ordered fallback pool
