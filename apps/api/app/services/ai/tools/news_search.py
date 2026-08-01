@@ -244,8 +244,6 @@ class NewsSearchTool(BaseTool):
                 r for r in raw_results
                 if not any(excl in r.get("url", "") for excl in EXCLUDED_DOMAINS)
             ]
-            if not filtered:
-                filtered = raw_results  # if somehow all excluded, keep originals
 
             # Cap to requested count
             filtered = filtered[:max_results]

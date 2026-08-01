@@ -27,32 +27,55 @@ def _build_news_index(raw_data: dict[str, Any]) -> list[dict[str, Any]]:
     return []
 
 
-def _inject_all_news_cards(nodes: list[dict], articles: list[dict]) -> list[dict]:
+def _match_and_inject_article(node: dict, articles: list[dict]) -> dict:
     """
-    Sequentially assigns raw articles to NewsCard nodes in the order they appear.
-    Article[0] → first NewsCard, Article[1] → second NewsCard, etc.
-    This is far more reliable than fuzzy title matching because the LLM rewrites titles.
-    We overwrite: title, source, url, imageUrl directly from raw data.
+    Matches a NewsCard node to the correct raw article using URL or Title,
+    then injects the correct URL, Source, and Image.
     """
-    article_idx = 0
-    out = []
-    for node in nodes:
-        if isinstance(node, dict) and node.get("type") == "NewsCard":
-            if article_idx < len(articles):
-                art = articles[article_idx]
-                article_idx += 1
-                # Overwrite fields the LLM cannot be trusted to set correctly
-                node["title"] = art.get("title") or node.get("title", "")
-                node["url"] = art.get("url", "")
-                node["source"] = art.get("source", node.get("source", ""))
-                img = art.get("imageUrl")
-                if img:
-                    node["imageUrl"] = img
-                else:
-                    node.pop("imageUrl", None)
-                # Keep LLM-generated summary & category as they add value
-        out.append(node)
-    return out
+    if not articles:
+        return node
+
+    node_url = node.get("url", "").lower().strip()
+    node_title = node.get("title", "").lower().strip()
+
+    best_article = None
+    
+    # 1. Try to match by exact or partial URL
+    if node_url:
+        for art in articles:
+            art_url = art.get("url", "").lower().strip()
+            if art_url and (node_url in art_url or art_url in node_url):
+                best_article = art
+                break
+                
+    # 2. Fallback to title overlap scoring
+    if not best_article and node_title:
+        best_score = 0
+        for art in articles:
+            art_title = art.get("title", "").lower().strip()
+            node_words = set(node_title.split())
+            art_words = set(art_title.split())
+            score = len(node_words & art_words)
+            if score > best_score and score > 2:  # require at least 3 words to match
+                best_score = score
+                best_article = art
+
+    # 3. If still no match, we can't reliably inject, but we'll use the first as a last resort
+    if not best_article:
+        best_article = articles[0]
+
+    # Inject exact data
+    node["title"] = best_article.get("title") or node.get("title", "")
+    node["url"] = best_article.get("url", "")
+    node["source"] = best_article.get("source", node.get("source", ""))
+    
+    img = best_article.get("imageUrl")
+    if img:
+        node["imageUrl"] = img
+    else:
+        node.pop("imageUrl", None)
+
+    return node
 
 
 class PresentationPlanner:
@@ -186,11 +209,11 @@ Return ONLY a JSON array containing the fully populated nodes from the Predefine
                     
                 # Post-process: inject exact raw data for complex cards
                 articles = _build_news_index(context.raw_data) if context.raw_data else []
-                # Sequential assignment for NewsCards (article[0]→card[0], etc.)
-                nodes = _inject_all_news_cards(nodes, articles)
-
+                
                 for node in nodes:
-                    if node.get("type") == "WeatherCard" and context.raw_data:
+                    if node.get("type") == "NewsCard":
+                        _match_and_inject_article(node, articles)
+                    elif node.get("type") == "WeatherCard" and context.raw_data:
                         weather_data = context.raw_data.get("get_weather", {})
                         if weather_data:
                             node["location"] = weather_data.get("location", node.get("location"))
@@ -274,8 +297,6 @@ Return ONLY a JSON array containing the fully populated nodes from the Predefine
         try:
             router_inst = typing.cast(ProviderRouter, self.provider)
             buffer = ""
-            # Mutable counter for sequential NewsCard → article mapping
-            news_counter = {"idx": 0}
             articles_for_stream = _build_news_index(context.raw_data) if context.raw_data else []
 
             async for chunk in router_inst.stream_chat(messages, intent="structured"):
@@ -287,19 +308,7 @@ Return ONLY a JSON array containing the fully populated nodes from the Predefine
                         continue
 
                     if node.get("type") == "NewsCard":
-                        # Sequential positional assignment from pre-built articles list
-                        idx = news_counter["idx"]
-                        if idx < len(articles_for_stream):
-                            art = articles_for_stream[idx]
-                            node["title"] = art.get("title") or node.get("title", "")
-                            node["url"] = art.get("url", "")
-                            node["source"] = art.get("source", node.get("source", ""))
-                            img = art.get("imageUrl")
-                            if img:
-                                node["imageUrl"] = img
-                            else:
-                                node.pop("imageUrl", None)
-                        news_counter["idx"] += 1
+                        _match_and_inject_article(node, articles_for_stream)
 
                     elif node.get("type") == "WeatherCard" and context.raw_data:
                         weather_data = context.raw_data.get("get_weather", {})
