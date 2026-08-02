@@ -16,6 +16,7 @@ TRUSTED_SOURCES: dict[str, list[str]] = {
         "economictimes.indiatimes.com",
         "hindustantimes.com",
         "ndtv.com",
+        "abpnews.com",
         "thehindu.com",
         "livemint.com",
         "moneycontrol.com",
@@ -203,10 +204,13 @@ class NewsSearchTool(BaseTool):
     @property
     def description(self) -> str:
         return (
-            "Search for recent, reliable news articles from trusted regional publishers. "
+            "Search for RECENT news articles (last 1-7 days) from trusted, reputable publishers. "
             "Use this instead of web_search when the user asks about news, current events, or headlines. "
-            "Automatically selects high-quality sources based on user location (e.g., Times of India for India, BBC/Reuters globally). "
-            "Returns structured articles with title, summary, source, URL, and a relevant thumbnail image."
+            "Results are automatically ranked to prefer high-quality sources (Reuters, BBC, NDTV, ET, etc.) based on user location. "
+            "IMPORTANT: For comprehensive briefings covering multiple topics (e.g. AI news + business news + world news), "
+            "call this tool SEPARATELY for each topic with a specific focused query (e.g. 'latest AI model releases 2026', "
+            "'stock market movements today', 'India geopolitics news'). Do NOT make one broad call for everything. "
+            "Returns structured articles with title, summary, source, exact URL, image, and publish date."
         )
 
     @property
@@ -246,85 +250,101 @@ class NewsSearchTool(BaseTool):
             or execution_context.get("user_location")
         )
         region = _detect_region(location_hint)
-        trusted_domains = TRUSTED_SOURCES.get(region, TRUSTED_SOURCES["global"])
+        regional_trusted = TRUSTED_SOURCES.get(region, [])
+        global_trusted = TRUSTED_SOURCES["global"]
+        # Combined set: regional + global quality sources
+        all_trusted = list(dict.fromkeys(regional_trusted + global_trusted))  # preserve order, no dupes
 
-        logger.info(f"[NewsSearch] Region='{region}', query='{query}', domains={trusted_domains[:3]}...")
+        logger.info(f"[NewsSearch] Region='{region}', query='{query}', days={days}")
 
         try:
-            # --- Phase 1: Fetch articles with domain filter ---
+            # --- Phase 1: Broad news search WITHOUT include_domains ---
+            # include_domains + topic:news is too restrictive and triggers fallback to junk.
+            # Instead: exclude junk, then post-rank by trusted domain preference.
             raw_results, tavily_images = await _tavily_search(
                 query=query,
-                include_domains=trusted_domains,
-                max_results=max_results + 3,  # fetch a few extra, filter below
+                include_domains=[],
+                max_results=max_results + 6,  # fetch extra buffer for post-ranking
                 days=days,
             )
 
-            # Fallback: no results with domain filter → try without
             if not raw_results:
-                logger.warning("[NewsSearch] No results with trusted domains, falling back to plain query.")
-                raw_results, tavily_images = await _tavily_search(
-                    query=query,
-                    include_domains=[],
-                    max_results=max_results,
-                    days=days,
-                )
+                return json.dumps({"error": "No news found for this query."})
 
-            # --- Phase 2: Filter out excluded domains just in case ---
-            filtered = [
+            # --- Phase 2: Post-rank: trusted domains first, then others ---
+            # Excluded domains are already filtered in _tavily_search, but double-check
+            clean = [
                 r for r in raw_results
                 if not any(excl in r.get("url", "") for excl in EXCLUDED_DOMAINS)
             ]
 
-            # Cap to requested count
-            filtered = filtered[:max_results]
+            def _trust_score(r: dict) -> int:
+                url = r.get("url", "")
+                for domain in all_trusted:
+                    if domain in url:
+                        return 1  # trusted
+                return 0  # untrusted
 
-            # --- Phase 3: Build article stubs ---
+            # Stable sort: trusted first, maintain Tavily relevance order within each group
+            clean.sort(key=_trust_score, reverse=True)
+            filtered = clean[:max_results]
+
+            if not filtered:
+                return json.dumps({"error": "No usable news found for this query."})
+
+            # --- Phase 3: Build articles, using Tavily's per-article 'image' field ---
+            # Tavily news topic returns 'image' per result — this is WAF-free and correct.
             articles_raw = []
             for r in filtered:
                 url_str = r.get("url", "")
+                # Tavily news topic returns per-result image — use it directly
+                tavily_img = r.get("image", "") or r.get("imageUrl", "")
+                valid_img = (
+                    tavily_img
+                    if (isinstance(tavily_img, str) and tavily_img.startswith("http")
+                        and "ytimg" not in tavily_img and "1x1" not in tavily_img)
+                    else None
+                )
                 articles_raw.append({
                     "title": r.get("title", ""),
                     "url": url_str,
                     "snippet": r.get("content", ""),
                     "source": _extract_domain(url_str),
-                    "imageUrl": None,
+                    "imageUrl": valid_img,
+                    "publishedAt": r.get("published_date", ""),
                 })
 
-            # --- Phase 4: Fetch og:image concurrently ---
-            og_tasks = [_fetch_og_image(str(a.get("url", ""))) for a in articles_raw]
-            og_results = await asyncio.gather(*og_tasks, return_exceptions=True)
-
-            # Use Tavily images as ordered fallback pool
-            tavily_image_pool = [
+            # --- Phase 4: Only scrape og:image for articles missing an image ---
+            # Build a clean fallback pool from Tavily's top-level images list
+            tavily_pool = [
                 img for img in tavily_images
                 if isinstance(img, str) and img.startswith("http")
-                and "youtube.com" not in img
-                and "ytimg.com" not in img
+                and "ytimg" not in img and "youtube.com" not in img
             ]
-            tavily_pool_index = 0
+            pool_idx = 0
 
-            articles_out = []
-            for article, og_image in zip(articles_raw, og_results):
-                if isinstance(og_image, str) and og_image.startswith("http"):
-                    article["imageUrl"] = og_image
-                elif tavily_pool_index < len(tavily_image_pool):
-                    # Use next Tavily image as fallback
-                    article["imageUrl"] = tavily_image_pool[tavily_pool_index]
-                    tavily_pool_index += 1
-                else:
-                    article["imageUrl"] = None
+            articles_needing_images = [(i, a) for i, a in enumerate(articles_raw) if not a["imageUrl"]]
+            if articles_needing_images:
+                og_tasks = [_fetch_og_image(str(a["url"])) for _, a in articles_needing_images]
+                og_results = await asyncio.gather(*og_tasks, return_exceptions=True)
 
-                articles_out.append(article)
+                for (idx, article), og_image in zip(articles_needing_images, og_results):
+                    if isinstance(og_image, str) and og_image.startswith("http"):
+                        articles_raw[idx]["imageUrl"] = og_image
+                    elif pool_idx < len(tavily_pool):
+                        articles_raw[idx]["imageUrl"] = tavily_pool[pool_idx]
+                        pool_idx += 1
 
+            img_count = sum(1 for a in articles_raw if a.get("imageUrl"))
             logger.info(
-                f"[NewsSearch] {len(articles_out)} articles returned. "
-                f"OG images: {sum(1 for a in articles_out if a['imageUrl'])}/{len(articles_out)}"
+                f"[NewsSearch] Done: {len(articles_raw)} articles, "
+                f"{img_count} with images, region={region}"
             )
 
             return json.dumps({
                 "region": region,
-                "sources_used": trusted_domains,
-                "articles": articles_out,
+                "sources_used": all_trusted,
+                "articles": articles_raw,
             })
 
         except Exception as e:
