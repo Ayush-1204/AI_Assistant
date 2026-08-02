@@ -404,6 +404,29 @@ class NewsSearchTool(BaseTool):
                     if isinstance(d_img, str) and d_img.startswith("http"):
                         articles_raw[idx]["imageUrl"] = d_img
 
+            # --- Phase 6: Playwright Headless Browser Fallback (Ultimate Bypass) ---
+            # For aggressively protected sites (like CNBC/WSJ) that block both Cloudscraper and Discord
+            final_missing = [(i, a) for i, a in enumerate(articles_raw) if not a["imageUrl"]]
+            if final_missing:
+                logger.info(f"[NewsSearch] Ultimate Fallback: Using Playwright for {len(final_missing)} aggressively paywalled images")
+                from app.services.ai.tools.browser import PlaywrightBrowserTool
+                import re
+                browser_tool = PlaywrightBrowserTool()
+                
+                async def _playwright_extract(url_str: str) -> str | None:
+                    try:
+                        res = await browser_tool.execute({}, action="extract", url=url_str)
+                        m = re.search(r'\[META_IMAGE:\s*(https?://[^\]]+)\]', res)
+                        return m.group(1) if m else None
+                    except Exception:
+                        return None
+                        
+                pw_tasks = [_playwright_extract(str(a["url"])) for _, a in final_missing]
+                pw_results = await asyncio.gather(*pw_tasks, return_exceptions=True)
+                for (idx, _), pw_img in zip(final_missing, pw_results):
+                    if isinstance(pw_img, str) and pw_img.startswith("http") and "1x1" not in pw_img:
+                        articles_raw[idx]["imageUrl"] = pw_img
+
             img_count = sum(1 for a in articles_raw if a.get("imageUrl"))
             logger.info(
                 f"[NewsSearch] Done: {len(articles_raw)} articles, {img_count} with images, region={region}"
