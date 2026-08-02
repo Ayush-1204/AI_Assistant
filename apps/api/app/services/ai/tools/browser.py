@@ -105,10 +105,11 @@ class PlaywrightBrowserTool(BaseTool):
     async def execute(self, execution_context: dict, **kwargs) -> str:
         import asyncio
         try:
-            return await asyncio.wait_for(
+            result = await asyncio.wait_for(
                 asyncio.to_thread(_run_in_new_loop, self._execute_async(execution_context, **kwargs)),
                 timeout=45.0
             )
+            return str(result)
         except asyncio.TimeoutError:
             return f"ERROR: Browser execution timed out after 45 seconds while processing action '{kwargs.get('action')}' on {kwargs.get('url')}."
 
