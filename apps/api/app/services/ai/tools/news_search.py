@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import os
 import re
 from urllib.parse import urlparse
 
@@ -146,6 +147,54 @@ def _fetch_og_image_sync(url: str, timeout: float = 6.0) -> str | None:
 async def _fetch_og_image(url: str, timeout: float = 6.0) -> str | None:
     """Async wrapper — runs cloudscraper in a thread to avoid blocking the event loop."""
     return await asyncio.to_thread(_fetch_og_image_sync, url, timeout)
+
+
+async def _fetch_og_image_discord(url: str, timeout: float = 8.0) -> str | None:
+    """Uses Discord's backend crawler to bypass WAFs and extract og:image for paywalled sites."""
+    webhook_url = os.environ.get("DISCORD_WEBHOOK_URL")
+    bot_token = os.environ.get("DISCORD_BOT_TOKEN")
+    
+    if not webhook_url or not bot_token:
+        return None
+        
+    try:
+        # Step 1: Send the URL to Discord via Webhook
+        payload = {"content": url}
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.post(f"{webhook_url}?wait=true", json=payload)
+            response.raise_for_status()
+            
+            message_id = response.json().get("id")
+            channel_id = response.json().get("channel_id")
+            if not message_id or not channel_id:
+                return None
+
+            # Step 2: Give Discord 2.0 seconds to crawl the link and populate the embed
+            await asyncio.sleep(2.0)
+
+            # Step 3: Fetch the posted message from Discord API
+            headers = {"Authorization": f"Bot {bot_token}"}
+            msg_res = await client.get(
+                f"https://discord.com/api/v10/channels/{channel_id}/messages/{message_id}",
+                headers=headers
+            )
+            msg_res.raise_for_status()
+            data = msg_res.json()
+            
+            # Step 4: Delete the message to keep the channel clean (fire and forget)
+            asyncio.create_task(client.delete(
+                f"https://discord.com/api/v10/channels/{channel_id}/messages/{message_id}",
+                headers=headers
+            ))
+            
+            embeds = data.get("embeds", [])
+            if embeds:
+                image_url = embeds[0].get("image", {}).get("url") or embeds[0].get("thumbnail", {}).get("url")
+                if image_url and "1x1" not in image_url:
+                    return image_url
+    except Exception as e:
+        logger.debug(f"[NewsSearch] Discord fallback failed for {url}: {e}")
+    return None
 
 
 async def _tavily_search(
@@ -343,7 +392,17 @@ class NewsSearchTool(BaseTool):
                 for (idx, _), og_image in zip(missing, og_results):
                     if isinstance(og_image, str) and og_image.startswith("http"):
                         articles_raw[idx]["imageUrl"] = og_image
-                    # If scraping also fails, leave imageUrl as None — better than wrong image
+
+            # --- Phase 5: Discord Webhook Fallback for paywalled sites ---
+            # If cloudscraper failed (WAF block), let Discord's crawler fetch the og:image
+            still_missing = [(i, a) for i, a in enumerate(articles_raw) if not a["imageUrl"]]
+            if still_missing and os.environ.get("DISCORD_WEBHOOK_URL") and os.environ.get("DISCORD_BOT_TOKEN"):
+                logger.info(f"[NewsSearch] Fallback: Using Discord to fetch {len(still_missing)} paywalled images")
+                discord_tasks = [_fetch_og_image_discord(str(a["url"])) for _, a in still_missing]
+                discord_results = await asyncio.gather(*discord_tasks, return_exceptions=True)
+                for (idx, _), d_img in zip(still_missing, discord_results):
+                    if isinstance(d_img, str) and d_img.startswith("http"):
+                        articles_raw[idx]["imageUrl"] = d_img
 
             img_count = sum(1 for a in articles_raw if a.get("imageUrl"))
             logger.info(
