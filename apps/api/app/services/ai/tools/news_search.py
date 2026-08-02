@@ -156,6 +156,7 @@ async def _tavily_search(
     query: str,
     include_domains: list[str],
     max_results: int,
+    days: int = 3,
 ) -> tuple[list[dict], list[str]]:
     """
     Direct Tavily API call with include_domains / exclude_domains support.
@@ -170,6 +171,8 @@ async def _tavily_search(
     payload = {
         "api_key": api_key,
         "query": query,
+        "topic": "news",
+        "days": days,
         "search_depth": "basic",
         "include_answer": False,
         "include_images": True,
@@ -220,6 +223,11 @@ class NewsSearchTool(BaseTool):
                     "description": "Number of articles to return. Default: 5.",
                     "default": 5
                 },
+                "days": {
+                    "type": "integer",
+                    "description": "Number of days back to search for news. Default: 3.",
+                    "default": 3
+                },
             },
             "required": ["query"]
         }
@@ -227,6 +235,7 @@ class NewsSearchTool(BaseTool):
     async def execute(self, execution_context: dict, **kwargs) -> str:
         query: str = kwargs.get("query", "")
         max_results: int = min(int(kwargs.get("max_results", 5)), 8)
+        days: int = int(kwargs.get("days", 3))
 
         if not query:
             return json.dumps({"error": "Missing 'query' parameter."})
@@ -247,6 +256,7 @@ class NewsSearchTool(BaseTool):
                 query=query,
                 include_domains=trusted_domains,
                 max_results=max_results + 3,  # fetch a few extra, filter below
+                days=days,
             )
 
             # Fallback: no results with domain filter → try without
@@ -256,6 +266,7 @@ class NewsSearchTool(BaseTool):
                     query=query,
                     include_domains=[],
                     max_results=max_results,
+                    days=days,
                 )
 
             # --- Phase 2: Filter out excluded domains just in case ---
