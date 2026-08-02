@@ -158,18 +158,18 @@ class PlaywrightBrowserTool(BaseTool):
                                 parts.extend(texts)
                             except Exception:
                                 pass
-                        js_extract = \"\"\"
+                        js_extract = """
                             const img = document.querySelector('meta[property="og:image"]')?.content || document.querySelector('meta[name="twitter:image"]')?.content || '';
                             const meta = img ? `[META_IMAGE: ${img}]\\n\\n` : '';
                             meta + document.body.innerText;
-                        \"\"\"
+                        """
                         result = "\\n".join(parts) if parts else await page.evaluate(js_extract)
                     else:
-                        js_extract = \"\"\"
+                        js_extract = """
                             const img = document.querySelector('meta[property="og:image"]')?.content || document.querySelector('meta[name="twitter:image"]')?.content || '';
                             const meta = img ? `[META_IMAGE: ${img}]\\n\\n` : '';
                             meta + document.body.innerText;
-                        \"\"\"
+                        """
                         result = await page.evaluate(js_extract)
 
                 elif action == "fill_form":
@@ -217,18 +217,18 @@ class PlaywrightBrowserTool(BaseTool):
                                 parts.extend(texts)
                             except Exception:
                                 pass
-                        js_extract = \"\"\"
+                        js_extract = """
                             const img = document.querySelector('meta[property="og:image"]')?.content || document.querySelector('meta[name="twitter:image"]')?.content || '';
                             const meta = img ? `[META_IMAGE: ${img}]\\n\\n` : '';
                             meta + document.body.innerText;
-                        \"\"\"
+                        """
                         result = "\\n".join(parts) if parts else await page.evaluate(js_extract)
                     else:
-                        js_extract = \"\"\"
+                        js_extract = """
                             const img = document.querySelector('meta[property="og:image"]')?.content || document.querySelector('meta[name="twitter:image"]')?.content || '';
                             const meta = img ? `[META_IMAGE: ${img}]\\n\\n` : '';
                             meta + document.body.innerText;
-                        \"\"\"
+                        """
                         result = await page.evaluate(js_extract)
 
                 elif action == "screenshot":
