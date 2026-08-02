@@ -208,7 +208,7 @@ async def _tavily_search(
         "query": query,
         "topic": "news",
         "days": days,
-        "search_depth": "basic",
+        "search_depth": "advanced",
         "include_answer": False,
         "include_images": True,
         "include_raw_content": False,
