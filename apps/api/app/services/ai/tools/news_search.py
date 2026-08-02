@@ -15,16 +15,19 @@ logger = logging.getLogger(__name__)
 # These MUST be article-level publishers (not aggregators/social media/wikis)
 
 TRUSTED_SOURCES_INDIA = [
-    "thehindu.com",
-    "indianexpress.com",
-    "timesofindia.indiatimes.com",
+    "timesofindia.com",
+    "economictimes.indiatimes.com",
     "hindustantimes.com",
     "ndtv.com",
+    "thehindu.com",
     "livemint.com",
-    "business-standard.com",
-    "economictimes.indiatimes.com",
-    "ptinews.com",
-    "aninews.in",
+    "moneycontrol.com",
+    "indianexpress.com",
+    "businesstoday.in",
+    "firstpost.com",
+    "news18.com",
+    "abpnews.com",
+    "zeenews.india.com",
 ]
 
 TRUSTED_SOURCES_GLOBAL = [
@@ -35,6 +38,12 @@ TRUSTED_SOURCES_GLOBAL = [
     "bbc.co.uk",
     "nytimes.com",
     "theguardian.com",
+    "bloomberg.com",
+    "techcrunch.com",
+    "cnbc.com",
+    "wsj.com",
+    "ft.com",
+    "nytimes.com",
     "washingtonpost.com",
     "aljazeera.com",
     "cnn.com",
