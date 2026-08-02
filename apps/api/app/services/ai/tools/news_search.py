@@ -190,7 +190,7 @@ async def _fetch_og_image_discord(url: str, timeout: float = 8.0) -> str | None:
             embeds = data.get("embeds", [])
             if embeds:
                 image_url = embeds[0].get("image", {}).get("url") or embeds[0].get("thumbnail", {}).get("url")
-                if image_url and "1x1" not in image_url:
+                if isinstance(image_url, str) and "1x1" not in image_url:
                     return image_url
     except Exception as e:
         logger.debug(f"[NewsSearch] Discord fallback failed for {url}: {e}")
