@@ -67,9 +67,26 @@ Return EXACTLY a JSON object matching this schema:
                         
                 for r in results:
                     try:
-                        raw_data_map[r.tool_name] = json.loads(r.rawData) if isinstance(r.rawData, str) else r.rawData
-                    except:
-                        raw_data_map[r.tool_name] = r.rawData
+                        parsed = json.loads(r.rawData) if isinstance(r.rawData, str) else r.rawData
+                    except Exception:
+                        parsed = r.rawData
+
+                    if r.tool_name == "news_search" and "news_search" in raw_data_map:
+                        # Merge multiple news_search calls — append articles from all calls
+                        existing = raw_data_map["news_search"]
+                        if isinstance(existing, dict) and isinstance(parsed, dict):
+                            existing_articles = existing.get("articles", [])
+                            new_articles = parsed.get("articles", [])
+                            # Deduplicate by URL
+                            seen_urls = {a.get("url") for a in existing_articles}
+                            for art in new_articles:
+                                if art.get("url") not in seen_urls:
+                                    existing_articles.append(art)
+                                    seen_urls.add(art.get("url"))
+                            existing["articles"] = existing_articles
+                        # else: leave as-is if format is unexpected
+                    else:
+                        raw_data_map[r.tool_name] = parsed
                         
                 return CuratedContext(
                     summary=edit_json.get("summary", ""),

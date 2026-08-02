@@ -180,6 +180,7 @@ async def _tavily_search(
     }
 
     # Retry up to 2 times on transient connection errors
+    last_exc: Exception | None = None
     for attempt in range(2):
         try:
             async with httpx.AsyncClient(timeout=20.0) as client:
@@ -188,11 +189,12 @@ async def _tavily_search(
                 data = response.json()
             return data.get("results", []), data.get("images", [])
         except (httpx.ConnectError, httpx.TimeoutException) as e:
+            last_exc = e
             if attempt == 0:
                 logger.warning(f"[NewsSearch] Tavily connection error (attempt {attempt+1}), retrying: {e}")
                 await asyncio.sleep(1.5)
-            else:
-                raise
+
+    raise last_exc or RuntimeError("Tavily search failed after retries")
 
 
 class NewsSearchTool(BaseTool):
@@ -328,14 +330,11 @@ class NewsSearchTool(BaseTool):
                     "publishedAt": r.get("published_date", ""),
                 })
 
-            # --- Phase 4: Scrape og:image only for articles still missing images ---
-            tavily_pool = [
-                img for img in tavily_images
-                if isinstance(img, str) and img.startswith("http")
-                and "ytimg" not in img and "youtube.com" not in img
-            ]
-            pool_idx = 0
-
+            # --- Phase 4: Scrape og:image via cloudscraper for articles still missing images ---
+            # NOTE: We do NOT use the Tavily flat image pool as fallback.
+            # That pool contains cross-domain images unrelated to specific articles and 
+            # causes visible mismatches (economist.com image on a Reuters article, etc.).
+            # cloudscraper bypasses WAF and returns the article's actual og:image.
             missing = [(i, a) for i, a in enumerate(articles_raw) if not a["imageUrl"]]
             if missing:
                 og_tasks = [_fetch_og_image(str(a["url"])) for _, a in missing]
@@ -344,9 +343,7 @@ class NewsSearchTool(BaseTool):
                 for (idx, _), og_image in zip(missing, og_results):
                     if isinstance(og_image, str) and og_image.startswith("http"):
                         articles_raw[idx]["imageUrl"] = og_image
-                    elif pool_idx < len(tavily_pool):
-                        articles_raw[idx]["imageUrl"] = tavily_pool[pool_idx]
-                        pool_idx += 1
+                    # If scraping also fails, leave imageUrl as None — better than wrong image
 
             img_count = sum(1 for a in articles_raw if a.get("imageUrl"))
             logger.info(
