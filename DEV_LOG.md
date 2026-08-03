@@ -179,3 +179,15 @@ This document aggregates the implementation plans and walkthrough summaries for 
   - **Explicit Animation Controllers**: Reprogrammed Sidebar animations from implicit `AnimatedContainer` widgets to explicit `AnimationController` and `AnimatedBuilder` setups to guarantee frame-by-frame reliability and avoid silent frame dropping in complex widget trees.
   - **Premium Physics**: Implemented iOS-style animation physics (`easeInCubic`, `2500ms`) for a dynamic, slow-to-fast accelerated feel.
   - **Texture Churn Elimination (The "Teleporting" Bug)**: Diagnosed the root cause of the "instant snap" or "teleporting" animations. The blob's `CustomPaint` size was being animated directly, forcing Flutter Web (CanvasKit) to destroy and re-allocate a brand new WebGL surface texture 60 times a second. This destroyed the UI thread, causing it to drop all frames and snap straight to the end state. Fixed this by wrapping the `CustomPaint` in an `OverflowBox` to lock the CanvasKit texture dimensions to a static `400x240`, passing target bounds explicitly to `ReactiveOrbPainter`. This completely eliminated WebGL texture re-allocations, achieving buttery smooth 60fps morphological rendering.
+
+## Phase 34: Advanced News Architecture & Image WAF Bypass
+**Status**: `Completed`
+- **Plan**: Overhaul the news search pipeline to guarantee high-quality publisher extraction and reliably bypass aggressive WAFs (Web Application Firewalls) and paywalls that were blocking rich image metadata.
+- **Implementation**: 
+  - **Tavily Integration Enhancements**: Redesigned `news_search` to explicitly map `topic='news'` and a `days` parameter to pull the most recent data and avoid stale mega-threads. Restored strict `include_domains` restrictions based on user-provided trusted publishers.
+  - **Multi-Tiered Image Extraction**: Engineered a highly resilient fallback cascade for paywalled images:
+    1. **Tavily API**: Harvest per-article image fields directly from the primary index.
+    2. **CloudScraper**: Integrated to organically bypass standard anti-bot protections/WAFs.
+    3. **Discord Webhook Crawler**: Built a crawler fallback to emulate Discord's user-agent, forcing servers to yield rich embeds.
+    4. **Playwright Ultimate Fallback**: Implemented a headless browser sequence to fundamentally bypass aggressive paywalls, explicitly extracting the raw `og:image` meta property for rich UI cards.
+  - **Presentation Planner Adjustments**: Finalized backend typing adjustments (Pyright casting) and orchestration parameters for the presentation engine.
