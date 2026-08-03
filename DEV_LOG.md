@@ -169,3 +169,13 @@ This document aggregates the implementation plans and walkthrough summaries for 
   - **Split-Intent JSON Routing**: Established a "structured" routing intent mapped strictly to highly capable models (Gemini Flash, Llama 70B). Updated UpfrontPlanner, PresentationPlanner, ValidatorStage, EditorStage, and ToolRouter to use "structured", eliminating invalid JSON syntax errors previously caused by smaller 8B models.
   - **Conversational Bypass**: Refactored AgentExecutor.stream_run to bypass PresentationPlanner and heavy JSON layout stages entirely when 	ools_needed == False, streaming raw conversational text natively for basic queries.
   - **Weather Geolocation Fallback**: Enhanced WeatherTool to interpret location: "auto" dynamically fetching real-time coordinates via IP-geolocation, resolving hallucinations where the AI fetched weather for the village of "Auto, American Samoa".
+
+## Phase 33: Animation Physics & Canvas Rendering Optimization
+**Status**: `Completed`
+- **Plan**: Resolve severe UI frame drops across the sidebar and voice blob animations, implement premium iOS-style spring curves, and fix underlying layout crashes.
+- **Implementation**: 
+  - **Layout Crash Resolution**: Replaced broken `OverflowBox` structures with `UnconstrainedBox` and `SizedBox` in `layout.dart` to prevent the sidebar from disappearing/crashing on collapse.
+  - **GPU Bottleneck Fix**: Updated `chat_view.dart` to disable redundant text-field waveform rendering when operating in continuous voice mode.
+  - **Explicit Animation Controllers**: Reprogrammed Sidebar animations from implicit `AnimatedContainer` widgets to explicit `AnimationController` and `AnimatedBuilder` setups to guarantee frame-by-frame reliability and avoid silent frame dropping in complex widget trees.
+  - **Premium Physics**: Implemented iOS-style animation physics (`easeInCubic`, `2500ms`) for a dynamic, slow-to-fast accelerated feel.
+  - **Texture Churn Elimination (The "Teleporting" Bug)**: Diagnosed the root cause of the "instant snap" or "teleporting" animations. The blob's `CustomPaint` size was being animated directly, forcing Flutter Web (CanvasKit) to destroy and re-allocate a brand new WebGL surface texture 60 times a second. This destroyed the UI thread, causing it to drop all frames and snap straight to the end state. Fixed this by wrapping the `CustomPaint` in an `OverflowBox` to lock the CanvasKit texture dimensions to a static `400x240`, passing target bounds explicitly to `ReactiveOrbPainter`. This completely eliminated WebGL texture re-allocations, achieving buttery smooth 60fps morphological rendering.

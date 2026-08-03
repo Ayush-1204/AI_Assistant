@@ -479,7 +479,9 @@ class _ChatViewState extends ConsumerState<ChatView> {
 
   void _handleSend(String val) {
     if (val.trim().isEmpty) return;
-    ref.read(chatProvider.notifier).sendMessage(val);
+    final notifier = ref.read(chatProvider.notifier);
+    notifier.sendMessage(val);
+    notifier.setContinuousVoiceMode(false);
     _controller.clear();
     _scrollToBottom();
   }
@@ -1074,6 +1076,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
               final isSending = ref.watch(chatProvider).isSending;
               final isProcessing = ref.watch(chatProvider).isProcessing;
               final isEmpty = ref.watch(chatProvider).messages.isEmpty;
+              final isContinuousVoiceMode = ref.watch(chatProvider).isContinuousVoiceMode;
 
               return Container(
                 padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
@@ -1244,10 +1247,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
                                   ),
                                   const SizedBox(width: 4),
                                   Expanded(
-                                    child: (isListening ||
-                                            ref
-                                                .watch(chatProvider)
-                                                .isVoiceTyping)
+                                    child: (!ref.watch(chatProvider).isContinuousVoiceMode && (isListening || ref.watch(chatProvider).isVoiceTyping))
                                         ? const ActiveVoiceBar()
                                         : Focus(
                                             onKeyEvent: (node, event) {
@@ -1335,7 +1335,20 @@ class _ChatViewState extends ConsumerState<ChatView> {
                                           valueListenable: _controller,
                                           builder: (context, value, child) {
                                             bool isEmpty = value.text.trim().isEmpty;
-                                            if (isProcessing) {
+                                            if (ref.watch(chatProvider).isContinuousVoiceMode) {
+                                              return IconButton(
+                                                tooltip: 'End Voice Mode',
+                                                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                                                padding: EdgeInsets.zero,
+                                                icon: const Icon(Icons.close, color: Colors.white54, size: 28),
+                                                onPressed: () {
+                                                  final notifier = ref.read(chatProvider.notifier);
+                                                  notifier.setContinuousVoiceMode(false);
+                                                  if (ref.read(chatProvider).isSpeaking) notifier.stopSpeaking();
+                                                  if (ref.read(chatProvider).isListening || ref.read(chatProvider).isVoiceTyping) notifier.stopListening();
+                                                },
+                                              );
+                                            } else if (isProcessing) {
                                               return Container(
                                                 width: 36,
                                                 height: 36,
@@ -1361,21 +1374,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
                                                 padding: EdgeInsets.zero,
                                                 icon: const WaveformCircleIcon(),
                                                 onPressed: () {
-                                                  Navigator.of(context).push(PageRouteBuilder(
-                                                    pageBuilder: (context, animation, secondaryAnimation) => const VoiceModeView(),
-                                                    transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                                                      return FadeTransition(
-                                                        opacity: animation,
-                                                        child: ScaleTransition(
-                                                          scale: Tween<double>(begin: 0.9, end: 1.0).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
-                                                          child: child,
-                                                        ),
-                                                      );
-                                                    },
-                                                    transitionDuration: const Duration(milliseconds: 500),
-                                                  )).then((_) {
-                                                     ref.read(chatProvider.notifier).addMessage("System: — Voice Mode Ended —");
-                                                  });
+                                                  ref.read(chatProvider.notifier).setContinuousVoiceMode(true);
                                                 },
                                               );
                                             } else {
@@ -1430,6 +1429,9 @@ class _ChatViewState extends ConsumerState<ChatView> {
             }), // End Consumer
           ], // End main Column children
         ), // End main Column
+        
+        // Voice session overlay
+        const VoiceModeView(),
       ], // End Stack children
     ); // End Stack
   }

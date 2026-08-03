@@ -16,10 +16,52 @@ class MainLayout extends StatefulWidget {
   State<MainLayout> createState() => _MainLayoutState();
 }
 
-class _MainLayoutState extends State<MainLayout> {
+class _MainLayoutState extends State<MainLayout> with SingleTickerProviderStateMixin {
   int _selectedIndex = 0;
   final ValueNotifier<Offset> _mousePos = ValueNotifier(Offset.zero);
   bool _isSidebarOpen = true;
+
+  late final AnimationController _sidebarController;
+  late final Animation<double> _sidebarWidth;
+  late final Animation<double> _labelWidth;
+
+  @override
+  void initState() {
+    super.initState();
+    _sidebarController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2500),
+      value: 1.0, // start open
+    );
+    // Slow-to-fast: starts very gently, then sweeps into position
+    const accelCurve = Curves.easeInCubic;
+    _sidebarWidth = Tween<double>(begin: 72, end: 240).animate(
+      CurvedAnimation(parent: _sidebarController, curve: accelCurve),
+    );
+    _labelWidth = Tween<double>(begin: 0, end: 160).animate(
+      CurvedAnimation(parent: _sidebarController, curve: accelCurve),
+    );
+    // Force rebuild every frame the animation ticks
+    _sidebarController.addListener(() {
+      setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _sidebarController.dispose();
+    super.dispose();
+  }
+
+  void _toggleSidebar() {
+    _isSidebarOpen = !_isSidebarOpen;
+    debugPrint('SIDEBAR TOGGLE: open=$_isSidebarOpen, animValue=${_sidebarController.value}');
+    if (_isSidebarOpen) {
+      _sidebarController.forward();
+    } else {
+      _sidebarController.reverse();
+    }
+  }
 
 
   final List<Widget> _views = [
@@ -53,49 +95,52 @@ class _MainLayoutState extends State<MainLayout> {
             Row(
               children: [
                 // Sidebar
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeOutCubic,
-                  width: _isSidebarOpen ? 240 : 72,
-                  color: const Color(0xFF0D0D0F),
-                  child: ClipRect(
-                    child: Column(
-                      children: [
-                        const SizedBox(height: 28),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.start,
-                          children: [
-                            AnimatedContainer(
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeOutCubic,
-                              width: _isSidebarOpen ? 168 : 0,
-                              child: ClipRect(
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 32, height: 32,
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-                                        color: Colors.white.withValues(alpha: 0.05),
+                SizedBox(
+                  width: _sidebarWidth.value,
+                  child: Container(
+                    color: const Color(0xFF0D0D0F),
+                    child: ClipRect(
+                      child: Column(
+                        children: [
+                          const SizedBox(height: 28),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            children: [
+                              SizedBox(
+                                width: _labelWidth.value,
+                                child: ClipRect(
+                                  child: UnconstrainedBox(
+                                    alignment: Alignment.centerLeft,
+                                    child: SizedBox(
+                                      width: 160,
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            width: 32, height: 32,
+                                            decoration: BoxDecoration(
+                                              borderRadius: BorderRadius.circular(8),
+                                              border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+                                              color: Colors.white.withValues(alpha: 0.05),
+                                            ),
+                                            child: const Icon(Icons.hub_outlined, size: 16, color: Colors.white),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          const Expanded(child: Text('Second Brain', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white), maxLines: 1)),
+                                        ],
                                       ),
-                                      child: const Icon(Icons.hub_outlined, size: 16, color: Colors.white),
                                     ),
-                                    const SizedBox(width: 10),
-                                    const Expanded(child: Text('Second Brain', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white), maxLines: 1)),
-                                  ],
+                                  ),
                                 ),
                               ),
-                            ),
-                            IconButton(
-                              icon: Icon(_isSidebarOpen ? Icons.chevron_left : Icons.menu, color: Colors.white.withValues(alpha: 0.5)),
-                              onPressed: () => setState(() => _isSidebarOpen = !_isSidebarOpen),
-                            ),
-                          ],
+                              IconButton(
+                                icon: Icon(_isSidebarOpen ? Icons.chevron_left : Icons.menu, color: Colors.white.withValues(alpha: 0.5)),
+                                onPressed: _toggleSidebar,
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
                       const SizedBox(height: 28),
                       // Nav items
                       ...List.generate(_navItems.length, (i) {
@@ -113,7 +158,7 @@ class _MainLayoutState extends State<MainLayout> {
                       if (_selectedIndex == 0) ...[
                         Expanded(
                           child: AnimatedOpacity(
-                            duration: const Duration(milliseconds: 200),
+                            duration: const Duration(milliseconds: 400),
                             opacity: _isSidebarOpen ? 1.0 : 0.0,
                             child: OverflowBox(
                               minWidth: 240,
@@ -164,6 +209,7 @@ class _MainLayoutState extends State<MainLayout> {
                       ),
                       const SizedBox(height: 12),
                       ],
+                    ),
                     ),
                   ),
                 ),
@@ -352,24 +398,30 @@ class _SidebarTileState extends State<_SidebarTile> {
                 children: [
                 Icon(widget.icon, size: 18, color: widget.selected ? Colors.white : Colors.grey[600]),
                 AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeOutCubic,
+                  duration: const Duration(milliseconds: 600),
+                  curve: Curves.easeInQuad,
                   width: widget.isExpanded ? 140 : 0,
                   child: ClipRect(
-                    child: Row(
-                      children: [
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(widget.label, maxLines: 1, overflow: TextOverflow.clip, style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: widget.selected ? FontWeight.w500 : FontWeight.w400,
-                            color: widget.selected ? Colors.white : Colors.grey[600],
-                          )),
+                    child: UnconstrainedBox(
+                      alignment: Alignment.centerLeft,
+                      child: SizedBox(
+                        width: 140,
+                        child: Row(
+                          children: [
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(widget.label, maxLines: 1, overflow: TextOverflow.clip, style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: widget.selected ? FontWeight.w500 : FontWeight.w400,
+                                color: widget.selected ? Colors.white : Colors.grey[600],
+                              )),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
-                )
+                ),
               ]),
             ),
           ),

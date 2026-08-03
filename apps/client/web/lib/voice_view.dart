@@ -64,20 +64,27 @@ class VoiceOrbController extends ChangeNotifier {
 class ReactiveOrbPainter extends CustomPainter {
   final double time;
   final double stretch; // 0 = compact orbiting blob, 1 = wide waveform
-  final double jelly;   // fast pulse, AI responding
+  final double jelly;
+  final Size targetSize;
 
-  ReactiveOrbPainter({required this.time, required this.stretch, required this.jelly});
+  ReactiveOrbPainter({
+    required this.time,
+    required this.stretch,
+    required this.jelly,
+    required this.targetSize,
+  });
 
   static const cyan = Color(0xFF3FE0E8);
   static const purple = Color(0xFF9B5CFF);
 
   @override
   void paint(Canvas canvas, Size size) {
+    // We use targetSize instead of the canvas size, so the texture doesn't churn during layout animations!
     final center = Offset(size.width / 2, size.height / 2);
-    final baseRadius = size.height * 0.42;
+    final baseRadius = targetSize.height * 0.42;
 
     // orbit path: near-circular when idle -> wide flat horizontal ellipse when stretched
-    final orbitX = _lerp(baseRadius * 0.30, size.width * 0.5 - baseRadius * 0.5, stretch);
+    final orbitX = _lerp(baseRadius * 0.30, targetSize.width * 0.5 - baseRadius * 0.5, stretch);
     final orbitY = _lerp(baseRadius * 0.30, baseRadius * 0.04, stretch);
 
     // AI-response pulse: fast breathing on lobe size, independent of stretch
@@ -119,14 +126,12 @@ class ReactiveOrbPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant ReactiveOrbPainter old) =>
-      old.time != time || old.stretch != stretch || old.jelly != jelly;
+      old.time != time || old.stretch != stretch || old.jelly != jelly || old.targetSize != targetSize;
 }
 
 class ReactiveVoiceOrb extends StatefulWidget {
   final VoiceOrbController controller;
-  final double width;
-  final double height;
-  const ReactiveVoiceOrb({super.key, required this.controller, this.width = 320, this.height = 160});
+  const ReactiveVoiceOrb({super.key, required this.controller});
 
   @override
   State<ReactiveVoiceOrb> createState() => _ReactiveVoiceOrbState();
@@ -177,15 +182,22 @@ class _ReactiveVoiceOrbState extends State<ReactiveVoiceOrb> with SingleTickerPr
 
   @override
   Widget build(BuildContext context) {
-    return RepaintBoundary(
-      child: CustomPaint(
-        size: Size(widget.width, widget.height),
-        painter: ReactiveOrbPainter(
-          time: _time,
-          stretch: _stretchSpring.value.clamp(0.0, 1.0),
-          jelly: _jellySpring.value,
-        ),
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return OverflowBox(
+          minWidth: 400, maxWidth: 400,
+          minHeight: 240, maxHeight: 240,
+          child: CustomPaint(
+            size: const Size(400, 240),
+            painter: ReactiveOrbPainter(
+              time: _time,
+              stretch: _stretchSpring.value.clamp(0.0, 1.0),
+              jelly: _jellySpring.value,
+              targetSize: Size(constraints.maxWidth, constraints.maxHeight),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -215,26 +227,10 @@ class _VoiceModeViewState extends ConsumerState<VoiceModeView> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final provider = ref.read(chatProvider.notifier);
-      provider.setContinuousVoiceMode(true);
-      provider.addMessage("System: — Voice Mode Activated —");
-      provider.setAudioChunkCallback(_onAudioChunk); // Register callback for raw PCM
-
-      final state = ref.read(chatProvider);
-      if (!state.isListening && !state.isVoiceTyping) {
-        provider.toggleVoiceTyping(); // Auto-start listening on mount!
-      }
-    });
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-       final provider = ref.read(chatProvider.notifier);
-       provider.addMessage("System: — Voice Mode Ended —");
-       provider.setAudioChunkCallback(null);
-    });
     _ttsJitterTimer?.cancel();
     _orbController.dispose();
     super.dispose();
@@ -284,11 +280,26 @@ class _VoiceModeViewState extends ConsumerState<VoiceModeView> {
     final state = ref.watch(chatProvider);
     final provider = ref.read(chatProvider.notifier);
 
-    // Auto-Close Voice Mode Listener hook
+    // Voice Mode Lifecycle & Listeners
     ref.listen(chatProvider, (prev, next) {
       if (next.shouldAutoExitVoiceMode && (prev == null || !prev.shouldAutoExitVoiceMode)) {
-        ref.read(chatProvider.notifier).resetVoiceExit();
-        Navigator.of(context).pop();
+        provider.resetVoiceExit();
+        provider.setContinuousVoiceMode(false);
+      }
+      
+      final wasVoiceMode = prev?.isContinuousVoiceMode ?? false;
+      final isVoiceMode = next.isContinuousVoiceMode;
+      
+      if (isVoiceMode && !wasVoiceMode) {
+        provider.setVoiceModeExpanded(true); // Start expanded
+        provider.addMessage("System: — Voice Mode Activated —");
+        provider.setAudioChunkCallback(_onAudioChunk);
+        if (!next.isListening && !next.isVoiceTyping) {
+          provider.toggleVoiceTyping(); // Auto-start listening!
+        }
+      } else if (!isVoiceMode && wasVoiceMode) {
+        provider.addMessage("System: — Voice Mode Ended —");
+        provider.setAudioChunkCallback(null);
       }
     });
     
@@ -297,7 +308,7 @@ class _VoiceModeViewState extends ConsumerState<VoiceModeView> {
       _syncOrbState(state);
     });
     
-    String statusText = "Tap orb to speak";
+    String statusText = "";
     if (state.isListening || state.isVoiceTyping) {
       statusText = "Listening...";
     } else if (state.isProcessing) {
@@ -306,115 +317,155 @@ class _VoiceModeViewState extends ConsumerState<VoiceModeView> {
       statusText = "Speaking...";
     }
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.close, color: Colors.white70),
-          onPressed: () {
-             provider.setContinuousVoiceMode(false);
-             if (state.isSpeaking) provider.stopSpeaking();
-             if (state.isListening || state.isVoiceTyping) provider.stopListening();
-             Navigator.of(context).pop();
-          },
-        ),
-      ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 800),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-          Expanded(
-            flex: 5,
-            child: Center(
-              child: GestureDetector(
-                onTap: () {
-                  provider.setContinuousVoiceMode(true);
-                  _handleInterrupt(provider, state);
-                },
-                child: ReactiveVoiceOrb(
-                  controller: _orbController,
-                  width: 400,
-                  height: 240, 
+    // No early return so animations can play!
+
+    return Positioned.fill(
+      child: Stack(
+        children: [
+          // Dim background for expanded mode
+          IgnorePointer(
+            ignoring: !(state.isVoiceModeExpanded && state.isContinuousVoiceMode),
+            child: GestureDetector(
+              onTap: () => provider.setVoiceModeExpanded(false),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 700),
+                curve: Curves.easeOutQuint,
+                color: (state.isVoiceModeExpanded && state.isContinuousVoiceMode) ? Colors.black.withValues(alpha: 0.85) : Colors.transparent,
+              ),
+            ),
+          ),
+          
+          // Expanded UI Elements (Close button)
+          Positioned(
+            top: 16,
+            left: 16,
+            child: SafeArea(
+              child: IgnorePointer(
+                ignoring: !(state.isVoiceModeExpanded && state.isContinuousVoiceMode),
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 400),
+                  curve: Curves.easeOut,
+                  opacity: (state.isVoiceModeExpanded && state.isContinuousVoiceMode) ? 1.0 : 0.0,
+                  child: IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white70),
+                    onPressed: () {
+                      provider.setContinuousVoiceMode(false);
+                      if (state.isSpeaking) provider.stopSpeaking();
+                      if (state.isListening || state.isVoiceTyping) provider.stopListening();
+                    },
+                  ),
                 ),
               ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              child: Text(
-                statusText,
-                key: ValueKey<String>(statusText),
-                style: const TextStyle(
-                  color: Colors.white38,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w400,
-                  letterSpacing: 1.5,
+
+          // Blob Container
+          Positioned.fill(
+            child: AnimatedAlign(
+              duration: const Duration(milliseconds: 2500),
+              curve: Curves.easeInCubic,
+              alignment: state.isVoiceModeExpanded ? Alignment.center : const Alignment(0, 0.75),
+              child: IgnorePointer(
+                ignoring: !state.isContinuousVoiceMode,
+                child: GestureDetector(
+                  onTap: () {
+                    provider.setVoiceModeExpanded(!state.isVoiceModeExpanded);
+                  },
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 400),
+                  opacity: state.isContinuousVoiceMode ? 1.0 : 0.0,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 2500),
+                    curve: Curves.easeInCubic,
+                    width: !state.isContinuousVoiceMode ? 0 : (state.isVoiceModeExpanded ? 400 : 80),
+                    height: !state.isContinuousVoiceMode ? 0 : (state.isVoiceModeExpanded ? 240 : 80),
+                    child: ReactiveVoiceOrb(
+                      controller: _orbController,
+                    ),
+                  ),
+                  ),
                 ),
               ),
             ),
           ),
-          Expanded(
-            flex: 4,
-            child: ShaderMask(
-              shaderCallback: (Rect bounds) {
-                return const LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Colors.black, Colors.black],
-                  stops: [0.0, 0.35, 1.0],
-                ).createShader(bounds);
-              },
-              blendMode: BlendMode.dstIn,
-              child: ListView(
-                reverse: true,
-                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
-                children: [
-                  if (state.liveTranscript.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 16),
-                      child: Text(
-                        state.liveTranscript,
-                        textAlign: TextAlign.right,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          height: 1.4,
-                          fontWeight: FontWeight.w300,
-                        ),
+          // Status Text
+          Align(
+            alignment: const Alignment(0, 0.35),
+            child: IgnorePointer(
+              ignoring: !(state.isVoiceModeExpanded && state.isContinuousVoiceMode),
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 400),
+                curve: Curves.easeOut,
+                opacity: (state.isVoiceModeExpanded && state.isContinuousVoiceMode && statusText.isNotEmpty) ? 1.0 : 0.0,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: Text(
+                    statusText,
+                    key: ValueKey<String>(statusText),
+                    style: const TextStyle(
+                      color: Colors.white38,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w400,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+            
+          // Live Transcript
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: IgnorePointer(
+              ignoring: !(state.isVoiceModeExpanded && state.isContinuousVoiceMode),
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 400),
+                curve: Curves.easeOut,
+                opacity: (state.isVoiceModeExpanded && state.isContinuousVoiceMode) ? 1.0 : 0.0,
+                child: AnimatedSlide(
+                  duration: const Duration(milliseconds: 600),
+                  curve: Curves.easeOutQuint,
+                  offset: (state.isVoiceModeExpanded && state.isContinuousVoiceMode) ? Offset.zero : const Offset(0, 0.2),
+                  child: Container(
+                    height: 250,
+                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+                    child: ShaderMask(
+                      shaderCallback: (Rect bounds) {
+                        return const LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Colors.transparent, Colors.black, Colors.black],
+                          stops: [0.0, 0.35, 1.0],
+                        ).createShader(bounds);
+                      },
+                      blendMode: BlendMode.dstIn,
+                      child: ListView(
+                        reverse: true,
+                        children: [
+                          if (state.liveTranscript.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 16),
+                              child: Text(
+                                state.liveTranscript,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  height: 1.4,
+                                  fontWeight: FontWeight.w300,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
-                  ...state.messages.reversed
-                      .where((msg) => !msg.startsWith("System:"))
-                      .map((msg) {
-                    final isAssistant = msg.startsWith("Assistant: ");
-                    final cleanMsg = isAssistant ? msg.substring(11).trim() : msg.replaceFirst("User:", "").trim();
-                    return Padding(
-                      padding: const EdgeInsets.only(top: 24),
-                      child: Text(
-                        cleanMsg,
-                        textAlign: isAssistant ? TextAlign.left : TextAlign.right,
-                        style: TextStyle(
-                          color: isAssistant ? Colors.white60 : Colors.white,
-                          fontSize: 18,
-                          height: 1.4,
-                          fontWeight: FontWeight.w300,
-                        ),
-                      ),
-                    );
-                  })
-                ],
+                  ),
+                ),
               ),
             ),
           ),
         ],
-      ),
-      ),
       ),
     );
   }

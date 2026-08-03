@@ -5,6 +5,7 @@ def _run_in_new_loop(coro):
     import sys
     import asyncio
     if sys.platform == "win32":
+        # pyrefly: ignore [deprecated]
         asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
     new_loop = asyncio.new_event_loop()
     asyncio.set_event_loop(new_loop)

@@ -23,6 +23,7 @@ class ChatState {
   final bool isContinuousVoiceMode;
   final bool isProcessing;
   final bool shouldAutoExitVoiceMode;
+  final bool isVoiceModeExpanded;
   final String loadingText;
   final List<Map<String, dynamic>>? pendingPlan; // non-null when plan_approval is pending
   final int? pendingPlanMsgIndex;
@@ -42,6 +43,7 @@ class ChatState {
     this.isContinuousVoiceMode = false,
     this.isProcessing = false,
     this.shouldAutoExitVoiceMode = false,
+    this.isVoiceModeExpanded = false,
     this.loadingText = "Thinking...",
     this.pendingPlan,
     this.pendingPlanMsgIndex,
@@ -62,6 +64,7 @@ class ChatState {
     bool? isContinuousVoiceMode,
     bool? isProcessing,
     bool? shouldAutoExitVoiceMode,
+    bool? isVoiceModeExpanded,
     String? loadingText,
     List<Map<String, dynamic>>? pendingPlan,
     bool clearPendingPlan = false,
@@ -82,6 +85,7 @@ class ChatState {
       isContinuousVoiceMode: isContinuousVoiceMode ?? this.isContinuousVoiceMode,
       isProcessing: isProcessing ?? this.isProcessing,
       shouldAutoExitVoiceMode: shouldAutoExitVoiceMode ?? this.shouldAutoExitVoiceMode,
+      isVoiceModeExpanded: isVoiceModeExpanded ?? this.isVoiceModeExpanded,
       loadingText: loadingText ?? this.loadingText,
       pendingPlan: clearPendingPlan ? null : (pendingPlan ?? this.pendingPlan),
       pendingPlanMsgIndex: clearPendingPlan ? null : (pendingPlanMsgIndex ?? this.pendingPlanMsgIndex),
@@ -128,6 +132,12 @@ class ChatNotifier extends StateNotifier<ChatState> {
     _sessionsRefreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       refreshSessions();
     });
+  }
+
+  void setVoiceModeExpanded(bool expanded) {
+    if (state.isVoiceModeExpanded != expanded) {
+      state = state.copyWith(isVoiceModeExpanded: expanded);
+    }
   }
 
   Future<void> _initializeConversation() async {
@@ -444,9 +454,12 @@ class ChatNotifier extends StateNotifier<ChatState> {
     }
   }
 
-  void setContinuousVoiceMode(bool value) {
-    state = state.copyWith(isContinuousVoiceMode: value);
-    if (!value) {
+  void setContinuousVoiceMode(bool val) {
+    state = state.copyWith(
+      isContinuousVoiceMode: val,
+      isVoiceModeExpanded: val, // Automatically expand when mode is activated
+    );
+    if (!val) {
       if (state.isListening || state.isVoiceTyping) {
          stopListening();
       }
@@ -730,6 +743,11 @@ class ChatNotifier extends StateNotifier<ChatState> {
               if (msgIndex >= 0 && msgIndex < newMsgs.length) {
                   newMsgs[msgIndex] = "Assistant: " + accumulated;
                   state = state.copyWith(messages: newMsgs);
+              }
+              
+              // Auto-compress voice mode to reveal widgets
+              if (state.isVoiceModeExpanded) {
+                  setVoiceModeExpanded(false);
               }
            } else if (data['type'] == 'tool') {
               final name = data['name'] as String? ?? 'Executing tools...';
