@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 # These MUST be article-level publishers (not aggregators/social media/wikis)
 
 TRUSTED_SOURCES_INDIA = [
-    "timesofindia.com",
+    "timesofindia.indiatimes.com",
     "economictimes.indiatimes.com",
     "hindustantimes.com",
     "ndtv.com",
@@ -28,6 +28,12 @@ TRUSTED_SOURCES_INDIA = [
     "news18.com",
     "abpnews.com",
     "zeenews.india.com",
+    "indiatoday.in",
+    "theprint.in",
+    "thequint.com",
+    "business-standard.com",
+    "scroll.in",
+    "thewire.in",
 ]
 
 TRUSTED_SOURCES_GLOBAL = [
@@ -93,14 +99,30 @@ def _extract_domain(url: str) -> str:
 
 def _is_article_url(url: str) -> bool:
     """
-    Returns True if URL looks like a specific article, not a site homepage.
+    Returns True if URL looks like a specific article, not a site homepage or category hub.
     Homepages: https://reuters.com  or  https://reuters.com/home
+    Hubs:      https://www.bbc.com/news/world/asia
     Articles:  https://reuters.com/technology/ai/openai-cuts-prices-2026-07-30
     """
     try:
         path = urlparse(url).path.strip("/")
-        # Must have a meaningful path (at least ~15 chars) with a segment
-        return len(path) >= 15 and "/" in path
+        if len(path) < 20:
+            return False
+            
+        segments = [s for s in path.split("/") if s]
+        if not segments:
+            return False
+            
+        last_segment = segments[-1]
+        
+        has_numbers = any(c.isdigit() for c in last_segment)
+        has_extension = last_segment.endswith((".html", ".htm", ".cms", ".php"))
+        
+        # If the last segment is just a short word without numbers/extensions, it's likely a category hub.
+        if len(last_segment) < 15 and not has_numbers and not has_extension:
+            return False
+            
+        return True
     except Exception:
         return False
 
@@ -179,11 +201,12 @@ async def _fetch_og_image_discord(url: str, timeout: float = 8.0) -> str | None:
             msg_res.raise_for_status()
             data = msg_res.json()
             
-            # Step 4: Delete the message to keep the channel clean (fire and forget)
-            asyncio.create_task(client.delete(
+            # Step 4: Delete the message to keep the channel clean
+            # We await this directly instead of create_task so we don't close the client before it finishes
+            await client.delete(
                 f"https://discord.com/api/v10/channels/{channel_id}/messages/{message_id}",
                 headers=headers
-            ))
+            )
             
             embeds = data.get("embeds", [])
             if embeds:
@@ -263,6 +286,7 @@ class NewsSearchTool(BaseTool):
             "IMPORTANT: For comprehensive briefings covering multiple topics (e.g. AI news + business news + world news), "
             "call this tool SEPARATELY for each topic with a specific focused query "
             "(e.g. 'latest AI model releases 2026', 'stock market movements today', 'India geopolitics news'). "
+            "If the user asks for news from a specific country (or their previous context implies it), ALWAYS include the country name in the query (e.g. 'India news today'). "
             "Do NOT make one broad call for everything. "
             "Returns structured articles with title, summary, source, exact URL, image, and publish date."
         )
@@ -283,8 +307,8 @@ class NewsSearchTool(BaseTool):
                 },
                 "days": {
                     "type": "integer",
-                    "description": "Number of days back to search. Default: 3 (last 3 days). Max: 7.",
-                    "default": 3
+                    "description": "Number of days back to search. Default: 1 (today). Max: 7.",
+                    "default": 1
                 },
             },
             "required": ["query"]
@@ -293,7 +317,12 @@ class NewsSearchTool(BaseTool):
     async def execute(self, execution_context: dict, **kwargs) -> str:
         query: str = kwargs.get("query", "")
         max_results: int = min(int(kwargs.get("max_results", 5)), 8)
-        days: int = min(int(kwargs.get("days", 3)), 7)
+        days: int = min(int(kwargs.get("days", 1)), 7)
+        
+        # Enforce strict time boundaries for "today" / "now"
+        timeframe = str(kwargs.get("timeframe", "")).lower()
+        if "today" in timeframe or "now" in timeframe or "today" in query.lower() or "now" in query.lower():
+            days = 1
 
         if not query:
             return json.dumps({"error": "Missing 'query' parameter."})
@@ -302,6 +331,9 @@ class NewsSearchTool(BaseTool):
         location_hint: str | None = (
             execution_context.get("location")
             or execution_context.get("user_location")
+            or ("india" if "india" in query.lower() else None)
+            or ("us" if "us" in query.lower() or "usa" in query.lower() else None)
+            or ("uk" if "uk" in query.lower() else None)
         )
         region = _detect_region(location_hint)
         regional_trusted = TRUSTED_SOURCES.get(region, [])
@@ -326,12 +358,12 @@ class NewsSearchTool(BaseTool):
                 and not any(excl in r.get("url", "") for excl in EXCLUDED_DOMAINS)
             ]
 
-            # If we got too few article-level results, try GLOBAL sources only
+            # If we got too few article-level results, try expanding the time window with all trusted sources
             if len(article_results) < max_results:
                 logger.info(f"[NewsSearch] Only {len(article_results)} article URLs, trying global fallback...")
                 fallback_results, fallback_images = await _tavily_search(
                     query=query,
-                    include_domains=TRUSTED_SOURCES_GLOBAL,
+                    include_domains=all_trusted,
                     max_results=max_results + 5,
                     days=days + 2,  # slightly wider time window
                 )
@@ -356,6 +388,7 @@ class NewsSearchTool(BaseTool):
             # --- Phase 3: Build articles using Tavily's per-article 'image' field ---
             # When topic="news", each result has an 'image' field directly from Tavily's crawl.
             # This is WAF-free. Only scrape og:image when Tavily has no image.
+            from email.utils import parsedate_to_datetime
             articles_raw = []
             for r in filtered:
                 url_str = r.get("url", "")
@@ -368,13 +401,19 @@ class NewsSearchTool(BaseTool):
                         and "1x1" not in tavily_img)
                     else None
                 )
+                pub = r.get("published_date", "")
+                if pub:
+                    try:
+                        pub = parsedate_to_datetime(pub).isoformat()
+                    except Exception:
+                        pass
                 articles_raw.append({
                     "title": r.get("title", ""),
                     "url": url_str,
                     "snippet": r.get("content", ""),
                     "source": _extract_domain(url_str),
                     "imageUrl": valid_img,
-                    "publishedAt": r.get("published_date", ""),
+                    "publishedAt": pub,
                 })
 
             # --- Phase 4: Scrape og:image via cloudscraper for articles still missing images ---
@@ -394,6 +433,8 @@ class NewsSearchTool(BaseTool):
             # --- Phase 5: Discord Webhook Fallback for paywalled sites ---
             # If cloudscraper failed (WAF block), let Discord's crawler fetch the og:image
             still_missing = [(i, a) for i, a in enumerate(articles_raw) if not a["imageUrl"]]
+            from dotenv import load_dotenv
+            load_dotenv()
             if still_missing and os.environ.get("DISCORD_WEBHOOK_URL") and os.environ.get("DISCORD_BOT_TOKEN"):
                 logger.info(f"[NewsSearch] Fallback: Using Discord to fetch {len(still_missing)} paywalled images")
                 discord_tasks = [_fetch_og_image_discord(str(a["url"])) for _, a in still_missing]
@@ -425,6 +466,35 @@ class NewsSearchTool(BaseTool):
                     if isinstance(pw_img, str) and pw_img.startswith("http") and "1x1" not in pw_img:
                         articles_raw[idx]["imageUrl"] = pw_img
 
+            # --- Phase 7: Supplementary Image Search (Carousel Support) ---
+            # Use DuckDuckGo Image Search to fetch 2 additional images per article for UI carousels
+            from ddgs import DDGS
+            
+            def _fetch_supplementary_images_sync(title: str) -> list[str]:
+                try:
+                    with DDGS() as ddgs:
+                        # fetch up to 3 images, return URLs
+                        results = list(ddgs.images(title, max_results=3))
+                        return [r.get("image") for r in results if r.get("image") and isinstance(r.get("image"), str) and "1x1" not in r.get("image")]
+                except Exception as e:
+                    logger.debug(f"[NewsSearch] DDGS supplementary images failed for {title}: {e}")
+                    return []
+                    
+            async def _fetch_supplementary_images(title: str) -> list[str]:
+                return await asyncio.to_thread(_fetch_supplementary_images_sync, title)
+
+            supp_tasks = [_fetch_supplementary_images(str(a.get("title", ""))) for a in articles_raw]
+            supp_results = await asyncio.gather(*supp_tasks, return_exceptions=True)
+            
+            for a, s_imgs in zip(articles_raw, supp_results):
+                a["imageUrls"] = []
+                if a.get("imageUrl"):
+                    a["imageUrls"].append(a["imageUrl"])
+                if isinstance(s_imgs, list):
+                    for img in s_imgs:
+                        if img not in a["imageUrls"] and len(a["imageUrls"]) < 3:
+                            a["imageUrls"].append(img)
+            
             img_count = sum(1 for a in articles_raw if a.get("imageUrl"))
             logger.info(
                 f"[NewsSearch] Done: {len(articles_raw)} articles, {img_count} with images, region={region}"

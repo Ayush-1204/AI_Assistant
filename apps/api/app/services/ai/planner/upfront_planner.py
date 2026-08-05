@@ -34,6 +34,8 @@ You must decide:
 
 CRITICAL INSTRUCTION: If the request requires multiple independent facts or news topics, you MUST break them down into separate, independent tasks in the `tasks` array. Do NOT group them into a single broad task.
 - For weather requests, the 'Local Weather' capability automatically handles user geolocation internally. Do NOT create separate geolocation tasks for weather.
+- For queries about ANY specific people, places, entities, recipes, food, physical objects, events, or visually representable concepts, you MUST include a separate task with capability 'Image Retrieval' to fetch images.
+- When generating `tool_arguments` for search capabilities (like Knowledge Search or Image Retrieval), you MUST use exact, concise entity names or keywords in a `query` parameter (e.g. `{"query": "Narendra Modi"}`). NEVER use conversational questions (e.g. NOT 'Who is Narendra Modi') as this will break exact-match search APIs.
 
 Return EXACTLY and ONLY a valid JSON object matching the above keys.
 """
@@ -50,9 +52,9 @@ Return EXACTLY and ONLY a valid JSON object matching the above keys.
             
             result = await router_inst.chat(messages, intent="structured")
             start = result.find("{")
-            end = result.rfind("}") + 1
-            if start != -1 and end != -1:
-                plan_json = json.loads(result[start:end])
+            end = result.rfind("}")
+            if start != -1 and end != -1 and end >= start:
+                plan_json = typing.cast(dict[str, Any], json.loads(result[start:end+1]))
                 logger.info(f"[UpfrontPlanner] Generated plan: {plan_json}")
                 return plan_json
         except Exception as e:
@@ -94,9 +96,9 @@ Return ONLY the JSON object for the single new ExecutionTask:
             
             result = await router_inst.chat(messages, intent="structured")
             start = result.find("{")
-            end = result.rfind("}") + 1
-            if start != -1 and end != -1:
-                new_task = json.loads(result[start:end])
+            end = result.rfind("}")
+            if start != -1 and end != -1 and end >= start:
+                new_task = typing.cast(dict[str, Any], json.loads(result[start:end+1]))
                 logger.info(f"[UpfrontPlanner] Generated replan task: {new_task}")
                 return new_task
         except Exception as e:

@@ -199,3 +199,11 @@ This document aggregates the implementation plans and walkthrough summaries for 
   - **Tool Pipeline Standardization**: Upgraded `wikipedia.py` and `web_search.py` tools to explicitly wrap output data in a `NormalizedToolResult` object. This correctly formats image URLs as explicit `ImageReference` objects (rather than raw dictionary strings), preventing the `Editor` stage from dropping the images and allowing the `PresentationPlanner` to access them.
   - **Flutter Presentation Engine**: Discovered and resolved an unhandled exception where `ImageGalleryNode` lacked a corresponding `ImageGalleryWidget` in the client UI `registry.dart`.
   - Built a horizontally scrolling, responsive `ImageGalleryWidget` directly into `widgets.dart` complete with proxy routing (`wsrv.nl`) for CORS bypass, network loading states, and error handling. Registered the new widget natively in `PresentationRegistry`.
+
+## Phase 36: Dynamic Layouts & Premium Hover Zoom Effects
+**Status**: `Completed`
+- **Plan**: Eliminate broken/hallucinated image URLs for recipe searches, prevent valid image data from being rejected, and upgrade the Flutter UI engine to feature responsive layouts and premium hover effects.
+- **Implementation**:
+  - **Tool Pipeline & Validator**: Upgraded `upfront_planner.py` to correctly schedule `Image Retrieval` tasks for "ANY physical object, concept, event, food, or visually representable entity". Updated `context_builder.py` with fail-safes preventing LLM hallucination of dummy image URLs. Patched `validator.py` to stop rejecting purely visual ImageSearch responses for lacking instructional text.
+  - **Premium Hover Zoom**: Built `HoverZoomWrapper` utilizing native `MouseRegion` and `AnimatedScale` for a smooth 1.05x hover zoom. Applied this globally to all image types (Carousel, Bento, Single, News) ensuring it stays cleanly clipped within existing `ClipRRect` bounds.
+  - **Dynamic Carousel Sizing**: Ripped out hardcoded pixel widths in `_CarouselGalleryWidget`. Wrapped the renderer in a `LayoutBuilder`, dynamically calculating `itemWidth` based on actual window `constraints.maxWidth` minus gap space, perfectly scaling exact 3-image square clusters onto any device screen without forced scrolling.

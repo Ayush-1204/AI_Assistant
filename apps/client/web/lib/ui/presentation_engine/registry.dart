@@ -10,6 +10,7 @@ class PresentationRegistry {
     'Heading': (context, node) => HeadingWidget(node: node as HeadingNode),
     'Paragraph': (context, node) => ParagraphWidget(node: node as ParagraphNode),
     'BulletList': (context, node) => BulletListWidget(node: node as BulletListNode),
+    'NumberedList': (context, node) => NumberedListWidget(node: node as NumberedListNode),
     'ComparisonTable': (context, node) => ComparisonTableWidget(node: node as ComparisonTableNode),
     'CodeBlock': (context, node) => CodeBlockWidget(node: node as CodeBlockNode),
     'NewsCard': (context, node) => NewsCardWidget(node: node as NewsCardNode),

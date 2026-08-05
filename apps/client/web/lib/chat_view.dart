@@ -594,6 +594,37 @@ class _ChatViewState extends ConsumerState<ChatView> {
 
   @override
   Widget build(BuildContext context) {
+    // Autoscroll hooks
+    ref.listen(chatProvider.select((state) => state.messages), (prev, next) {
+      // If a new message was added, animate to bottom
+      if (prev == null || prev.length != next.length) {
+        _scrollToBottom();
+      } else if (ref.read(chatProvider).isProcessing) {
+        // If streaming an existing message, smoothly track the bottom without animation spam
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_scrollController.hasClients) {
+            final pos = _scrollController.position;
+            // Only force scroll if the user is near the bottom (allows scrolling up while generating)
+            if (pos.maxScrollExtent - pos.pixels < 300) {
+              _scrollController.jumpTo(pos.maxScrollExtent);
+            }
+          }
+        });
+      }
+    });
+    
+    ref.listen(chatProvider.select((state) => state.isProcessing), (prev, isProcessing) {
+      // Scroll when processing starts (to show loading) AND when it ends (to snap to end of widget/message)
+      _scrollToBottom();
+    });
+    
+    ref.listen(chatProvider.select((state) => state.isVoiceModeExpanded), (prev, next) {
+      if (prev == true && next == false) {
+        // When the blob shrinks, scroll down to reveal the generated UI card
+        Future.delayed(const Duration(milliseconds: 400), () => _scrollToBottom());
+      }
+    });
+
     final isListening = ref.watch(chatProvider).isListening;
     final isVoiceTyping = ref.watch(chatProvider).isVoiceTyping;
 

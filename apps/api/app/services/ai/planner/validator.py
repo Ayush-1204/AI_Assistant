@@ -30,7 +30,7 @@ Tool Used: {result.tool_name}
 Data to evaluate: {result.normalizedData.get("content", result.rawData)}
 
 Evaluate on:
-1. Relevance (Does it answer or help answer the query?)
+1. Relevance (Does it answer or help answer the query? NOTE: If the Tool Used is 'image_search', evaluate relevance strictly on whether the images conceptually match the query subject matter. DO NOT fail image tools for lacking text instructions.)
 2. Missing Info (Is it empty, filler, or "I don't know"?)
 3. Freshness (If the query asks for 'latest' or 'today', is this data recent?)
 

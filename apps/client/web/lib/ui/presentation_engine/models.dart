@@ -204,14 +204,16 @@ class CodeBlockNode extends PresentationNode {
 }
 
 class ImageGalleryNode extends PresentationNode {
+  final String layout;
   final List<Map<String, String>> images;
 
-  ImageGalleryNode({required super.id, required this.images}) : super(type: 'ImageGallery');
+  ImageGalleryNode({required super.id, this.layout = 'carousel', required this.images}) : super(type: 'ImageGallery');
 
   factory ImageGalleryNode.fromJson(Map<String, dynamic> json) {
     final rawImages = json['images'] as List<dynamic>? ?? [];
     return ImageGalleryNode(
       id: json['id'] ?? '',
+      layout: json['layout'] as String? ?? 'carousel',
       images: rawImages.map((e) {
         final map = e as Map<String, dynamic>;
         return {

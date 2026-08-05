@@ -57,12 +57,24 @@ Return EXACTLY a JSON object matching this schema:
                 edit_json = json.loads(edit_result[start:end])
                 
                 # Curate images (e.g. sort by relevance or dedup)
-                unique_urls = set()
+                import urllib.parse
+                unique_keys = set()
                 curated_images = []
                 raw_data_map = {}
                 for img in all_images:
-                    if img.url not in unique_urls:
-                        unique_urls.add(img.url)
+                    parsed = urllib.parse.urlparse(img.url)
+                    path = parsed.path
+                    if path.startswith("/wikipedia/commons/thumb/"):
+                        parts = path.split("/")
+                        key = parts[-2] if len(parts) >= 2 else path
+                    else:
+                        key = path.split("/")[-1] if "/" in path else path
+                        
+                    if key and key not in unique_keys:
+                        unique_keys.add(key)
+                        curated_images.append(img)
+                    elif not key and img.url not in unique_keys:
+                        unique_keys.add(img.url)
                         curated_images.append(img)
                         
                 for r in results:

@@ -99,6 +99,9 @@ User Query: {query}
 Curated Context Summary:
 {context.summary}
 
+Distinct Facts/Stories:
+{json.dumps(context.merged_facts, indent=2)}
+
 Available Node Types:
 - Heading
 - Paragraph
@@ -112,12 +115,20 @@ Available Node Types:
 - Timeline
 - Accordion
 
+Available Images:
+{json.dumps([{"url": img.url, "alt": img.alt_text} for img in context.curated_images], indent=2)}
+
 Return ONLY a JSON array of objects. EVERY object must have:
 - 'id': unique string
 - 'type': exact type from the list above
 - 'purpose': brief instruction on what this node will contain (e.g. "Main title", "Compare speed and cost")
 
 CRITICAL INSTRUCTION: If you use a rich card (like WeatherCard or NewsCard), you MUST also include a 'Paragraph' node either before or after it to provide a conversational, descriptive brief to the user.
+CRITICAL INSTRUCTION FOR NEWS: If the user specifically asked for news or current events, and the context contains multiple distinct news stories, you MUST generate a separate NewsCard for EACH distinct story. If the user did NOT ask for news, DO NOT output NewsCards, even if news stories are present in the context!
+CRITICAL INSTRUCTION FOR IMAGES: If "Available Images" is not empty, you MUST include an 'ImageGallery' node in your layout to display them!
+ImageGallery Layout Heuristics:
+- Use 'bento' layout for: Single famous person/place/product, Introduction to one topic (acts as a visual cover page). Requires at least 4 images.
+- Use 'carousel' layout for: User browsing options, Comparing multiple entities, Explaining a process, Visual inspiration.
 
 Example:
 [
@@ -171,12 +182,12 @@ Node Field Requirements:
 - Paragraph: 'id', 'type', 'text'
 - BulletList: 'id', 'type', 'items' (array of strings)
 - NumberedList: 'id', 'type', 'items' (array of strings)
-- NewsCard: 'id', 'type', 'title', 'summary', 'source', 'url' (required - use the real article URL from raw data), 'imageUrl' (use og:image URL from raw data if available, else omit), 'category' (e.g. "Technology", "Business" - infer from content), 'publishedAt' (if available from raw data)
-- IMPORTANT for NewsCard: Always populate 'url' and 'source' from the raw news_search article data. Use 'imageUrl' from the article's imageUrl field. Do NOT invent URLs.
+- NewsCard: 'id', 'type', 'title', 'summary' (Write a clean, detailed 3-4 sentence paragraph summary based on the snippet. DO NOT copy raw navigation text, menus, or garbage text), 'source', 'url' (required - use the real article URL from raw data), 'imageUrl' (use og:image URL from raw data if available, else omit), 'imageUrls' (array of strings - pass the imageUrls list from raw data exactly if available), 'category' (e.g. "Technology", "Business" - infer from content), 'publishedAt' (if available from raw data)
+- IMPORTANT for NewsCard: Always populate 'url' and 'source' from the raw news_search article data. Use 'imageUrl' and 'imageUrls' from the article's data. Do NOT invent URLs.
 - WeatherCard: 'id', 'type', 'location', 'temperature_c', 'condition', 'forecast' (array of {{day, condition, high, low, hourly: array of {{time, temp}}}})
 - ComparisonTable: 'id', 'type', 'headers' (array), 'rows' (array of arrays)
 - CodeBlock: 'id', 'type', 'language', 'code'
-- ImageGallery: 'id', 'type', 'images' (array of {{url, alt}})
+- ImageGallery: 'id', 'type', 'layout' ('bento' or 'carousel'), 'images' (array of {{url, alt}})
 - Timeline: 'id', 'type', 'events' (array of {{time, title, description}})
 - Accordion: 'id', 'type', 'title', 'content'
 
@@ -274,12 +285,12 @@ Node Field Requirements:
 - Paragraph: 'id', 'type', 'text'
 - BulletList: 'id', 'type', 'items' (array of strings)
 - NumberedList: 'id', 'type', 'items' (array of strings)
-- NewsCard: 'id', 'type', 'title', 'summary', 'source', 'url' (required - use the real article URL from raw data), 'imageUrl' (use og:image URL from raw data if available, else omit), 'category' (e.g. "Technology", "Business" - infer from content), 'publishedAt' (if available from raw data)
-- IMPORTANT for NewsCard: Always populate 'url' and 'source' from the raw news_search article data. Use 'imageUrl' from the article's imageUrl field. Do NOT invent URLs.
+- NewsCard: 'id', 'type', 'title', 'summary' (Write a clean, detailed 3-4 sentence paragraph summary based on the snippet. DO NOT copy raw navigation text, menus, or garbage text), 'source', 'url' (required - use the real article URL from raw data), 'imageUrl' (use og:image URL from raw data if available, else omit), 'imageUrls' (array of strings - pass the imageUrls list from raw data exactly if available), 'category' (e.g. "Technology", "Business" - infer from content), 'publishedAt' (if available from raw data)
+- IMPORTANT for NewsCard: Always populate 'url' and 'source' from the raw news_search article data. Use 'imageUrl' and 'imageUrls' from the article's data. Do NOT invent URLs.
 - WeatherCard: 'id', 'type', 'location', 'temperature_c', 'condition', 'forecast' (array of {{day, condition, high, low, hourly: array of {{time, temp}}}})
 - ComparisonTable: 'id', 'type', 'headers' (array), 'rows' (array of arrays)
 - CodeBlock: 'id', 'type', 'language', 'code'
-- ImageGallery: 'id', 'type', 'images' (array of {{url, alt}})
+- ImageGallery: 'id', 'type', 'layout' ('bento' or 'carousel'), 'images' (array of {{url, alt}})
 - Timeline: 'id', 'type', 'events' (array of {{time, title, description}})
 - Accordion: 'id', 'type', 'title', 'content'
 

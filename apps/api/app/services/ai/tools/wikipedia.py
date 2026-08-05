@@ -49,13 +49,26 @@ class WikipediaTool(BaseTool):
             return "Error: 'query' parameter is required."
 
         try:
-            headers = {"User-Agent": "AntigravityPersonalAssistant/1.0 (https://github.com; contact@example.com)"}
-            async with httpx.AsyncClient(timeout=5.0, headers=headers) as client:
-                # 1. Search to resolve the exact title
-                search_url = f"https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch={urllib.parse.quote(query)}&utf8=&format=json&srlimit=1"
-                search_resp = await client.get(search_url)
-                search_resp.raise_for_status()
-                search_data = search_resp.json()
+            import asyncio
+            headers = {"User-Agent": "AntigravityBot/2.0 (https://github.com/google-deepmind; contact-bot@antigravity.local)"}
+            async with httpx.AsyncClient(timeout=10.0, headers=headers) as client:
+                search_data = None
+                for attempt in range(3):
+                    # 1. Search to resolve the exact title
+                    search_url = f"https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch={urllib.parse.quote(query)}&utf8=&format=json&srlimit=1"
+                    search_resp = await client.get(search_url)
+                    
+                    if search_resp.status_code == 429:
+                        retry_after = int(search_resp.headers.get("Retry-After", 2))
+                        await asyncio.sleep(retry_after)
+                        continue
+                        
+                    search_resp.raise_for_status()
+                    search_data = search_resp.json()
+                    break
+                    
+                if not search_data:
+                    return f"Error executing Wikipedia search: Rate limited after multiple retries."
                 
                 results = search_data.get("query", {}).get("search", [])
                 if not results:
@@ -63,11 +76,24 @@ class WikipediaTool(BaseTool):
                 
                 title = results[0]["title"]
                 
+                
                 # 2. Get the clean summary via REST API
-                summary_url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{urllib.parse.quote(title)}"
-                summary_resp = await client.get(summary_url)
-                summary_resp.raise_for_status()
-                summary_data = summary_resp.json()
+                summary_data = None
+                for attempt in range(3):
+                    summary_url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{urllib.parse.quote(title)}"
+                    summary_resp = await client.get(summary_url)
+                    
+                    if summary_resp.status_code == 429:
+                        retry_after = int(summary_resp.headers.get("Retry-After", 2))
+                        await asyncio.sleep(retry_after)
+                        continue
+                        
+                    summary_resp.raise_for_status()
+                    summary_data = summary_resp.json()
+                    break
+                    
+                if not summary_data:
+                    return f"Error executing Wikipedia search: Rate limited while fetching summary."
                 
                 extract = summary_data.get("extract", "")
                 url = summary_data.get("content_urls", {}).get("desktop", {}).get("page", "")

@@ -3,6 +3,17 @@ import 'package:url_launcher/url_launcher.dart';
 import '../markdown/ai_message_renderer.dart';
 import 'models.dart';
 import 'weather_widget.dart' show WeatherCardWidget;
+import 'fullscreen_gallery.dart';
+
+void _openFullScreenGallery(BuildContext context, List<Map<String, String>> images, int initialIndex) {
+  Navigator.of(context).push(PageRouteBuilder(
+    pageBuilder: (context, animation, secondaryAnimation) => 
+      FullScreenGallery(images: images, initialIndex: initialIndex),
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      return FadeTransition(opacity: animation, child: child);
+    },
+  ));
+}
 
 class UnknownNodeWidget extends StatelessWidget {
   final UnknownNode node;
@@ -14,6 +25,32 @@ class UnknownNodeWidget extends StatelessWidget {
       padding: const EdgeInsets.all(8),
       color: Colors.red.withValues(alpha: 0.1),
       child: Text('Unknown Component: ${node.rawJson['type']}'),
+    );
+  }
+}
+
+class HoverZoomWrapper extends StatefulWidget {
+  final Widget child;
+  const HoverZoomWrapper({super.key, required this.child});
+
+  @override
+  State<HoverZoomWrapper> createState() => _HoverZoomWrapperState();
+}
+
+class _HoverZoomWrapperState extends State<HoverZoomWrapper> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedScale(
+        scale: _isHovered ? 1.05 : 1.0,
+        duration: const Duration(milliseconds: 5000),
+        curve: Curves.easeOut,
+        child: widget.child,
+      ),
     );
   }
 }
@@ -58,6 +95,24 @@ class BulletListWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final listMarkdown = node.items.map((item) => '* $item').join('\n');
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 0.0),
+      child: AiMessageRenderer(
+        text: listMarkdown,
+        wrapInSelectionArea: false,
+      ),
+    );
+  }
+}
+
+class NumberedListWidget extends StatelessWidget {
+  final NumberedListNode node;
+  const NumberedListWidget({super.key, required this.node});
+
+  @override
+  Widget build(BuildContext context) {
+    int index = 1;
+    final listMarkdown = node.items.map((item) => '${index++}. $item').join('\n');
     return Padding(
       padding: const EdgeInsets.only(bottom: 0.0),
       child: AiMessageRenderer(
@@ -136,7 +191,14 @@ class NewsCardWidget extends StatelessWidget {
   /// Wraps any image URL through wsrv.nl proxy to bypass Flutter-web CORS restrictions
   String? _proxiedImage(String? url) {
     if (url == null || url.isEmpty) return null;
-    final encoded = Uri.encodeComponent(url);
+    
+    // Clean Wikipedia/Wikimedia URLs to avoid wsrv.nl cache corruption or encoding bugs
+    String cleanUrl = url;
+    if (cleanUrl.contains('?utm_') || cleanUrl.contains('&utm_')) {
+      cleanUrl = cleanUrl.split('?').first;
+    }
+    
+    final encoded = Uri.encodeComponent(cleanUrl);
     return 'https://wsrv.nl/?url=$encoded&w=800&h=400&fit=cover&output=jpg';
   }
 
@@ -188,6 +250,7 @@ class NewsCardWidget extends StatelessWidget {
     final theme = Theme.of(context);
     final hasUrl = node.url != null && node.url!.isNotEmpty;
     final images = _images;
+    final mappedImages = images.map((url) => {'url': url, 'alt': node.title}).toList();
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10.0),
@@ -210,22 +273,27 @@ class NewsCardWidget extends StatelessWidget {
               children: [
                 // --- Top image banner ---
                 if (images.length == 1)
-                  ClipRRect(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
-                    child: Image.network(
-                      images.first,
-                      height: 160,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                      loadingBuilder: (_, child, progress) {
-                        if (progress == null) return child;
-                        return Container(
+                  GestureDetector(
+                    onTap: () => _openFullScreenGallery(context, mappedImages, 0),
+                    child: ClipRRect(
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+                      child: HoverZoomWrapper(
+                        child: Image.network(
+                          images.first,
                           height: 160,
-                          color: theme.colorScheme.surfaceContainer,
-                          child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                        );
-                      },
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                          loadingBuilder: (_, child, progress) {
+                            if (progress == null) return child;
+                            return Container(
+                              height: 160,
+                              color: theme.colorScheme.surfaceContainer,
+                              child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                            );
+                          },
+                        ),
+                      ),
                     ),
                   )
                 else if (images.length > 1)
@@ -237,23 +305,28 @@ class NewsCardWidget extends StatelessWidget {
                       itemCount: images.length,
                       separatorBuilder: (context, index) => const SizedBox(width: 12),
                       itemBuilder: (context, index) {
-                        return ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: Image.network(
-                            images[index],
-                            height: 152,
-                            width: 240,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                            loadingBuilder: (_, child, progress) {
-                              if (progress == null) return child;
-                              return Container(
+                        return GestureDetector(
+                          onTap: () => _openFullScreenGallery(context, mappedImages, index),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: HoverZoomWrapper(
+                              child: Image.network(
+                                images[index],
                                 height: 152,
                                 width: 240,
-                                color: theme.colorScheme.surfaceContainer,
-                                child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                              );
-                            },
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                                loadingBuilder: (_, child, progress) {
+                                  if (progress == null) return child;
+                                  return Container(
+                                    height: 152,
+                                    width: 240,
+                                    color: theme.colorScheme.surfaceContainer,
+                                    child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                                  );
+                                },
+                              ),
+                            ),
                           ),
                         );
                       },
@@ -436,38 +509,55 @@ class ImageGalleryWidget extends StatelessWidget {
   final ImageGalleryNode node;
   const ImageGalleryWidget({super.key, required this.node});
 
+  @override
+  Widget build(BuildContext context) {
+    if (node.images.isEmpty) return const SizedBox.shrink();
+    if (node.layout == 'bento' && node.images.length >= 4) {
+      return _BentoGalleryWidget(images: node.images);
+    }
+    if (node.images.length == 1) {
+      return _SingleImageGalleryWidget(image: node.images.first);
+    }
+    return _CarouselGalleryWidget(images: node.images);
+  }
+}
+
+class _SingleImageGalleryWidget extends StatelessWidget {
+  final Map<String, String> image;
+  const _SingleImageGalleryWidget({required this.image});
+
   String? _proxiedImage(String? url) {
     if (url == null || url.isEmpty) return null;
-    final encoded = Uri.encodeComponent(url);
-    return 'https://wsrv.nl/?url=$encoded&w=800&h=400&fit=cover&output=jpg';
+    
+    // Clean Wikipedia/Wikimedia URLs to avoid wsrv.nl cache corruption or encoding bugs
+    String cleanUrl = url;
+    if (cleanUrl.contains('?utm_') || cleanUrl.contains('&utm_')) {
+      cleanUrl = cleanUrl.split('?').first;
+    }
+    
+    final encoded = Uri.encodeComponent(cleanUrl);
+    // Remove strict crop (fit=cover) and height limits so it scales proportionally
+    return 'https://wsrv.nl/?url=$encoded&w=800&output=jpg';
   }
 
   @override
   Widget build(BuildContext context) {
-    if (node.images.isEmpty) return const SizedBox.shrink();
+    final url = _proxiedImage(image['url']);
+    if (url == null) return const SizedBox.shrink();
     
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16.0),
-      child: SizedBox(
-        height: 200,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          itemCount: node.images.length,
-          separatorBuilder: (context, index) => const SizedBox(width: 12),
-          itemBuilder: (context, index) {
-            final img = node.images[index];
-            final url = _proxiedImage(img['url']);
-            if (url == null) return const SizedBox.shrink();
-            
-            return ClipRRect(
-              borderRadius: BorderRadius.circular(12),
+      child: GestureDetector(
+        onTap: () => _openFullScreenGallery(context, [image], 0),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 400, maxWidth: double.infinity),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: HoverZoomWrapper(
               child: Image.network(
                 url,
-                height: 200,
-                width: 300,
-                fit: BoxFit.cover,
+                fit: BoxFit.contain, // Prevents overly cropping
                 errorBuilder: (_, __, ___) => Container(
-                  width: 300,
                   height: 200,
                   color: Theme.of(context).colorScheme.surfaceContainer,
                   child: const Center(child: Icon(Icons.broken_image, color: Colors.grey)),
@@ -476,14 +566,209 @@ class ImageGalleryWidget extends StatelessWidget {
                   if (progress == null) return child;
                   return Container(
                     height: 200,
-                    width: 300,
                     color: Theme.of(context).colorScheme.surfaceContainer,
                     child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
                   );
                 },
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CarouselGalleryWidget extends StatelessWidget {
+  final List<Map<String, String>> images;
+  const _CarouselGalleryWidget({required this.images});
+
+  String? _proxiedImage(String? url) {
+    if (url == null || url.isEmpty) return null;
+    
+    // Clean Wikipedia/Wikimedia URLs to avoid wsrv.nl cache corruption or encoding bugs
+    String cleanUrl = url;
+    if (cleanUrl.contains('?utm_') || cleanUrl.contains('&utm_')) {
+      cleanUrl = cleanUrl.split('?').first;
+    }
+    
+    final encoded = Uri.encodeComponent(cleanUrl);
+    return 'https://wsrv.nl/?url=$encoded&w=500&h=500&fit=cover&output=jpg';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16.0),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          const gap = 12.0;
+          // Calculate item width to fit exactly 3 items perfectly in the available constraints
+          final itemWidth = (constraints.maxWidth - (gap * 2)) / 3.0;
+          // Keep the images perfectly square based on the calculated dynamic width
+          final itemHeight = itemWidth;
+
+          return SizedBox(
+            height: itemHeight,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: images.length,
+              separatorBuilder: (context, index) => const SizedBox(width: gap),
+              itemBuilder: (context, index) {
+                final img = images[index];
+                final url = _proxiedImage(img['url']);
+                if (url == null) return const SizedBox.shrink();
+                
+                return GestureDetector(
+                  onTap: () => _openFullScreenGallery(context, images, index),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: HoverZoomWrapper(
+                      child: Image.network(
+                        url,
+                        height: itemHeight,
+                        width: itemWidth,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          width: itemWidth,
+                          height: itemHeight,
+                          color: Theme.of(context).colorScheme.surfaceContainer,
+                          child: const Center(child: Icon(Icons.broken_image, color: Colors.grey)),
+                        ),
+                        loadingBuilder: (_, child, progress) {
+                          if (progress == null) return child;
+                          return Container(
+                            height: itemHeight,
+                            width: itemWidth,
+                            color: Theme.of(context).colorScheme.surfaceContainer,
+                            child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _BentoGalleryWidget extends StatelessWidget {
+  final List<Map<String, String>> images;
+  const _BentoGalleryWidget({required this.images});
+
+  String? _proxiedImage(String? url, {int w = 800, int h = 600}) {
+    if (url == null || url.isEmpty) return null;
+    
+    String cleanUrl = url;
+    if (cleanUrl.contains('?utm_') || cleanUrl.contains('&utm_')) {
+      cleanUrl = cleanUrl.split('?').first;
+    }
+    
+    final encoded = Uri.encodeComponent(cleanUrl);
+    return 'https://wsrv.nl/?url=$encoded&w=$w&h=$h&fit=cover&output=jpg';
+  }
+
+  Widget _buildImage(BuildContext context, int index, int width, int height) {
+    final img = images[index];
+    final url = _proxiedImage(img['url'], w: width, h: height);
+    if (url == null) return const SizedBox.shrink();
+
+    return GestureDetector(
+      onTap: () => _openFullScreenGallery(context, images, index),
+      child: HoverZoomWrapper(
+        child: Image.network(
+          url,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          height: double.infinity,
+          errorBuilder: (_, __, ___) => Container(
+            color: Theme.of(context).colorScheme.surfaceContainer,
+            child: const Center(child: Icon(Icons.broken_image, color: Colors.grey)),
+          ),
+          loadingBuilder: (_, child, progress) {
+            if (progress == null) return child;
+            return Container(
+              color: Theme.of(context).colorScheme.surfaceContainer,
+              child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
             );
           },
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final remainingCount = images.length - 3;
+    
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16.0),
+      child: SizedBox(
+        height: 400,
+        child: Row(
+          children: [
+            Expanded(
+              flex: 2,
+              child: ClipRRect(
+                borderRadius: const BorderRadius.horizontal(left: Radius.circular(12)),
+                child: _buildImage(context, 0, 800, 700),
+              ),
+            ),
+            const SizedBox(width: 4),
+            Expanded(
+              flex: 1,
+              child: Column(
+                children: [
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: const BorderRadius.only(topRight: Radius.circular(12)),
+                      child: _buildImage(context, 1, 400, 350),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: const BorderRadius.only(bottomRight: Radius.circular(12)),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          _buildImage(context, 2, 400, 350),
+                          if (remainingCount > 0)
+                            Positioned(
+                              bottom: 8,
+                              right: 8,
+                              child: GestureDetector(
+                                onTap: () => _openFullScreenGallery(context, images, 2),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black54,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    '+$remainingCount',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
