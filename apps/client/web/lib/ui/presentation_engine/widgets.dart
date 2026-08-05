@@ -140,10 +140,31 @@ class NewsCardWidget extends StatelessWidget {
     return 'https://wsrv.nl/?url=$encoded&w=800&h=400&fit=cover&output=jpg';
   }
 
-  String? get _imageUrl {
-    if (node.imageUrl != null && node.imageUrl!.isNotEmpty) return _proxiedImage(node.imageUrl);
-    if (node.imageUrls.isNotEmpty) return _proxiedImage(node.imageUrls.first);
-    return null;
+  String _formatDate(String? dateStr) {
+    if (dateStr == null || dateStr.isEmpty) return '';
+    try {
+      final dt = DateTime.parse(dateStr).toLocal();
+      // Using a simple format like "MMM d, yyyy h:mm a" without adding intl dependency logic
+      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      final month = months[dt.month - 1];
+      final hour = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+      final amPm = dt.hour >= 12 ? 'PM' : 'AM';
+      final minute = dt.minute.toString().padLeft(2, '0');
+      return '$month ${dt.day}, ${dt.year} $hour:$minute $amPm';
+    } catch (e) {
+      return dateStr;
+    }
+  }
+
+  List<String> get _images {
+    final List<String> urls = [];
+    if (node.imageUrl != null && node.imageUrl!.isNotEmpty) {
+      urls.add(node.imageUrl!);
+    }
+    for (final url in node.imageUrls) {
+      if (!urls.contains(url)) urls.add(url);
+    }
+    return urls.map((u) => _proxiedImage(u)).whereType<String>().toList();
   }
 
   void _openUrl(BuildContext context) async {
@@ -166,7 +187,7 @@ class NewsCardWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final hasUrl = node.url != null && node.url!.isNotEmpty;
-    final imageUrl = _imageUrl;
+    final images = _images;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10.0),
@@ -188,11 +209,11 @@ class NewsCardWidget extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // --- Top image banner ---
-                if (imageUrl != null)
+                if (images.length == 1)
                   ClipRRect(
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
                     child: Image.network(
-                      imageUrl,
+                      images.first,
                       height: 160,
                       width: double.infinity,
                       fit: BoxFit.cover,
@@ -203,6 +224,37 @@ class NewsCardWidget extends StatelessWidget {
                           height: 160,
                           color: theme.colorScheme.surfaceContainer,
                           child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                        );
+                      },
+                    ),
+                  )
+                else if (images.length > 1)
+                  SizedBox(
+                    height: 180,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      itemCount: images.length,
+                      separatorBuilder: (context, index) => const SizedBox(width: 12),
+                      itemBuilder: (context, index) {
+                        return ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.network(
+                            images[index],
+                            height: 152,
+                            width: 240,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                            loadingBuilder: (_, child, progress) {
+                              if (progress == null) return child;
+                              return Container(
+                                height: 152,
+                                width: 240,
+                                color: theme.colorScheme.surfaceContainer,
+                                child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                              );
+                            },
+                          ),
                         );
                       },
                     ),
@@ -253,8 +305,6 @@ class NewsCardWidget extends StatelessWidget {
                           color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
                           height: 1.5,
                         ),
-                        maxLines: 4,
-                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 14),
 
@@ -280,7 +330,7 @@ class NewsCardWidget extends StatelessWidget {
                           ),
                           if (node.publishedAt != null && node.publishedAt!.isNotEmpty) ...[
                             Text(
-                              node.publishedAt!,
+                              _formatDate(node.publishedAt),
                               style: TextStyle(
                                 fontSize: 11,
                                 color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
@@ -377,6 +427,64 @@ class AccordionWidget extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class ImageGalleryWidget extends StatelessWidget {
+  final ImageGalleryNode node;
+  const ImageGalleryWidget({super.key, required this.node});
+
+  String? _proxiedImage(String? url) {
+    if (url == null || url.isEmpty) return null;
+    final encoded = Uri.encodeComponent(url);
+    return 'https://wsrv.nl/?url=$encoded&w=800&h=400&fit=cover&output=jpg';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (node.images.isEmpty) return const SizedBox.shrink();
+    
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16.0),
+      child: SizedBox(
+        height: 200,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: node.images.length,
+          separatorBuilder: (context, index) => const SizedBox(width: 12),
+          itemBuilder: (context, index) {
+            final img = node.images[index];
+            final url = _proxiedImage(img['url']);
+            if (url == null) return const SizedBox.shrink();
+            
+            return ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.network(
+                url,
+                height: 200,
+                width: 300,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  width: 300,
+                  height: 200,
+                  color: Theme.of(context).colorScheme.surfaceContainer,
+                  child: const Center(child: Icon(Icons.broken_image, color: Colors.grey)),
+                ),
+                loadingBuilder: (_, child, progress) {
+                  if (progress == null) return child;
+                  return Container(
+                    height: 200,
+                    width: 300,
+                    color: Theme.of(context).colorScheme.surfaceContainer,
+                    child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                  );
+                },
+              ),
+            );
+          },
+        ),
       ),
     );
   }

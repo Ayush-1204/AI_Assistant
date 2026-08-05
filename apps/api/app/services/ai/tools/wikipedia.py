@@ -3,7 +3,9 @@ import logging
 import urllib.parse
 from typing import Any
 import httpx
+from datetime import datetime
 
+from app.schemas.ai_pipeline import NormalizedToolResult, ImageReference
 from app.services.ai.tools.base import BaseTool
 
 logger = logging.getLogger(__name__)
@@ -69,12 +71,28 @@ class WikipediaTool(BaseTool):
                 
                 extract = summary_data.get("extract", "")
                 url = summary_data.get("content_urls", {}).get("desktop", {}).get("page", "")
+                thumbnail = summary_data.get("thumbnail", {}).get("source", "")
                 
-                return json.dumps({
+                data = {
                     "title": title,
                     "summary": extract,
-                    "url": url
-                })
+                    "url": url,
+                    "imageUrl": thumbnail
+                }
+                
+                images = []
+                if thumbnail:
+                    images.append(ImageReference(url=thumbnail, alt_text=title))
+
+                return NormalizedToolResult(
+                    tool_name=self.name,
+                    source="Wikipedia",
+                    timestamp=datetime.now(),
+                    confidence=1.0,
+                    rawData=json.dumps(data),
+                    normalizedData={"content": json.dumps(data)},
+                    images=images
+                )
 
         except Exception as e:
             logger.error(f"[WikipediaTool] Request failed: {str(e)}")

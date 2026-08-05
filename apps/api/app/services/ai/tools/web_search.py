@@ -3,7 +3,10 @@ import logging
 import time
 import asyncio
 import httpx
+from datetime import datetime
+from typing import Any
 
+from app.schemas.ai_pipeline import NormalizedToolResult, ImageReference
 from app.config import get_settings
 from app.integrations.search.base import SearchProvider
 from app.services.ai.tools.base import BaseTool
@@ -64,7 +67,7 @@ class WebSearchTool(BaseTool):
             pass
         return False
 
-    async def execute(self, execution_context: dict, **kwargs) -> str:
+    async def execute(self, execution_context: dict, **kwargs) -> Any:
         query = kwargs.get("query")
         if not query:
             return json.dumps({"error": "Missing 'query' parameter"})
@@ -105,10 +108,21 @@ class WebSearchTool(BaseTool):
                 if is_valid
             ]
             
-            return json.dumps({
+            data = {
                 "results": formatted_results, 
                 "images": valid_images[:10]  # Cap at 10 strictly to preserve LLM token bounds
-            })
+            }
+            images_list = [ImageReference(url=img, alt_text=query) for img in valid_images[:10]]
+            
+            return NormalizedToolResult(
+                tool_name=self.name,
+                source="Web Search",
+                timestamp=datetime.now(),
+                confidence=1.0,
+                rawData=json.dumps(data),
+                normalizedData={"content": json.dumps(data)},
+                images=images_list
+            )
             
         except Exception as e:
             logger.error(f"Web search failed gracefully: {str(e)}")

@@ -16,6 +16,7 @@ class PresentationRegistry {
     'WeatherCard': (context, node) => WeatherCardWidget(node: node as WeatherCardNode),
     'Timeline': (context, node) => TimelineWidget(node: node as TimelineNode),
     'Accordion': (context, node) => AccordionWidget(node: node as AccordionNode),
+    'ImageGallery': (context, node) => ImageGalleryWidget(node: node as ImageGalleryNode),
     // Additional widgets can be registered here
   };
 

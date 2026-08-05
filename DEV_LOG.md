@@ -191,3 +191,11 @@ This document aggregates the implementation plans and walkthrough summaries for 
     3. **Discord Webhook Crawler**: Built a crawler fallback to emulate Discord's user-agent, forcing servers to yield rich embeds.
     4. **Playwright Ultimate Fallback**: Implemented a headless browser sequence to fundamentally bypass aggressive paywalls, explicitly extracting the raw `og:image` meta property for rich UI cards.
   - **Presentation Planner Adjustments**: Finalized backend typing adjustments (Pyright casting) and orchestration parameters for the presentation engine.
+
+## Phase 35: Standardized Image Pipeline & Client Gallery Support
+**Status**: `Completed`
+- **Plan**: Resolve silent failure of image rendering for Wikipedia and Web Search lookups caused by raw JSON strings stripping `ImageReference` nodes. Implement missing native UI components in the Flutter client to render these image streams.
+- **Implementation**:
+  - **Tool Pipeline Standardization**: Upgraded `wikipedia.py` and `web_search.py` tools to explicitly wrap output data in a `NormalizedToolResult` object. This correctly formats image URLs as explicit `ImageReference` objects (rather than raw dictionary strings), preventing the `Editor` stage from dropping the images and allowing the `PresentationPlanner` to access them.
+  - **Flutter Presentation Engine**: Discovered and resolved an unhandled exception where `ImageGalleryNode` lacked a corresponding `ImageGalleryWidget` in the client UI `registry.dart`.
+  - Built a horizontally scrolling, responsive `ImageGalleryWidget` directly into `widgets.dart` complete with proxy routing (`wsrv.nl`) for CORS bypass, network loading states, and error handling. Registered the new widget natively in `PresentationRegistry`.
