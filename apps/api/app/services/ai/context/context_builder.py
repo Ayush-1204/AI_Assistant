@@ -44,6 +44,7 @@ class ContextBuilder:
         query: str,
         location_lat: float | None = None,
         location_lon: float | None = None,
+        user_name: str | None = None,
     ) -> tuple[list[dict], list[Citation]]:
 
         context: list[dict] = []
@@ -77,6 +78,8 @@ class ContextBuilder:
         if location_lat is not None and location_lon is not None:
             loc_str = f" User's actual coordinates natively are ({location_lat}, {location_lon})."
             
+        name_str = f" The user's name is '{user_name}'." if user_name else ""
+        
         system_prompt = (
             "You are a warm, highly personal, and buddy-like AI assistant. Speak to the user as a close, highly capable friend. "
             "IMPORTANT RULES FOR YOUR BEHAVIOR:\n"
@@ -103,7 +106,7 @@ class ContextBuilder:
             "- Code Quality: Ensure all code examples use the latest, most modern library syntax (e.g., OpenAI v1.x) and strictly avoid deprecated patterns.\n"
             "- Output Rules: Never explain your formatting. Never mention Markdown. Never mention LaTeX. Simply produce the correctly formatted response.\n"
             "7. EXECUTION PLAN: You may receive an UPFRONT EXECUTION PLAN at the bottom of your context. If provided, you MUST obey its output structure and execute its listed tool tasks BEFORE generating your final response.\n"
-        ) + loc_str
+        ) + loc_str + name_str
         
         from datetime import datetime
         now = datetime.now()
@@ -180,13 +183,20 @@ class ContextBuilder:
                     res = match.group(2).strip()
                     if len(res) > settings.max_tool_output_length:
                         res = res[:settings.max_tool_output_length] + "...[TRUNCATED]"
-                    tool_results.append(res)
+                        tool_results.append(res)
+                    else:
+                        tool_results.append(res)
                     
                 clean_content = re.sub(pattern, "", msg.content, flags=re.DOTALL).strip()
+                # Scrub massive base64 markdown images added by frontend for UI rendering
+                clean_content = re.sub(r"!\[attachment\]\(data:image\/[^;]+;base64,[^\)]+\)", "[Attached Image]", clean_content)
+                
                 if clean_content:
                      processed_history.append({"role": msg.role, "content": clean_content, "images": msg_images})
             else:
-                processed_history.append({"role": msg.role, "content": msg.content, "images": msg_images})
+                # Scrub massive base64 markdown images added by frontend for UI rendering
+                clean_content = re.sub(r"!\[attachment\]\(data:image\/[^;]+;base64,[^\)]+\)", "[Attached Image]", msg.content)
+                processed_history.append({"role": msg.role, "content": clean_content, "images": msg_images})
                 
         # --- Conversation Summarization Engine ---
         # Instead of truncating past N messages, we compress the older half into a dense summary block

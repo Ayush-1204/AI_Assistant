@@ -54,6 +54,7 @@ class AIService:
         is_regenerate: bool = False,
         images: list[str] | None = None,
         intent: str = "general",
+        user_name: str | None = None,
     ) -> tuple[str, list[Citation], dict]:
 
         import time
@@ -67,7 +68,7 @@ class AIService:
         await self.message_service.create(conversation_id, MessageCreate(role=MessageRole.USER, content=prompt, images=images))
         await self.memory_service.process_message(user_id=user_id, message=prompt)
 
-        messages, citations = await self.context_builder.build(user_id=user_id, conversation_id=conversation_id, query=prompt, location_lat=location_lat, location_lon=location_lon)
+        messages, citations = await self.context_builder.build(user_id=user_id, conversation_id=conversation_id, query=prompt, location_lat=location_lat, location_lon=location_lon, user_name=user_name)
 
         strategy = await self._get_strategy()
         tool_extension = strategy.get_system_prompt_extension()
@@ -141,6 +142,7 @@ class AIService:
         is_regenerate: bool = False,
         images: list[str] | None = None,
         intent: str = "general",
+        user_name: str | None = None,
     ) -> AsyncGenerator[str, None]:
 
         import time
@@ -154,7 +156,7 @@ class AIService:
         await self.message_service.create(conversation_id, MessageCreate(role=MessageRole.USER, content=prompt, images=images))
         await self.memory_service.process_message(user_id=user_id, message=prompt)
 
-        messages, citations = await self.context_builder.build(user_id=user_id, conversation_id=conversation_id, query=prompt, location_lat=location_lat, location_lon=location_lon)
+        messages, citations = await self.context_builder.build(user_id=user_id, conversation_id=conversation_id, query=prompt, location_lat=location_lat, location_lon=location_lon, user_name=user_name)
 
         strategy = await self._get_strategy()
         tool_extension = strategy.get_system_prompt_extension()

@@ -50,6 +50,7 @@ async def chat(
         is_regenerate=request.is_regenerate,
         images=request.images,
         intent=request.intent,
+        user_name=current_user.full_name,
     )
 
     return ChatResponse(
@@ -98,6 +99,7 @@ async def stream_chat_route(
             is_regenerate=request.is_regenerate,
             images=request.images,
             intent=request.intent,
+            user_name=current_user.full_name,
         ),
         media_type="text/event-stream"
     )

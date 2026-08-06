@@ -207,3 +207,11 @@ This document aggregates the implementation plans and walkthrough summaries for 
   - **Tool Pipeline & Validator**: Upgraded `upfront_planner.py` to correctly schedule `Image Retrieval` tasks for "ANY physical object, concept, event, food, or visually representable entity". Updated `context_builder.py` with fail-safes preventing LLM hallucination of dummy image URLs. Patched `validator.py` to stop rejecting purely visual ImageSearch responses for lacking instructional text.
   - **Premium Hover Zoom**: Built `HoverZoomWrapper` utilizing native `MouseRegion` and `AnimatedScale` for a smooth 1.05x hover zoom. Applied this globally to all image types (Carousel, Bento, Single, News) ensuring it stays cleanly clipped within existing `ClipRRect` bounds.
   - **Dynamic Carousel Sizing**: Ripped out hardcoded pixel widths in `_CarouselGalleryWidget`. Wrapped the renderer in a `LayoutBuilder`, dynamically calculating `itemWidth` based on actual window `constraints.maxWidth` minus gap space, perfectly scaling exact 3-image square clusters onto any device screen without forced scrolling.
+
+## Phase 37: Image Attachment Pipeline & Proactive Personalization
+**Status**: `Completed`
+- **Plan**: Resolve image upload hallucination bugs caused by base64 flooding, and implement proactive persona adjustments using user metadata and high-level memory extraction.
+- **Implementation**:
+  - **Context Scrubbing**: Engineered a regex filter within `ContextBuilder` to strip raw base64 data URLs (`![attachment](data:image...)`) injected by the frontend for rendering. This prevents massive payload flooding of the text prompt, allowing LLMs to process the true byte stream via `Part.from_bytes` seamlessly without confusion.
+  - **Memory Refinement**: Overhauled `MemoryExtractor` logic to explicitly harvest high-level themes (e.g., industry, interests, field of study) from uploaded documents while strictly blocking verbatim text/fact memorization.
+  - **Proactive Persona**: Mapped the `current_user.full_name` completely through the API routing layer (`chat.py` -> `ai_service.py` -> `ContextBuilder`), securely injecting the user's name natively into the central system prompt for proactive salutations and seamless buddy-like personalization.

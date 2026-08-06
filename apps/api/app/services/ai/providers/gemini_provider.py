@@ -79,9 +79,10 @@ class GeminiProvider(BaseLLMProvider):
                 for b64 in msg["images"]:
                     try:
                         parts.append(gt.Part.from_bytes(data=base64.b64decode(b64), mime_type="image/jpeg"))
-                    except Exception:
-                        pass
-                        
+                    except Exception as e:
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.error(f"Failed to decode image bytes: {e}")
             # 3. Tool Calls (Assistant requesting a tool)
             if msg.get("tool_calls"):
                 for tc in msg["tool_calls"]:
