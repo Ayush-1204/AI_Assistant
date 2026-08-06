@@ -50,6 +50,93 @@ class GeminiProvider(BaseLLMProvider):
         except Exception:
             return False
 
+    def _build_contents(self, messages: list[dict]) -> list[Any]:
+        import base64
+        import json
+        import google.genai.types as gt
+        
+        raw_contents = []
+        for msg in messages:
+            role = "model" if msg.get("role") == "assistant" else "user"
+            parts = []
+            
+            # 1. Text Content
+            if msg.get("content"):
+                # Tool responses have role="tool". In Gemini, they are part of the user's turn
+                if msg.get("role") == "tool":
+                    name = msg.get("tool_call_id", "unknown_tool")
+                    content_str = msg.get("content", "{}")
+                    try:
+                        resp_dict = json.loads(content_str)
+                    except Exception:
+                        resp_dict = {"result": content_str}
+                    parts.append(gt.Part.from_function_response(name=name, response=resp_dict))
+                else:
+                    parts.append(gt.Part.from_text(text=msg["content"]))
+                    
+            # 2. Image Content
+            if msg.get("images"):
+                for b64 in msg["images"]:
+                    try:
+                        parts.append(gt.Part.from_bytes(data=base64.b64decode(b64), mime_type="image/jpeg"))
+                    except Exception:
+                        pass
+                        
+            # 3. Tool Calls (Assistant requesting a tool)
+            if msg.get("tool_calls"):
+                for tc in msg["tool_calls"]:
+                    func = tc.get("function", {})
+                    name = func.get("name")
+                    args_str = func.get("arguments", "{}")
+                    try:
+                        args = json.loads(args_str)
+                    except Exception:
+                        args = {}
+                    if name:
+                        parts.append(gt.Part.from_function_call(name=name, args=args))
+                        
+            if parts:
+                raw_contents.append(gt.Content(role=role, parts=parts))
+                
+        # Group consecutive same-role messages
+        contents: list[gt.Content] = []
+        for c in raw_contents:
+            if contents and contents[-1].role == c.role:
+                if contents[-1].parts is None:
+                    contents[-1].parts = []
+                if c.parts:
+                    contents[-1].parts.extend(c.parts)
+            else:
+                contents.append(c)
+                
+        return contents
+
+    def _convert_tools(self, tools: list[dict] | None) -> list[Any] | None:
+        if not tools:
+            return None
+            
+        import google.genai.types as gt
+        
+        func_decls = []
+        for t in tools:
+            if t.get("type") == "function" and "function" in t:
+                func = t["function"]
+                name = func.get("name")
+                desc = func.get("description", "")
+                params = func.get("parameters", {"type": "OBJECT", "properties": {}})
+                if name:
+                    func_decls.append(gt.FunctionDeclaration(
+                        name=name,
+                        description=desc,
+                        parameters=params
+                    ))
+                    
+        gemini_tools = []
+        if func_decls:
+            gemini_tools.append(gt.Tool(function_declarations=func_decls))
+            
+        return gemini_tools if gemini_tools else None
+
     async def chat(
         self,
         messages: list[dict],
@@ -57,31 +144,9 @@ class GeminiProvider(BaseLLMProvider):
         intent: str = "general",
     ):
 
-        prompt_text = PromptBuilder.chat(messages)
+        contents = self._build_contents(messages)
         
-        print("\n\n=== [DEBUG] EXACT CONTEXT SENT TO GEMINI (CHAT) ===")
-        print(prompt_text)
-        print("===================================================\n\n")
-
-        import base64
-
-        import google.genai.types as gt
-        
-        contents: list[Any] = [prompt_text]
-        for msg in messages:
-            if msg.get("images"):
-                for b64_str in msg["images"]:
-                    try:
-                        contents.append(
-                            gt.Part.from_bytes(
-                                data=base64.b64decode(b64_str),
-                                mime_type="image/jpeg",
-                            )
-                        )
-                    except Exception:
-                        pass
-        
-        gemini_tools: list[Any] = list(tools) if tools else []
+        gemini_tools = self._convert_tools(tools) or []
             
         if "lite" not in self.model.lower():
             import google.genai.types as gt
@@ -137,31 +202,9 @@ class GeminiProvider(BaseLLMProvider):
         tools: list[dict] | None = None,
         intent: str = "general",
     ) -> AsyncGenerator[Any, None]:
-        prompt_text = PromptBuilder.chat(messages)
-        
-        print("\n\n=== [DEBUG] EXACT CONTEXT SENT TO GEMINI (STREAM_CHAT) ===")
-        print(prompt_text)
-        print("==========================================================\n\n")
+        contents = self._build_contents(messages)
 
-        import base64
-
-        import google.genai.types as gt
-        
-        contents: list[Any] = [prompt_text]
-        for msg in messages:
-            if msg.get("images"):
-                for b64_str in msg["images"]:
-                    try:
-                        contents.append(
-                            gt.Part.from_bytes(
-                                data=base64.b64decode(b64_str),
-                                mime_type="image/jpeg",
-                            )
-                        )
-                    except Exception:
-                        pass
-
-        gemini_tools: list[Any] = list(tools) if tools else []
+        gemini_tools = self._convert_tools(tools) or []
         
         if "lite" not in self.model.lower():
             import google.genai.types as gt
@@ -195,67 +238,4 @@ class GeminiProvider(BaseLLMProvider):
                 elif chunk.text:
                     yield chunk.text
         except Exception as e:
-            raise ProviderTransientError(f"Gemini stream failure: {str(e)}")
-    
-    async def extract_memory(
-        self,
-        message: str,
-    ) -> dict | None:
-
-        prompt = f"""
-    You are extracting long-term memory.
-
-    Return ONLY valid JSON.
-
-    If the sentence contains nothing worth remembering,
-    return:
-
-    null
-
-    Otherwise return:
-
-    {{
-        "category":"personal|preference|goal|education|work|relationship",
-        "key":"",
-        "value":"",
-        "confidence":0.95
-    }}
-
-    Sentence:
-
-    {message}
-    """
-
-        response = await self.client.aio.models.generate_content(
-            model=self.model,
-            contents=prompt,
-        )
-
-        text = (response.text or "").strip()
-
-        # Remove markdown code fences if present
-        if text.startswith("```json"):
-            text = text.replace("```json", "", 1)
-
-        if text.startswith("```"):
-            text = text.replace("```", "", 1)
-
-        if text.endswith("```"):
-            text = text[:-3]
-
-        text = text.strip()
-
-        print("\n" + "=" * 80)
-        print("CLEANED RESPONSE:")
-        print(text)
-        print("=" * 80 + "\n")
-
-        if text.lower() == "null":
-            return None
-
-        try:
-            return json.loads(text)
-
-        except Exception as e:
-            print("JSON ERROR:", e)
-            return None
+            raise ProviderTransientError(f"Gemini stream failure: {str(e)}")

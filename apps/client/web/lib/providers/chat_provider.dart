@@ -8,6 +8,20 @@ import 'package:record/record.dart';
 import '../api_client.dart';
 import 'auth_provider.dart';
 
+class PendingFile {
+  final String name;
+  final String type; // 'image', 'document'
+  final Uint8List bytes;
+  final String base64Data; // only populated if it's an image
+
+  PendingFile({
+    required this.name,
+    required this.type,
+    required this.bytes,
+    this.base64Data = "",
+  });
+}
+
 class ChatState {
   final int? conversationId;
   final List<String> messages;
@@ -17,7 +31,7 @@ class ChatState {
   final String liveTranscript;
   final List<dynamic> sessions;
   final Map<int, Map<String, dynamic>> messageMetadata;
-  final List<String> pendingImages;
+  final List<PendingFile> pendingFiles;
   final double currentAmplitude;
   final bool isSpeaking;
   final bool isContinuousVoiceMode;
@@ -37,7 +51,7 @@ class ChatState {
     this.liveTranscript = "",
     this.sessions = const [],
     this.messageMetadata = const {},
-    this.pendingImages = const [],
+    this.pendingFiles = const [],
     this.currentAmplitude = -160.0,
     this.isSpeaking = false,
     this.isContinuousVoiceMode = false,
@@ -58,7 +72,7 @@ class ChatState {
     String? liveTranscript,
     List<dynamic>? sessions,
     Map<int, Map<String, dynamic>>? messageMetadata,
-    List<String>? pendingImages,
+    List<PendingFile>? pendingFiles,
     double? currentAmplitude,
     bool? isSpeaking,
     bool? isContinuousVoiceMode,
@@ -79,7 +93,7 @@ class ChatState {
       liveTranscript: liveTranscript ?? this.liveTranscript,
       sessions: sessions ?? this.sessions,
       messageMetadata: messageMetadata ?? this.messageMetadata,
-      pendingImages: pendingImages ?? this.pendingImages,
+      pendingFiles: pendingFiles ?? this.pendingFiles,
       currentAmplitude: currentAmplitude ?? this.currentAmplitude,
       isSpeaking: isSpeaking ?? this.isSpeaking,
       isContinuousVoiceMode: isContinuousVoiceMode ?? this.isContinuousVoiceMode,
@@ -577,12 +591,19 @@ class ChatNotifier extends StateNotifier<ChatState> {
     await sendMessage(userMsg, isRegenerate: true);
   }
   
-  void attachImage(String base64String) {
-    state = state.copyWith(pendingImages: [...state.pendingImages, base64String]);
+  void attachFile(PendingFile file) {
+    state = state.copyWith(pendingFiles: [...state.pendingFiles, file]);
   }
 
   void clearAttachments() {
-    state = state.copyWith(pendingImages: []);
+    state = state.copyWith(pendingFiles: []);
+  }
+
+  void removeAttachment(int index) {
+    if (index >= 0 && index < state.pendingFiles.length) {
+      final updatedFiles = List<PendingFile>.from(state.pendingFiles)..removeAt(index);
+      state = state.copyWith(pendingFiles: updatedFiles);
+    }
   }
 
   void stopGenerating() {
@@ -663,10 +684,32 @@ class ChatNotifier extends StateNotifier<ChatState> {
     if (text.trim().isEmpty || state.isSending) return;
     
     // Capture and clear immediately to prevent double sending
-    final imagesToSend = List<String>.from(state.pendingImages);
+    final filesToSend = List<PendingFile>.from(state.pendingFiles);
     clearAttachments();
     
-    addMessage(text.trim());
+    String messageContent = text.trim();
+    List<String> imageBase64s = [];
+    
+    if (filesToSend.isNotEmpty) {
+      messageContent += "\n\n";
+      for (final file in filesToSend) {
+        if (file.type == 'image') {
+          imageBase64s.add(file.base64Data);
+          messageContent += "![attachment](data:image/jpeg;base64,${file.base64Data})\n";
+        } else {
+          try {
+            // Upload non-image files (documents, pdfs, etc) to RAG backend
+            await _apiClient.uploadDocument(file.name, file.bytes, file.name);
+            messageContent += "[Attached Document: ${file.name} (Uploaded to Memory)]\n";
+          } catch (e) {
+            messageContent += "[Failed to upload document: ${file.name}]\n";
+            debugPrint("Document upload failed: $e");
+          }
+        }
+      }
+    }
+    
+    addMessage(messageContent.trim());
     state = state.copyWith(isSending: true);
     
     final lower = text.toLowerCase();
@@ -693,9 +736,9 @@ class ChatNotifier extends StateNotifier<ChatState> {
       
       final stream = _apiClient.sendChatMessageStream(
         state.conversationId.toString(), 
-        text, 
+        messageContent.trim(), 
         isRegenerate: isRegenerate,
-        images: imagesToSend,
+        images: imageBase64s,
       );
       
       await for (final payload in stream) {

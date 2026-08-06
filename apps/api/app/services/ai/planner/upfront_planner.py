@@ -15,9 +15,19 @@ class UpfrontPlanner:
     def __init__(self, provider: BaseLLMProvider):
         self.provider = provider
 
-    async def generate_plan(self, query: str) -> dict[str, Any] | None:
-        system_prompt = """You are an architectural planning agent. Your job is to evaluate the user's request and output a strict JSON plan.
+    async def generate_plan(self, query: str, context_messages: list[dict] | None = None) -> dict[str, Any] | None:
+        memory_context = ""
+        if context_messages and len(context_messages) > 0 and context_messages[0].get("role") == "system":
+            sys_content = context_messages[0].get("content", "")
+            if "=== RELEVANT MEMORIES ===" in sys_content:
+                memory_parts = sys_content.split("=== RELEVANT MEMORIES ===")
+                if len(memory_parts) > 1:
+                    memory_context = "=== RELEVANT MEMORIES ===" + memory_parts[1].split("===")[0]
+
+        system_prompt = f"""You are an architectural planning agent. Your job is to evaluate the user's request and output a strict JSON plan.
 Do NOT attempt to fulfill the user's request. Only output the plan.
+
+{memory_context}
 
 You must decide:
 1. `tools_needed`: true/false (Do we need external tools like web_search, image_search, weather, etc?)
@@ -34,15 +44,20 @@ You must decide:
 
 CRITICAL INSTRUCTION: If the request requires multiple independent facts or news topics, you MUST break them down into separate, independent tasks in the `tasks` array. Do NOT group them into a single broad task.
 - For weather requests, the 'Local Weather' capability automatically handles user geolocation internally. Do NOT create separate geolocation tasks for weather.
-- For queries about ANY specific people, places, entities, recipes, food, physical objects, events, or visually representable concepts, you MUST include a separate task with capability 'Image Retrieval' to fetch images.
-- When generating `tool_arguments` for search capabilities (like Knowledge Search or Image Retrieval), you MUST use exact, concise entity names or keywords in a `query` parameter (e.g. `{"query": "Narendra Modi"}`). NEVER use conversational questions (e.g. NOT 'Who is Narendra Modi') as this will break exact-match search APIs.
+- Do NOT schedule 'Knowledge Search' or 'Image Retrieval' for conversational chatter, user names, or self-introductions (e.g., "my name is X").
+- When a document is attached, do NOT assume its semantic or visual content from the filename alone. Do NOT schedule 'Image Retrieval' or external knowledge searches based solely on a filename. 
+- ONLY schedule 'Image Retrieval' if the user explicitly asks for pictures, or if the core informational intent heavily relies on visual context (e.g. famous landmarks, artwork, or specific products).
+- When generating `tool_arguments` for search capabilities, you MUST use exact, concise entity names or keywords in a `query` parameter (e.g. `{{"query": "Narendra Modi"}}`). If the user explicitly excludes a topic, use a minus sign (e.g. `{{"query": "India news -business"}}`). NEVER use conversational questions.
 
 Return EXACTLY and ONLY a valid JSON object matching the above keys.
 """
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": query}
-        ]
+        if context_messages and len(context_messages) > 1 and context_messages[0].get("role") == "system":
+            messages = [{"role": "system", "content": system_prompt}] + context_messages[1:]
+        else:
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": query}
+            ]
         
         try:
             # We explicitly route this to a fast model (intent='general')

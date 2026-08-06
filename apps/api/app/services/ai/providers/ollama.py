@@ -116,12 +116,4 @@ class OllamaProvider(BaseLLMProvider):
         )
 
         return response["message"]["content"].strip()
-
-    async def extract_memory(
-        self,
-        message: str,
-    ):
-
-        raise NotImplementedError(
-            "Will migrate to Instructor later."
-        )
+

@@ -110,12 +110,12 @@ class AgentExecutor:
         trace = ExecutionTrace(id=str(uuid.uuid4()))
         
         # Step 1: Upfront Planning
-        plan = await self.upfront.generate_plan(query)
+        plan = await self.upfront.generate_plan(query, context_messages=messages)
         if not plan or not plan.get("tools_needed", False):
             res, _, _, text = await self.planner.plan_step(messages, tools_payload)
             empty_context = CuratedContext(summary=text, missing_information=[])
-            layout = await self.presentation_planner.plan_layout(query, empty_context)
-            nodes = await self.presentation_planner.generate_content(query, layout, empty_context)
+            layout = await self.presentation_planner.plan_layout(query, empty_context, context_messages=messages)
+            nodes = await self.presentation_planner.generate_content(query, layout, empty_context, context_messages=messages)
             final_presentation_json = json.dumps(nodes, indent=2)
             
             trace.end_time = datetime.now()
@@ -152,10 +152,10 @@ class AgentExecutor:
         curated_context = await self.editor.curate(query, valid_results)
         
         # Step 5: Presentation Planning (Decide UI First)
-        layout = await self.presentation_planner.plan_layout(query, curated_context)
+        layout = await self.presentation_planner.plan_layout(query, curated_context, context_messages=messages)
         
         # Step 6: Content Generation (Fill in the UI)
-        presentation_nodes = await self.presentation_planner.generate_content(query, layout, curated_context)
+        presentation_nodes = await self.presentation_planner.generate_content(query, layout, curated_context, context_messages=messages)
         final_presentation_json = json.dumps(presentation_nodes, indent=2)
         
         # Step 7: Final Quality Evaluation
@@ -168,7 +168,8 @@ class AgentExecutor:
             presentation_nodes = await self.presentation_planner.generate_content(
                 query + " (Ensure you STRICTLY follow the Curated Context)", 
                 layout, 
-                curated_context
+                curated_context,
+                context_messages=messages
             )
             final_presentation_json = json.dumps(presentation_nodes, indent=2)
             
@@ -178,7 +179,7 @@ class AgentExecutor:
         
     async def stream_run(self, query: str, context: dict, messages: list[dict], tools_payload: list[dict]) -> AsyncGenerator[str, None]:
         trace = ExecutionTrace(id=str(uuid.uuid4()))
-        plan = await self.upfront.generate_plan(query)
+        plan = await self.upfront.generate_plan(query, context_messages=messages)
         if not plan or not plan.get("tools_needed", False):
             # No tools needed, stream raw conversational text directly using the fast model
             import typing
@@ -214,10 +215,10 @@ class AgentExecutor:
         curated_context = await self.editor.curate(query, valid_results)
         
         # Stream Mode: Decide UI, then Generate Content progressively
-        layout = await self.presentation_planner.plan_layout(query, curated_context)
+        layout = await self.presentation_planner.plan_layout(query, curated_context, context_messages=messages)
         
         # Stream out the Presentation Nodes as they are completed
-        async for node in self.presentation_planner.generate_content_stream(query, layout, curated_context):
+        async for node in self.presentation_planner.generate_content_stream(query, layout, curated_context, context_messages=messages):
             payload = json.dumps({"type": "presentation_node", "node": node})
             yield f"data: {payload}\n\n"
                  

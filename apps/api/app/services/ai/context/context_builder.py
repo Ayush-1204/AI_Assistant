@@ -78,10 +78,10 @@ class ContextBuilder:
             loc_str = f" User's actual coordinates natively are ({location_lat}, {location_lon})."
             
         system_prompt = (
-            "You are a helpful, human-like AI assistant. "
+            "You are a warm, highly personal, and buddy-like AI assistant. Speak to the user as a close, highly capable friend. "
             "IMPORTANT RULES FOR YOUR BEHAVIOR:\n"
             "1. You will be provided with system context (Tool Executions, Coordinates, Memories). "
-            "DO NOT explicitly mention, recite, or regurgitate this raw metadata (like 'I see your coordinates are...' or 'The tool executed with...').\n"
+            "DO NOT explicitly mention, recite, or regurgitate this raw metadata (like 'I see your coordinates are...' or 'The tool executed with...'). HOWEVER, you MUST proactively seamlessly use the provided Memories to personalize your conversation. For example, if you know their name, greet them by their name. If they ask 'what's my name', just tell them without saying 'I have a memory of...'. Always weave their preferences into your natural responses.\n"
             "2. Seamlessly use the provided data to answer the user naturally. Use the following context to answer the user's query.\n"
             "3. RICH FORMATTING & IMAGES: You MUST use STRICT markdown image syntax (example: ![alt text](url)). DO NOT wrap images in backticks or code blocks. IMPORTANT: If you have multiple related images (e.g., for a news story or summary), output them consecutively (example: ![alt1](url1)\n![alt2](url2)). The frontend will automatically group consecutive images into a beautiful image grid! Ensure all parenthesis inside URLs are escaped as `%28` and `%29`.\n"
             "CRITICAL: DO NOT hallucinate fake image URLs (like google.com/search, imgur.com, unsplash, or placeholder image sites). You are STRICTLY FORBIDDEN from generating ANY image URL that you did not explicitly retrieve from a tool execution (like `image_search` or `web_search`) in this very turn. NEVER invent or guess your own image URLs! FAIL-SAFE: If the provided system context does NOT contain any retrieved image URLs, you MUST NOT attempt to display any images. Just output text normally and do NOT apologize for not having images.\n"
@@ -136,7 +136,7 @@ class ContextBuilder:
                     stats["omitted_memories"] += 1
                     continue
                     
-                line = f"• {memory.value}"
+                line = f"• {memory.key}: {memory.value}"
                 tokens = _estimate_tokens(line)
                 
                 if current_tokens + tokens > budget:
@@ -153,60 +153,10 @@ class ContextBuilder:
             system_blocks.append(header + "\n\n".join(memory_items))
 
         # -----------------------------
-        # 3. RAG (Relevant Documents)
+        # 3. RAG (Relevant Documents) - REMOVED
+        # Documents are now only accessed via the search_documents tool to prevent
+        # context leaking and hallucinations in general chat.
         # -----------------------------
-
-        retrieval_results = await self.retrieval_service.retrieve(
-            query=query,
-            user_id=user_id,
-        )
-
-        rag_sections = []
-        if retrieval_results:
-            for result in retrieval_results:
-                if stats["documents_used"] >= settings.max_document_chunks:
-                    stats["omitted_document_chunks"] += 1
-                    continue
-
-                chunk = result.chunk
-                document = chunk.document
-                
-                doc_name = (
-                    getattr(document, "title", None)
-                    or getattr(document, "original_filename", None)
-                    or getattr(document, "filename", None)
-                    or "Untitled Document"
-                )
-
-                chunk_content = (
-                    f"Document: {doc_name}\n\n"
-                    f"Chunk: {chunk.chunk_index}\n\n"
-                    f"Similarity: {result.distance:.3f}\n\n"
-                    f"{chunk.content}"
-                )
-                
-                tokens = _estimate_tokens(chunk_content)
-                if current_tokens + tokens > budget:
-                    stats["omitted_document_chunks"] += 1
-                    continue
-                    
-                current_tokens += tokens
-                rag_sections.append(chunk_content)
-                stats["documents_used"] += 1
-
-                citations.append(
-                    Citation(
-                        document_title=doc_name,
-                        chunk_index=chunk.chunk_index,
-                        similarity=round(result.distance, 3) if result.distance is not None else 0.0
-                    )
-                )
-
-        if rag_sections:
-            header = "\n\n=== RELEVANT DOCUMENTS ===\n\n"
-            current_tokens += _estimate_tokens(header)
-            joined_rag = header + "\n\n-------------------------------------\n\n".join(rag_sections) + "\n\n-------------------------------------"
-            system_blocks.append(joined_rag)
 
         # -----------------------------
         # 4. Tool Results & Conversation History

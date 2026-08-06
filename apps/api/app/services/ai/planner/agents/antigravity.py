@@ -24,7 +24,8 @@ class AntigravityAgent:
         prompt: str,
         images: list[str] | None = None,
         previous_interaction_id: str | None = None,
-        environment_id: str | None = None
+        environment_id: str | None = None,
+        context_messages: list[dict] | None = None
     ) -> AsyncGenerator[str, None]:
         
         # 1. Structure multimodality parameters natively
@@ -43,8 +44,18 @@ class AntigravityAgent:
                     "data": img_data
                 })
         
-        input_data.append({"type": "text", "text": prompt})
-        input_payload = prompt if len(input_data) == 1 else input_data
+        memory_context = ""
+        if context_messages and len(context_messages) > 0 and context_messages[0].get("role") == "system":
+            sys_content = context_messages[0].get("content", "")
+            if "=== RELEVANT MEMORIES ===" in sys_content:
+                memory_parts = sys_content.split("=== RELEVANT MEMORIES ===")
+                if len(memory_parts) > 1:
+                    memory_context = "\n\n=== RELEVANT MEMORIES ===" + memory_parts[1].split("===")[0]
+
+        final_prompt_text = prompt + memory_context
+        
+        input_data.append({"type": "text", "text": final_prompt_text})
+        input_payload = final_prompt_text if len(input_data) == 1 else input_data
 
         kwargs = {
             "agent": "antigravity-preview-05-2026",
@@ -98,11 +109,12 @@ class AntigravityAgent:
         prompt: str,
         images: list[str] | None = None,
         previous_interaction_id: str | None = None,
-        environment_id: str | None = None
+        environment_id: str | None = None,
+        context_messages: list[dict] | None = None
     ) -> str:
         
         final_text = ""
-        async for chunk in self.stream_run(prompt, images, previous_interaction_id, environment_id):
+        async for chunk in self.stream_run(prompt, images, previous_interaction_id, environment_id, context_messages):
             if chunk.startswith("data: "):
                 payload = chunk[6:].strip()
                 if payload:

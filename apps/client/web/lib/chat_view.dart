@@ -486,22 +486,25 @@ class _ChatViewState extends ConsumerState<ChatView> {
     _scrollToBottom();
   }
 
-  Future<void> _pickAndUploadFile() async {
+  Future<void> _pickUnifiedFile() async {
     try {
       FilePickerResult? result = await FilePicker.pickFiles(withData: true);
       if (result != null && result.files.single.bytes != null) {
         final file = result.files.single;
-        ref
-            .read(chatProvider.notifier)
-            .addMessage("System: Uploading ${file.name}...");
-        await ref
-            .read(apiClientProvider)
-            .uploadDocument(file.name, file.bytes!, file.name);
-        ref.read(chatProvider.notifier).addMessage(
-            "System: Successfully uploaded ${file.name} to RAG contextual memory.");
+        final ext = file.extension?.toLowerCase() ?? '';
+        final isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp'].contains(ext);
+        
+        final pendingFile = PendingFile(
+          name: file.name,
+          type: isImage ? 'image' : 'document',
+          bytes: file.bytes!,
+          base64Data: isImage ? base64Encode(file.bytes!) : "",
+        );
+        
+        ref.read(chatProvider.notifier).attachFile(pendingFile);
       }
     } catch (e) {
-      ref.read(chatProvider.notifier).addMessage("System: Upload failed: $e");
+      ref.read(chatProvider.notifier).addMessage("System: Attachment failed: $e");
     }
   }
 
@@ -836,6 +839,15 @@ class _ChatViewState extends ConsumerState<ChatView> {
 
                     // Extract markdown images to build collages natively
                     String processedMsg = displayMsg;
+                    
+                    // Parse attached documents
+                    final List<String> attachedDocs = [];
+                    final documentRegex = RegExp(r'\[Attached Document: (.*?) \(Uploaded to Memory\)\]\n?');
+                    processedMsg = processedMsg.replaceAllMapped(documentRegex, (match) {
+                      attachedDocs.add(match.group(1)!);
+                      return '';
+                    });
+                    
                     final consecutiveImagesRegex = RegExp(r'(?:!\[.*?\]\(.*?\)\s*){2,}');
                     processedMsg = processedMsg.replaceAllMapped(consecutiveImagesRegex, (match) {
                       final block = match.group(0)!;
@@ -850,6 +862,8 @@ class _ChatViewState extends ConsumerState<ChatView> {
                     // Also clean up any loose <tool_call or </tool_call> that might have gotten split
                     processedMsg = processedMsg.replaceAll('<tool_call>', '').replaceAll('</tool_call>', '');
                     processedMsg = processedMsg.replaceAll('<tool_response>', '').replaceAll('</tool_response>', '');
+                    
+                    processedMsg = processedMsg.trim();
 
                     return TweenAnimationBuilder<double>(
                       key: ValueKey("msg_${chatState.messages.length}_$index"),
@@ -973,6 +987,42 @@ class _ChatViewState extends ConsumerState<ChatView> {
                                             );
                                           },
                                         );
+                                        }
+                                        
+                                        if (attachedDocs.isNotEmpty) {
+                                          Widget docsWidget = Wrap(
+                                            spacing: 8,
+                                            runSpacing: 8,
+                                            children: attachedDocs.map((docName) => Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white.withValues(alpha: 0.1),
+                                                borderRadius: BorderRadius.circular(8),
+                                                border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Icon(Icons.description, size: 16, color: Colors.blueAccent),
+                                                  const SizedBox(width: 8),
+                                                  Flexible(child: Text(docName, style: const TextStyle(color: Colors.white, fontSize: 12))),
+                                                ],
+                                              ),
+                                            )).toList(),
+                                          );
+                                          
+                                          if (processedMsg.isEmpty) {
+                                            mdBody = docsWidget;
+                                          } else {
+                                            mdBody = Column(
+                                              crossAxisAlignment: isAssistant ? CrossAxisAlignment.start : CrossAxisAlignment.end,
+                                              children: [
+                                                docsWidget,
+                                                const SizedBox(height: 12),
+                                                mdBody,
+                                              ],
+                                            );
+                                          }
                                         }
 
                                         if (!isAssistant) {
@@ -1150,131 +1200,33 @@ class _ChatViewState extends ConsumerState<ChatView> {
                               BoxShadow(
                                   color: Colors.black.withValues(alpha: 0.5),
                                   blurRadius: 24,
-                                  offset: const Offset(0, 10))
+                                                  offset: const Offset(0, 10))
                             ],
                           ),
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              if (ref
-                                  .watch(chatProvider)
-                                  .pendingImages
-                                  .isNotEmpty)
+                              if (ref.watch(chatProvider).pendingFiles.isNotEmpty)
                                 Container(
-                                    height: 60,
+                                    height: 75,
                                     alignment: Alignment.centerLeft,
                                     padding: const EdgeInsets.only(bottom: 8),
                                     child: ListView.builder(
                                         scrollDirection: Axis.horizontal,
-                                        itemCount: ref
-                                            .watch(chatProvider)
-                                            .pendingImages
-                                            .length,
+                                        itemCount: ref.watch(chatProvider).pendingFiles.length,
                                         itemBuilder: (context, idx) {
-                                          final b64 = ref
-                                              .watch(chatProvider)
-                                              .pendingImages[idx];
-                                          return Stack(
-                                            children: [
-                                              Container(
-                                                margin: const EdgeInsets.only(
-                                                    right: 8),
-                                                width: 50,
-                                                decoration: BoxDecoration(
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
-                                                  border: Border.all(
-                                                      color: Colors.white
-                                                          .withValues(
-                                                              alpha: 0.2)),
-                                                  image: DecorationImage(
-                                                    image: MemoryImage(
-                                                        base64Decode(b64)),
-                                                    fit: BoxFit.cover,
-                                                  ),
-                                                ),
-                                              ),
-                                              Positioned(
-                                                right: 0,
-                                                top: -4,
-                                                child: InkWell(
-                                                  onTap: () => ref
-                                                      .read(
-                                                          chatProvider.notifier)
-                                                      .clearAttachments(),
-                                                  child: Container(
-                                                    padding:
-                                                        const EdgeInsets.all(2),
-                                                    decoration:
-                                                        const BoxDecoration(
-                                                            color:
-                                                                Colors.black54,
-                                                            shape: BoxShape
-                                                                .circle),
-                                                    child: const Icon(
-                                                        Icons.close,
-                                                        size: 12,
-                                                        color: Colors.white),
-                                                  ),
-                                                ),
-                                              )
-                                            ],
+                                          final file = ref.watch(chatProvider).pendingFiles[idx];
+                                          return _HoverableAttachmentPill(
+                                            file: file,
+                                            onRemove: () => ref.read(chatProvider.notifier).removeAttachment(idx),
                                           );
                                         })),
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
-                                  PopupMenuButton<String>(
-                                    icon: const Icon(Icons.attach_file,
-                                        size: 22, color: Colors.white60),
-                                    color: const Color(0xFF1B1B1B),
-                                    offset: const Offset(0, -100),
-                                    shape: RoundedRectangleBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(12)),
-                                    onSelected: (value) async {
-                                      if (value == 'document') {
-                                        _pickAndUploadFile();
-                                      } else if (value == 'image') {
-                                        FilePickerResult? result =
-                                            await FilePicker.pickFiles(
-                                                type: FileType.image,
-                                                withData: true);
-                                        if (result != null &&
-                                            result.files.single.bytes != null) {
-                                          String base64Img = base64Encode(
-                                              result.files.single.bytes!);
-                                          ref
-                                              .read(chatProvider.notifier)
-                                              .attachImage(base64Img);
-                                        }
-                                      }
-                                    },
-                                    itemBuilder: (BuildContext context) =>
-                                        <PopupMenuEntry<String>>[
-                                      const PopupMenuItem<String>(
-                                        value: 'image',
-                                        child: Row(children: [
-                                          Icon(Icons.image,
-                                              color: Colors.white70, size: 20),
-                                          SizedBox(width: 12),
-                                          Text('Attach Image to Message',
-                                              style: TextStyle(
-                                                  color: Colors.white)),
-                                        ]),
-                                      ),
-                                      const PopupMenuItem<String>(
-                                        value: 'document',
-                                        child: Row(children: [
-                                          Icon(Icons.upload_file,
-                                              color: Colors.white70, size: 20),
-                                          SizedBox(width: 12),
-                                          Text('Upload Document to Memory',
-                                              style: TextStyle(
-                                                  color: Colors.white)),
-                                        ]),
-                                      ),
-                                    ],
+                                  IconButton(
+                                    icon: const Icon(Icons.attach_file, size: 22, color: Colors.white60),
+                                    onPressed: _pickUnifiedFile,
                                   ),
                                   const SizedBox(width: 4),
                                   Expanded(
@@ -2897,6 +2849,102 @@ class _UserMessageEditorState extends State<_UserMessageEditor> {
               )
             ],
           )
+        ],
+      ),
+    );
+  }
+}
+
+class _HoverableAttachmentPill extends StatefulWidget {
+  final dynamic file;
+  final VoidCallback onRemove;
+
+  const _HoverableAttachmentPill({required this.file, required this.onRemove});
+
+  @override
+  State<_HoverableAttachmentPill> createState() => _HoverableAttachmentPillState();
+}
+
+class _HoverableAttachmentPillState extends State<_HoverableAttachmentPill> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            margin: const EdgeInsets.only(right: 8, top: 4),
+            constraints: const BoxConstraints(maxWidth: 240),
+            width: widget.file.type == 'image' ? 50 : null,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+              color: widget.file.type == 'image' ? null : const Color(0xFF2C2C2C),
+              image: widget.file.type == 'image'
+                  ? DecorationImage(
+                      image: MemoryImage(base64Decode(widget.file.base64Data)),
+                      fit: BoxFit.cover,
+                    )
+                  : null,
+            ),
+            child: widget.file.type != 'image'
+                ? Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 10.0),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.redAccent.withValues(alpha: 0.5)),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text("PDF", style: TextStyle(color: Colors.redAccent, fontSize: 8, fontWeight: FontWeight.bold)),
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(widget.file.name,
+                                  style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis),
+                              const SizedBox(height: 2),
+                              Text(widget.file.type.toUpperCase(),
+                                  style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 10, fontWeight: FontWeight.w500)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : null,
+          ),
+          if (_isHovered)
+            Positioned(
+              right: 0,
+              top: 0,
+              child: InkWell(
+                onTap: widget.onRemove,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))
+                    ],
+                  ),
+                  child: const Icon(Icons.close, size: 10, color: Colors.black87),
+                ),
+              ),
+            ),
         ],
       ),
     );

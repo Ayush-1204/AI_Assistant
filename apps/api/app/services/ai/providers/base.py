@@ -47,15 +47,4 @@ class BaseLLMProvider(ABC):
         ai_response: str,
     ) -> str:
         pass
-
-    @abstractmethod
-    async def extract_memory(
-        self,
-        message: str,
-    ) -> dict | None:
-        """
-        Return structured memory.
-
-        Returns None if no memory should be stored.
-        """
-        pass
+

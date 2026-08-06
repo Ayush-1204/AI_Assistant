@@ -48,6 +48,7 @@ class RetrievalService:
         query: str,
         user_id: int,
         top_k: int | None = None,
+        document_filename: str | None = None,
     ) -> list[RetrievalResult]:
 
         resolved_top_k = self.default_top_k if top_k is None else top_k
@@ -70,7 +71,8 @@ class RetrievalService:
                 query=query, 
                 embedding=embedding, 
                 user_id=user_id, 
-                top_k=target_k
+                top_k=target_k,
+                document_filename=document_filename
             )
             dense_latency = (perf_counter() - start) * 1000.0
             return [RetrievalResult(chunk=c, distance=float(d)) for c, d in rows]
@@ -83,7 +85,8 @@ class RetrievalService:
             rows = await self.chunk_repository.keyword_search(
                 query=query,
                 user_id=user_id,
-                top_k=settings.keyword_top_k
+                top_k=settings.keyword_top_k,
+                document_filename=document_filename
             )
             keyword_latency = (perf_counter() - start) * 1000.0
             return [RetrievalResult(chunk=c, keyword_score=float(rank)) for c, rank in rows]

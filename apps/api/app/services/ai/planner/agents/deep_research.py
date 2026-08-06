@@ -16,11 +16,21 @@ class DeepResearchAgent:
         self.router = router
         self.search_tool = WebSearchTool(TavilySearchProvider())
 
-    async def run(self, query: str) -> str:
+    async def run(self, query: str, context_messages: list[dict] | None = None) -> str:
         """Executes a deep multi-hop web scraping analysis pipeline."""
         
+        memory_context = ""
+        if context_messages and len(context_messages) > 0 and context_messages[0].get("role") == "system":
+            sys_content = context_messages[0].get("content", "")
+            if "=== RELEVANT MEMORIES ===" in sys_content:
+                memory_parts = sys_content.split("=== RELEVANT MEMORIES ===")
+                if len(memory_parts) > 1:
+                    memory_context = "=== RELEVANT MEMORIES ===" + memory_parts[1].split("===")[0]
+
         # 1. Synthesize parallel search queries based on intent
         synthesis_prompt = f"""You are an elite Research Strategist. 
+{memory_context}
+
 Given the user query below, break it down into exactly three (3) distinct Google search queries that would yield the most comprehensive information to solve it.
 Return ONLY a comma-separated list of the 3 text strings, without numbering. 
 User Query: {query}"""
@@ -52,6 +62,8 @@ User Query: {query}"""
             
         # 3. Final Formatted Generation
         final_prompt = f"""You are a specialized Deep Research agent.
+{memory_context}
+
 Using ONLY the following verified web excerpts, generate a highly comprehensive, academic-grade markdown report answering the original query.
 IMPORTANT: You MUST include inline citation links mapping to the URLs provided in the excerpts!
 

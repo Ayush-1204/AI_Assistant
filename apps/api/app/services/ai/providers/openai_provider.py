@@ -135,7 +135,16 @@ class OpenAICompatibleProvider(BaseLLMProvider):
                 
             if isinstance(m, dict) and "images" in m:
                 m_clean = m.copy()
-                m_clean.pop("images", None)
+                images = m_clean.pop("images", [])
+                if images:
+                    content_array = []
+                    content_array.append({"type": "text", "text": m_clean.get("content", "")})
+                    for img in images:
+                        content_array.append({
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/jpeg;base64,{img}"}
+                        })
+                    m_clean["content"] = content_array
                 return m_clean
             return m
             
@@ -220,9 +229,6 @@ class OpenAICompatibleProvider(BaseLLMProvider):
         except Exception:
             return "New Conversation"
 
-    async def extract_memory(self, message: str) -> dict | None:
-        return None
-
     async def stream_chat(
         self,
         messages: list[dict],
@@ -270,7 +276,16 @@ class OpenAICompatibleProvider(BaseLLMProvider):
                 
             if isinstance(m, dict) and "images" in m:
                 m_clean = m.copy()
-                m_clean.pop("images", None)
+                images = m_clean.pop("images", [])
+                if images:
+                    content_array = []
+                    content_array.append({"type": "text", "text": m_clean.get("content", "")})
+                    for img in images:
+                        content_array.append({
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/jpeg;base64,{img}"}
+                        })
+                    m_clean["content"] = content_array
                 return m_clean
             return m
             

@@ -106,6 +106,7 @@ class DocumentChunkRepository:
         embedding: list[float],
         user_id: int,
         top_k: int = 5,
+        document_filename: str | None = None,
     ) -> list[tuple[DocumentChunk, float]]:
         """
         Perform semantic search using pgvector cosine distance.
@@ -128,16 +129,21 @@ class DocumentChunkRepository:
             else_=distance
         ).label("match_score")
 
+        filters = [
+            Document.user_id == user_id,
+            Document.status == DocumentStatus.READY,
+        ]
+        
+        if document_filename:
+            filters.append(Document.original_filename.ilike(f"%{document_filename}%"))
+
         stmt = (
             select(
                 DocumentChunk,
                 match_score,
             )
             .join(Document)
-            .where(
-                Document.user_id == user_id,
-                Document.status == DocumentStatus.READY,
-            )
+            .where(*filters)
             .order_by(match_score.asc(), distance.asc())
             .limit(top_k)
             .options(
@@ -160,6 +166,7 @@ class DocumentChunkRepository:
         query: str,
         user_id: int,
         top_k: int = 5,
+        document_filename: str | None = None,
     ) -> list[tuple[DocumentChunk, float]]:
         """
         Perform PostgreSQL full-text keyword search natively isolating textual limits.
@@ -171,17 +178,22 @@ class DocumentChunkRepository:
         tsvector = func.to_tsvector('english', DocumentChunk.content)
         rank = func.ts_rank(tsvector, tsquery).label("rank")
 
+        filters = [
+            Document.user_id == user_id,
+            Document.status == DocumentStatus.READY,
+            tsvector.op("@@")(tsquery)
+        ]
+        
+        if document_filename:
+            filters.append(Document.original_filename.ilike(f"%{document_filename}%"))
+
         stmt = (
             select(
                 DocumentChunk,
                 rank,
             )
             .join(Document)
-            .where(
-                Document.user_id == user_id,
-                Document.status == DocumentStatus.READY,
-                tsvector.op("@@")(tsquery)
-            )
+            .where(*filters)
             .order_by(rank.desc())
             .limit(top_k)
             .options(

@@ -90,7 +90,7 @@ class AIService:
             from app.services.ai.providers.router import ProviderRouter
             router_inst = typing.cast(ProviderRouter, self.provider)
             agent = DeepResearchAgent(router_inst)
-            final_response = await agent.run(prompt)
+            final_response = await agent.run(prompt, context_messages=messages)
         elif intent == "swarm":
             import typing
             from app.services.ai.providers.router import ProviderRouter
@@ -103,7 +103,7 @@ class AIService:
         elif intent == "antigravity":
             from app.services.ai.planner.agents.antigravity import AntigravityAgent
             ag_agent = AntigravityAgent()
-            final_response = await ag_agent.run(prompt, images=images)
+            final_response = await ag_agent.run(prompt, images=images, context_messages=messages)
         else:
             planner = Planner(self.provider, strategy, intent=intent)
             executor = AgentExecutor(planner, self.tool_orchestrator, strategy, intent=intent)
@@ -204,7 +204,7 @@ class AIService:
             elif intent == "antigravity":
                 from app.services.ai.planner.agents.antigravity import AntigravityAgent
                 ag_agent = AntigravityAgent()
-                async for chunk in ag_agent.stream_run(prompt, images=images):
+                async for chunk in ag_agent.stream_run(prompt, images=images, context_messages=messages):
                     if chunk.startswith("data: ") and '"delta"' in chunk:
                         try:
                             delta = json.loads(chunk[6:])['delta']

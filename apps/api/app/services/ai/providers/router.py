@@ -2,7 +2,7 @@ import asyncio
 import logging
 import time
 from collections.abc import AsyncGenerator
-from typing import Any
+from typing import Any, Literal, TypedDict, overload
 
 from app.config import get_settings
 from app.services.ai.providers.base import BaseLLMProvider
@@ -23,6 +23,10 @@ from app.services.ai.providers.strategies import (
 )
 
 logger = logging.getLogger(__name__)
+
+class ProviderHealthCache(TypedDict):
+    is_healthy: bool
+    last_checked: float
 
 class TokenBucket:
     def __init__(self, capacity: int, refill_period: float):
@@ -72,7 +76,7 @@ class ProviderRouter(BaseLLMProvider):
         self.settings = get_settings()
         
         # Health cache tracking internal up-states independently scaling away from requests payloads
-        self._health_cache: dict[str, dict] = {}
+        self._health_cache: dict[str, ProviderHealthCache] = {}
         self.budgets: dict[str, ProviderBudget] = {}
         
         self.strategy_type = self.settings.routing_strategy
@@ -207,12 +211,17 @@ class ProviderRouter(BaseLLMProvider):
                 for msg in args[0]:
                     if isinstance(msg, dict) and "content" in msg and isinstance(msg["content"], str):
                         tokens += len(msg["content"]) // 4
-        elif operation == "generate_title" or operation == "extract_memory":
+        elif operation == "generate_title":
             if args and isinstance(args[0], str):
                 tokens += len(args[0]) // 4
         return tokens
 
-    async def _execute_with_router(self, operation: str, *args, intent: str = "general", **kwargs):
+    @overload
+    async def _execute_with_router(self, operation: Literal["chat"], *args, intent: str = "general", **kwargs) -> str: ...
+    @overload
+    async def _execute_with_router(self, operation: Literal["generate_title"], *args, intent: str = "general", **kwargs) -> str: ...
+
+    async def _execute_with_router(self, operation: str, *args, intent: str = "general", **kwargs) -> Any:
         # Determine if payload requires vision capability natively
         requires_vision = False
         if operation in ("chat", "stream_chat") and len(args) > 0 and isinstance(args[0], list):
@@ -242,8 +251,6 @@ class ProviderRouter(BaseLLMProvider):
                         result = await provider.chat(*args, intent=intent, **kwargs)
                     elif operation == "generate_title":
                         result = await provider.generate_title(*args, **kwargs)
-                    elif operation == "extract_memory":
-                        result = await provider.extract_memory(*args, **kwargs)
                         
                     # Calculate live proxy token usage
                     if isinstance(result, str):
@@ -280,18 +287,17 @@ class ProviderRouter(BaseLLMProvider):
                     
         raise AllProvidersFailedError("All providers fallback chain entirely failed.")
 
-    async def chat(self, messages: list[dict], tools: list[dict] | None = None, intent: str = "general") -> str:
-        return await self._execute_with_router("chat", messages, tools=tools, intent=intent)
+    async def chat(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None = None, intent: str = "general") -> str:
+        return str(await self._execute_with_router("chat", messages, tools=tools, intent=intent))
 
     async def generate_title(self, ai_response: str) -> str:
         return await self._execute_with_router("generate_title", ai_response)
 
-    async def extract_memory(self, message: str) -> dict | None:
-        return await self._execute_with_router("extract_memory", message)
 
-    async def stream_chat(self, messages: list[dict], tools: list[dict] | None = None, intent: str = "general") -> AsyncGenerator[Any, None]:
-        requires_vision = any("images" in m and bool(m.get("images")) for m in messages)
-        available_at_start = await self._get_available_providers(requires_vision)
+
+    async def stream_chat(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None = None, intent: str = "general") -> AsyncGenerator[Any, None]:
+        requires_vision = any("images" in m and bool(m.get("images", False)) for m in messages)
+        available_at_start = await self._get_available_providers(bool(requires_vision))
         tried_providers = set()
         estimated_tokens = self._estimate_tokens("stream_chat", (messages,))
         

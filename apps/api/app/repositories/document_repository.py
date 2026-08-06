@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Document
@@ -46,7 +46,20 @@ class DocumentRepository:
             )
         )
 
-        return result.scalar_one_or_none()
+        return result.scalars().first()
+
+    async def count_by_storage_path(
+        self,
+        storage_path: str,
+    ) -> int:
+
+        result = await self.db.execute(
+            select(func.count(Document.id)).where(
+                Document.storage_path == storage_path
+            )
+        )
+
+        return result.scalar_one()
 
     async def list_by_user(
         self,
@@ -57,6 +70,17 @@ class DocumentRepository:
             select(Document)
             .where(Document.user_id == user_id)
             .order_by(Document.created_at.desc())
+        )
+
+        return list(result.scalars().all())
+
+    async def get_expired_documents(
+        self,
+    ) -> list[Document]:
+
+        result = await self.db.execute(
+            select(Document)
+            .where(Document.expires_at < func.now())
         )
 
         return list(result.scalars().all())

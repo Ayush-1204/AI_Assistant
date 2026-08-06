@@ -32,4 +32,6 @@ class OllamaEmbeddingProvider(BaseEmbeddingProvider):
             input=text,
         )
 
-        return response.embeddings[0]
+        if not response.embeddings:
+            return [0.0] * 768
+        return list(response.embeddings[0])

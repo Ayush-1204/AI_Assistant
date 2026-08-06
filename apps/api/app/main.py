@@ -29,6 +29,7 @@ from app.routers.tasks import router as tasks_router
 from app.routers.voice import router as voice_router
 from app.routers.media import router as media_router
 from app.routers.scheduled_tasks import router as scheduled_tasks_router
+from app.routers.memory import router as memory_router
 
 settings = get_settings()
 
@@ -66,3 +67,4 @@ app.include_router(voice_router)
 app.include_router(dashboard_router)
 app.include_router(media_router)
 app.include_router(scheduled_tasks_router)
+app.include_router(memory_router)

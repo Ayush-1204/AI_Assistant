@@ -6,6 +6,7 @@ from app.db.models.note import Note
 from app.repositories.document_repository import DocumentRepository
 from app.repositories.note_repository import NoteRepository
 from app.services.documents.processor import DocumentProcessor
+from app.services.documents.background import process_document_background_task
 
 
 class NoteService:
@@ -57,7 +58,7 @@ class NoteService:
         note.document_id = doc.id
         await self.note_repository.update(note)
         
-        asyncio.create_task(self.document_processor.process(doc))
+        asyncio.create_task(process_document_background_task(doc.id))
         
         return note
 
@@ -97,7 +98,7 @@ class NoteService:
                     # Instead of creating duplicate chunks randomly, we should optimally 
                     # let DocumentProcessor handle chunks gracefully, 
                     # but for now running this again will embed it linearly!
-                    asyncio.create_task(self.document_processor.process(doc))
+                    asyncio.create_task(process_document_background_task(doc.id))
                     
         return note
 

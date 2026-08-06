@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:markdown/markdown.dart' as md;
@@ -104,7 +105,24 @@ class AiMessageRenderer extends StatelessWidget {
           }
         }
       },
-      imageBuilder: imageBuilder,
+      imageBuilder: imageBuilder ?? (uri, title, alt) {
+        if (uri.scheme == 'data') {
+          try {
+            final base64Str = uri.data?.contentAsString() ?? '';
+            return Container(
+              margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+              constraints: const BoxConstraints(maxHeight: 250),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Image.memory(base64Decode(base64Str), fit: BoxFit.cover),
+            );
+          } catch (_) {}
+        }
+        return Image.network(uri.toString());
+      },
       builders: {
         'pre': CodeBlockBuilder(context),
         'code': InlineCodeBuilder(context),

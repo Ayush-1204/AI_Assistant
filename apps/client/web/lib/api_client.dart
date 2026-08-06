@@ -145,6 +145,15 @@ class ApiClient {
     }
   }
 
+  Future<List<dynamic>> fetchMemories() async {
+    try {
+      final response = await _dio.get('/memory');
+      return response.data as List<dynamic>;
+    } catch (_) {
+      return [];
+    }
+  }
+
   Future<List<dynamic>> fetchTasks() async {
     try {
       final response = await _dio.get('/tasks');

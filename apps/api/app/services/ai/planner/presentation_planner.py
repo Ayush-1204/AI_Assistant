@@ -86,13 +86,23 @@ class PresentationPlanner:
     def __init__(self, provider: BaseLLMProvider):
         self.provider = provider
 
-    async def plan_layout(self, query: str, context: CuratedContext) -> list[dict[str, Any]]:
+    async def plan_layout(self, query: str, context: CuratedContext, context_messages: list[dict] | None = None) -> list[dict[str, Any]]:
         """
         Step 1: Decide the UI structure first based on the query and curated context.
         Returns a list of node schemas with just 'id', 'type', and 'purpose', NO CONTENT.
         """
+        memory_context = ""
+        if context_messages and len(context_messages) > 0 and context_messages[0].get("role") == "system":
+            sys_content = context_messages[0].get("content", "")
+            if "=== RELEVANT MEMORIES ===" in sys_content:
+                memory_parts = sys_content.split("=== RELEVANT MEMORIES ===")
+                if len(memory_parts) > 1:
+                    memory_context = "=== RELEVANT MEMORIES ===" + memory_parts[1].split("===")[0]
+
         prompt = f"""You are a UI Layout Designer. Decide the best visual layout for the user's query based on the Curated Context.
 DO NOT generate the actual text/content yet. Only generate the structural blueprint.
+
+{memory_context}
 
 User Query: {query}
 
@@ -125,7 +135,8 @@ Return ONLY a JSON array of objects. EVERY object must have:
 
 CRITICAL INSTRUCTION: If you use a rich card (like WeatherCard or NewsCard), you MUST also include a 'Paragraph' node either before or after it to provide a conversational, descriptive brief to the user.
 CRITICAL INSTRUCTION FOR NEWS: If the user specifically asked for news or current events, and the context contains multiple distinct news stories, you MUST generate a separate NewsCard for EACH distinct story. If the user did NOT ask for news, DO NOT output NewsCards, even if news stories are present in the context!
-CRITICAL INSTRUCTION FOR IMAGES: If "Available Images" is not empty, you MUST include an 'ImageGallery' node in your layout to display them!
+CRITICAL INSTRUCTION FOR IMAGES: If "Available Images" is empty, you are STRICTLY FORBIDDEN from generating an 'ImageGallery' node! If it is not empty, you MUST include an 'ImageGallery' node.
+CRITICAL INSTRUCTION FOR COMPARISON: If the user asks to compare entities or options, you MUST include a 'ComparisonTable' node.
 ImageGallery Layout Heuristics:
 - Use 'bento' layout for: Single famous person/place/product, Introduction to one topic (acts as a visual cover page). Requires at least 4 images.
 - Use 'carousel' layout for: User browsing options, Comparing multiple entities, Explaining a process, Visual inspiration.
@@ -161,12 +172,22 @@ Example:
         fallback: list[dict[str, Any]] = [{"id": "fallback_1", "type": "Paragraph", "purpose": "Display raw response"}]
         return fallback
 
-    async def generate_content(self, query: str, layout: list[dict[str, Any]], context: CuratedContext) -> list[dict[str, Any]]:
+    async def generate_content(self, query: str, layout: list[dict[str, Any]], context: CuratedContext, context_messages: list[dict] | None = None) -> list[dict[str, Any]]:
         """
         Step 2: Generate the content to perfectly fit the decided UI layout.
         """
+        memory_context = ""
+        if context_messages and len(context_messages) > 0 and context_messages[0].get("role") == "system":
+            sys_content = context_messages[0].get("content", "")
+            if "=== RELEVANT MEMORIES ===" in sys_content:
+                memory_parts = sys_content.split("=== RELEVANT MEMORIES ===")
+                if len(memory_parts) > 1:
+                    memory_context = "=== RELEVANT MEMORIES ===" + memory_parts[1].split("===")[0]
+                    
         prompt = f"""You are a UI Content Writer. Your job is to fill in the exact content for a predefined UI Layout.
 You must use the Curated Context to populate the fields. DO NOT invent facts.
+
+{memory_context}
 
 Curated Context Summary & Facts:
 {json.dumps(context.model_dump(exclude={'raw_data'}), indent=2)}
@@ -264,12 +285,22 @@ Return ONLY a JSON array containing the fully populated nodes from the Predefine
         ]
         return fallback
 
-    async def generate_content_stream(self, query: str, layout: list[dict[str, Any]], context: CuratedContext) -> typing.AsyncGenerator[dict[str, Any], None]:
+    async def generate_content_stream(self, query: str, layout: list[dict[str, Any]], context: CuratedContext, context_messages: list[dict] | None = None) -> typing.AsyncGenerator[dict[str, Any], None]:
         """
         Step 2 (Streaming): Generates content progressively and yields each PresentationNode as soon as it is complete.
         """
+        memory_context = ""
+        if context_messages and len(context_messages) > 0 and context_messages[0].get("role") == "system":
+            sys_content = context_messages[0].get("content", "")
+            if "=== RELEVANT MEMORIES ===" in sys_content:
+                memory_parts = sys_content.split("=== RELEVANT MEMORIES ===")
+                if len(memory_parts) > 1:
+                    memory_context = "=== RELEVANT MEMORIES ===" + memory_parts[1].split("===")[0]
+                    
         prompt = f"""You are a UI Content Writer. Your job is to fill in the exact content for a predefined UI Layout.
 You must use the Curated Context to populate the fields. DO NOT invent facts.
+
+{memory_context}
 
 Curated Context Summary & Facts:
 {json.dumps(context.model_dump(exclude={'raw_data'}), indent=2)}

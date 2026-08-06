@@ -457,12 +457,16 @@ def get_document_service(
     processor: DocumentProcessor = Depends(
         get_document_processor,
     ),
+    chunk_repository: DocumentChunkRepository = Depends(
+        get_document_chunk_repository,
+    ),
 ) -> DocumentService:
 
     return DocumentService(
         repository=repository,
         storage_service=storage_service,
         processor=processor,
+        chunk_repository=chunk_repository,
     )
 
 def get_note_service(
@@ -519,7 +523,7 @@ def get_tool_orchestrator(
     registry.register(WolframAlphaTool(settings.WOLFRAM_ALPHA_APP_ID))
     registry.register(ArxivTool())
     registry.register(SemanticScholarTool())
-    registry.register(DocumentSearchTool(retrieval_service))
+    registry.register(DocumentSearchTool(retrieval_service, memory_service))
     registry.register(MemorySearchTool(memory_service))
     
     registry.register(NotesTool(note_service))

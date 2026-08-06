@@ -31,6 +31,11 @@ async def lifespan(app: FastAPI):
         import asyncio
         reflection_task = asyncio.create_task(reflection.start_loop())
 
+    from app.services.documents.background import document_cleanup_loop
+    import asyncio
+    print("Booting Document Cleanup Daemon...")
+    cleanup_task = asyncio.create_task(document_cleanup_loop())
+
     yield
 
     if scheduler:
@@ -40,6 +45,10 @@ async def lifespan(app: FastAPI):
     if reflection_task:
         print("Shutting down Reflection Loop...")
         reflection_task.cancel()
+
+    if cleanup_task:
+        print("Shutting down Document Cleanup Daemon...")
+        cleanup_task.cancel()
 
     print("===================================")
     print("Second Brain API Stopped.")

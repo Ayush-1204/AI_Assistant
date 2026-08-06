@@ -3,6 +3,7 @@ from pathlib import Path
 from .base import BaseExtractor
 from .pdf_extractor import PDFExtractor
 from .text_extractor import TextExtractor
+from .docx_extractor import DocxExtractor
 
 
 class ExtractorRegistry:
@@ -15,6 +16,7 @@ class ExtractorRegistry:
             ".txt": TextExtractor(),
             ".md": TextExtractor(),
             ".json": TextExtractor(),
+            ".docx": DocxExtractor(),
 
         }
 
