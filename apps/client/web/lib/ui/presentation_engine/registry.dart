@@ -18,6 +18,10 @@ class PresentationRegistry {
     'Timeline': (context, node) => TimelineWidget(node: node as TimelineNode),
     'Accordion': (context, node) => AccordionWidget(node: node as AccordionNode),
     'ImageGallery': (context, node) => ImageGalleryWidget(node: node as ImageGalleryNode),
+    'header': (context, node) => HeaderWidget(node: node as HeaderNode),
+    'grid': (context, node) => GridWidget(node: node as GridNode),
+    'card': (context, node) => CardWidget(node: node as CardNode),
+    'section': (context, node) => SectionWidget(node: node as SectionNode),
     // Additional widgets can be registered here
   };
 

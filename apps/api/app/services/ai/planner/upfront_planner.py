@@ -52,7 +52,8 @@ CRITICAL INSTRUCTION: If the request requires multiple independent facts or news
 Return EXACTLY and ONLY a valid JSON object matching the above keys.
 """
         if context_messages and len(context_messages) > 1 and context_messages[0].get("role") == "system":
-            messages = [{"role": "system", "content": system_prompt}] + context_messages[1:]
+            clean_context = [{"role": m.get("role", ""), "content": m.get("content", "")} for m in context_messages[1:]]
+            messages = [{"role": "system", "content": system_prompt}] + clean_context
         else:
             messages = [
                 {"role": "system", "content": system_prompt},

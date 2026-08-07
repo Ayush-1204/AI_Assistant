@@ -676,7 +676,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
       return;
     }
     state = state.copyWith(messages: state.messages.sublist(0, index));
-    await sendMessage("User: $newText");
+    await sendMessage(newText);
   }
 
 

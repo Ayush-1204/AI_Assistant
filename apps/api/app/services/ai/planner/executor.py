@@ -206,6 +206,7 @@ class AgentExecutor:
                 original_task = plan.get("tasks", [])[i] if i < len(plan.get("tasks", [])) else {}
                 replan_task = await self.upfront.replan_branch(query, original_task, report.reason)
                 if replan_task:
+                    trace.replans_triggered += 1
                     replan_results = await self.execute_task_graph([replan_task], context, trace)
                     for rr in replan_results:
                         rr_report = await self.validator.validate(query, rr)
@@ -218,9 +219,16 @@ class AgentExecutor:
         layout = await self.presentation_planner.plan_layout(query, curated_context, context_messages=messages)
         
         # Stream out the Presentation Nodes as they are completed
+        # Accumulate the final JSON to evaluate for quality
+        accumulated_nodes = []
         async for node in self.presentation_planner.generate_content_stream(query, layout, curated_context, context_messages=messages):
+            accumulated_nodes.append(node)
             payload = json.dumps({"type": "presentation_node", "node": node})
             yield f"data: {payload}\n\n"
+            
+        final_presentation_json = json.dumps(accumulated_nodes, indent=2)
+        passed = await self.evaluator.evaluate(final_presentation_json, curated_context)
+        trace.final_quality_score = 1.0 if passed else 0.0
                  
         trace.end_time = datetime.now()
         logger.info(f"[Trace] Streaming completed. {trace.model_dump_json()}")

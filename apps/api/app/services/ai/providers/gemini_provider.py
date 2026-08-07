@@ -78,7 +78,10 @@ class GeminiProvider(BaseLLMProvider):
             if msg.get("images"):
                 for b64 in msg["images"]:
                     try:
-                        parts.append(gt.Part.from_bytes(data=base64.b64decode(b64), mime_type="image/jpeg"))
+                        clean_b64 = b64
+                        if "," in b64:
+                            clean_b64 = b64.split(",", 1)[1]
+                        parts.append(gt.Part.from_bytes(data=base64.b64decode(clean_b64), mime_type="image/jpeg"))
                     except Exception as e:
                         import logging
                         logger = logging.getLogger(__name__)

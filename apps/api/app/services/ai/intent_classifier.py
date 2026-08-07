@@ -11,7 +11,10 @@ class IntentClassifier:
     def __init__(self):
         self.router = _router_instance
 
-    async def classify(self, prompt: str) -> str:
+    async def classify(self, prompt: str, images: list[str] | None = None) -> str:
+        if images and len(images) > 0:
+            return "VISION"
+            
         system_prompt = """You are a sub-100ms intent classifier. 
 Categorize the user's input into EXACTLY ONE of the following tags:
 - [TASK] (e.g. reminders, todo list, setting alarm)

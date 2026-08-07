@@ -225,6 +225,12 @@ class ProviderRouter(BaseLLMProvider):
         # Determine if payload requires vision capability natively
         requires_vision = False
         if operation in ("chat", "stream_chat") and len(args) > 0 and isinstance(args[0], list):
+            for msg in args[0]:
+                if isinstance(msg, dict) and "content" in msg and isinstance(msg["content"], str):
+                    if len(msg["content"]) > 50000:
+                        logger.warning(f"[Router] CRITICAL: Message payload extremely large ({len(msg['content'])} chars). Truncating to prevent provider crash.")
+                        msg["content"] = msg["content"][:50000] + "... [TRUNCATED DUE TO SIZE]"
+                        
             requires_vision = any("images" in m and bool(m.get("images")) for m in args[0])
             
         available_at_start = await self._get_available_providers(requires_vision)

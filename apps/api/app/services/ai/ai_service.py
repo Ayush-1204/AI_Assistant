@@ -65,8 +65,11 @@ class AIService:
         if is_regenerate:
             await self.message_service.delete_last_n_messages(conversation_id, count=2)
             
-        await self.message_service.create(conversation_id, MessageCreate(role=MessageRole.USER, content=prompt, images=images))
-        await self.memory_service.process_message(user_id=user_id, message=prompt)
+        import re
+        clean_prompt = re.sub(r"!\[attachment\]\(data:image\/[^;]+;base64,[^\)]+\)", "[Attached Image]", prompt)
+            
+        await self.message_service.create(conversation_id, MessageCreate(role=MessageRole.USER, content=clean_prompt, images=images))
+        await self.memory_service.process_message(user_id=user_id, message=clean_prompt)
 
         messages, citations = await self.context_builder.build(user_id=user_id, conversation_id=conversation_id, query=prompt, location_lat=location_lat, location_lon=location_lon, user_name=user_name)
 
@@ -75,17 +78,28 @@ class AIService:
         if tool_extension and messages and messages[0].get("role") == "system":
             messages[0]["content"] += tool_extension
 
-        context = {"user_id": user_id, "conversation_id": conversation_id}
+        context = {"user_id": user_id, "conversation_id": conversation_id, "images": images}
         tools_payload = strategy.get_tools_for_provider()
         
         # Override intent dynamically
         if intent == "general":
             from app.services.ai.intent_classifier import IntentClassifier
-            intent = await IntentClassifier().classify(prompt)
+            intent = await IntentClassifier().classify(prompt, images=images)
             logger.info(f"[AIService] Analyzed intent: '{intent}'")
             
         logger.info(f"[AIService] Dispatching execution loop with intent: '{intent}'")
-        if intent == "deep_research":
+        if intent == "VISION" and images:
+            import typing
+            from app.services.ai.providers.router import ProviderRouter
+            router_inst = typing.cast(ProviderRouter, self.provider)
+            
+            # OPTION B: Inject live image data specifically for the vision path
+            if messages and messages[-1].get("role") == "user":
+                messages[-1]["images"] = images
+                logger.info(f"[AIService] DEBUG VISION: Injected {len(images)} images into live payload.")
+            
+            final_response = await router_inst.chat(messages, intent="vision")
+        elif intent == "deep_research":
             import typing
 
             from app.services.ai.providers.router import ProviderRouter
@@ -127,7 +141,8 @@ class AIService:
         metadata = {
             "model_used": f"Provider Router ({intent.upper()})",
             "retrieval_chunks": len(citations),
-            "latency_ms": round(latency_ms, 2)
+            "latency_ms": round(latency_ms, 2),
+            "memories": getattr(self.context_builder, "last_metadata", {}).get("memories_list", [])
         }
         return final_response, citations, metadata
 
@@ -171,7 +186,7 @@ class AIService:
         # Override intent dynamically
         if intent == "general":
             from app.services.ai.intent_classifier import IntentClassifier
-            intent = await IntentClassifier().classify(prompt)
+            intent = await IntentClassifier().classify(prompt, images=images)
             logger.info(f"[AIService] Analyzed streaming intent: '{intent}'")
         
         logger.info(f"[AIService] Dispatching streaming execution loop with intent: '{intent}'")
@@ -179,7 +194,24 @@ class AIService:
         
         import asyncio
         try:
-            if intent == "deep_research":
+            if intent == "VISION" and images:
+                import typing
+                from app.services.ai.providers.router import ProviderRouter
+                router_inst = typing.cast(ProviderRouter, self.provider)
+                
+                # OPTION B: Inject live image data specifically for the vision path
+                if messages and messages[-1].get("role") == "user":
+                    messages[-1]["images"] = images
+                    logger.info(f"[AIService] DEBUG VISION: Injected {len(images)} images into live payload.")
+                
+                yield f"data: {json.dumps({'type': 'tool', 'name': 'Analyzing Image...'})}\n\n"
+                async for chunk in router_inst.stream_chat(messages, intent="vision"):
+                    if isinstance(chunk, str):
+                        payload = json.dumps({"type": "content", "delta": chunk})
+                        yield f"data: {payload}\n\n"
+                        final_response += chunk
+                yield f"data: {json.dumps({'type': 'tool', 'name': 'Image Analysis completed.'})}\n\n"
+            elif intent == "deep_research":
                 import typing
     
                 from app.services.ai.providers.router import ProviderRouter
@@ -243,7 +275,8 @@ class AIService:
                 "type": "metadata",
                 "model_used": f"Provider Router ({intent.upper()})",
                 "retrieval_chunks": len(citations),
-                "latency_ms": round(latency_ms, 2)
+                "latency_ms": round(latency_ms, 2),
+                "memories": getattr(self.context_builder, "last_metadata", {}).get("memories_list", [])
             }
             try:
                 yield f"data: {json.dumps(metadata_dump)}\n\n"

@@ -215,3 +215,12 @@ This document aggregates the implementation plans and walkthrough summaries for 
   - **Context Scrubbing**: Engineered a regex filter within `ContextBuilder` to strip raw base64 data URLs (`![attachment](data:image...)`) injected by the frontend for rendering. This prevents massive payload flooding of the text prompt, allowing LLMs to process the true byte stream via `Part.from_bytes` seamlessly without confusion.
   - **Memory Refinement**: Overhauled `MemoryExtractor` logic to explicitly harvest high-level themes (e.g., industry, interests, field of study) from uploaded documents while strictly blocking verbatim text/fact memorization.
   - **Proactive Persona**: Mapped the `current_user.full_name` completely through the API routing layer (`chat.py` -> `ai_service.py` -> `ContextBuilder`), securely injecting the user's name natively into the central system prompt for proactive salutations and seamless buddy-like personalization.
+## Phase 38: UI Refinements for Attachments and Message Editing
+**Status**: `Completed`
+- **Plan**: Eliminate UI discrepancies between compose/sent states for attachments, enforce exact file extensions with color themes, and resolve redundant prefixing on edited messages.
+- **Implementation**:
+  - **Message Editing Fix**: Corrected a state misalignment where `chat_provider.dart` mistakenly hardcoded a `"User: "` prefix during message edit submissions, causing duplicate UI tags on reload.
+  - **Dynamic Attachment Pills**: Ripped out generic "PDF" labels, engineering dynamic extraction to correctly label and color-theme attachment pills based on exact file extensions (DOCX = Blue, XLSX = Green, PDF = Red). Added `maxWidth` layout constraints and overflow ellipsis to prevent long document titles from breaking responsive layouts.
+  - **Unified Chat History Layout**: Rebuilt `chat_view.dart`'s rendering of sent attachments to identically match the clean, unified "pill" UI from the input area.
+  - **Image Size Constraints**: Prevented raw markdown image bloat in sent chats. Instead of rendering huge full-width base64 images, extracted them cleanly into scaled `120x120` squared-off thumbnails clustered neatly above the chat bubble.
+  - **History Permanence**: Rolled back premature context scrubbing in `ai_service.py`, guaranteeing that raw base64 data correctly saves to the backend SQLite DB for persistent frontend UI rendering, while relying solely on `ContextBuilder` for real-time prompt protection.

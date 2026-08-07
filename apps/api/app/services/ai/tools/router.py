@@ -19,6 +19,9 @@ class ToolRouter:
         """
         Returns the name of the best matching tool for the given capability.
         """
+        if capability.strip().lower() == "image analysis":
+            return "vision_analysis"
+            
         available_tools = []
         for name, tool in self.registry._tools.items():
             meta = {
@@ -59,7 +62,7 @@ Return ONLY a JSON object:
                 selected = route_json.get("selected_tool")
                 if selected in self.registry._tools:
                     logger.info(f"[ToolRouter] Routed capability '{capability}' to '{selected}'")
-                    return selected
+                    return str(selected)
         except Exception as e:
             logger.warning(f"[ToolRouter] Failed to route capability: {str(e)}")
             
@@ -67,6 +70,6 @@ Return ONLY a JSON object:
         cap_lower = capability.lower()
         for name, tool in self.registry._tools.items():
             if name.lower() in cap_lower or cap_lower in name.lower() or cap_lower in tool.description.lower():
-                return name
+                return str(name)
                 
         return None

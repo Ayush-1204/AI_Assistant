@@ -837,6 +837,27 @@ class _ChatViewState extends ConsumerState<ChatView> {
                         (index - 1 == chatState.messages.length - 1) &&
                         !chatState.isSending;
 
+                    // Clean text for the editor (without base64 blobs or document tags)
+                    String cleanEditText = displayMsg;
+
+                    // 1. Extract raw document tags for editor preservation
+                    final List<String> rawAttachedDocs = [];
+                    final documentRegexRaw = RegExp(r'\[Attached Document: .*? \(Uploaded to Memory\)\]\n?');
+                    cleanEditText = cleanEditText.replaceAllMapped(documentRegexRaw, (match) {
+                      rawAttachedDocs.add(match.group(0)!);
+                      return '';
+                    });
+
+                    // 2. Extract raw image base64 tags for editor preservation
+                    final List<String> rawAttachedImages = [];
+                    final imageRegexRaw = RegExp(r'!\[attachment\]\(data:image\/[^;]+;base64,[^\)]+\)\n?');
+                    cleanEditText = cleanEditText.replaceAllMapped(imageRegexRaw, (match) {
+                      rawAttachedImages.add(match.group(0)!);
+                      return '';
+                    });
+                    
+                    cleanEditText = cleanEditText.trim();
+
                     // Extract markdown images to build collages natively
                     String processedMsg = displayMsg;
                     
@@ -847,6 +868,19 @@ class _ChatViewState extends ConsumerState<ChatView> {
                       attachedDocs.add(match.group(1)!);
                       return '';
                     });
+
+                    final List<String> sentImagesB64 = [];
+                    if (!isAssistant) {
+                      processedMsg = processedMsg.replaceAllMapped(imageRegexRaw, (match) {
+                        String fullTag = match.group(0)!;
+                        int idx = fullTag.indexOf('base64,');
+                        if (idx != -1) {
+                            String b64 = fullTag.substring(idx + 7, fullTag.indexOf(')'));
+                            sentImagesB64.add(b64);
+                        }
+                        return '';
+                      });
+                    }
                     
                     final consecutiveImagesRegex = RegExp(r'(?:!\[.*?\]\(.*?\)\s*){2,}');
                     processedMsg = processedMsg.replaceAllMapped(consecutiveImagesRegex, (match) {
@@ -989,35 +1023,35 @@ class _ChatViewState extends ConsumerState<ChatView> {
                                         );
                                         }
                                         
-                                        if (attachedDocs.isNotEmpty) {
-                                          Widget docsWidget = Wrap(
+                                        List<Widget> attachments = [];
+                                        if (!isAssistant) {
+                                          for (var b64 in sentImagesB64) {
+                                            attachments.add(_SentAttachmentPill(
+                                              name: 'image', type: 'image', base64Data: b64, ext: 'png'
+                                            ));
+                                          }
+                                        }
+                                        for (var docName in attachedDocs) {
+                                          String ext = docName.contains('.') ? docName.split('.').last.toLowerCase() : 'file';
+                                          attachments.add(_SentAttachmentPill(
+                                            name: docName, type: 'document', ext: ext
+                                          ));
+                                        }
+                                        
+                                        if (attachments.isNotEmpty) {
+                                          Widget attachWidget = Wrap(
                                             spacing: 8,
                                             runSpacing: 8,
-                                            children: attachedDocs.map((docName) => Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                              decoration: BoxDecoration(
-                                                color: Colors.white.withValues(alpha: 0.1),
-                                                borderRadius: BorderRadius.circular(8),
-                                                border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-                                              ),
-                                              child: Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  const Icon(Icons.description, size: 16, color: Colors.blueAccent),
-                                                  const SizedBox(width: 8),
-                                                  Flexible(child: Text(docName, style: const TextStyle(color: Colors.white, fontSize: 12))),
-                                                ],
-                                              ),
-                                            )).toList(),
+                                            children: attachments,
                                           );
                                           
                                           if (processedMsg.isEmpty) {
-                                            mdBody = docsWidget;
+                                            mdBody = attachWidget;
                                           } else {
                                             mdBody = Column(
                                               crossAxisAlignment: isAssistant ? CrossAxisAlignment.start : CrossAxisAlignment.end,
                                               children: [
-                                                docsWidget,
+                                                attachWidget,
                                                 const SizedBox(height: 12),
                                                 mdBody,
                                               ],
@@ -1027,11 +1061,24 @@ class _ChatViewState extends ConsumerState<ChatView> {
 
                                         if (!isAssistant) {
                                           return _UserMessageEditor(
-                                            initialText: processedMsg,
+                                            initialText: cleanEditText,
                                             markdownBody: mdBody,
-                                            onSave: (newText) => ref.read(chatProvider.notifier).editMessageAndSend(index - 1, newText),
+                                            onSave: (newText) {
+                                              String finalMsg = newText.trim();
+                                              for (var doc in rawAttachedDocs) {
+                                                if (!finalMsg.contains(doc.trim())) {
+                                                  finalMsg += '\n${doc.trim()}';
+                                                }
+                                              }
+                                              for (var img in rawAttachedImages) {
+                                                if (!finalMsg.contains(img.trim())) {
+                                                  finalMsg += '\n${img.trim()}';
+                                                }
+                                              }
+                                              ref.read(chatProvider.notifier).editMessageAndSend(index - 1, finalMsg);
+                                            },
                                             onCopy: () {
-                                              Clipboard.setData(ClipboardData(text: displayMsg));
+                                              Clipboard.setData(ClipboardData(text: cleanEditText));
                                             },
                                           );
                                         }
@@ -1583,6 +1630,23 @@ class _ExplainabilityPanelState extends State<_ExplainabilityPanel> {
                 const SizedBox(height: 4),
                 _buildMetaRow("Execution Latency",
                     "${widget.metadata!['latency_ms'] ?? 0} ms"),
+                if (widget.metadata!['memories'] != null &&
+                    (widget.metadata!['memories'] as List).isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text("Memories Used:",
+                      style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.5), fontSize: 11)),
+                  const SizedBox(height: 4),
+                  ...(widget.metadata!['memories'] as List).map((m) =>
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 2),
+                        child: Text(m.toString(),
+                            style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.9),
+                                fontSize: 11,
+                                fontStyle: FontStyle.italic)),
+                      )),
+                ]
               ],
             ),
           )
@@ -2855,6 +2919,82 @@ class _UserMessageEditorState extends State<_UserMessageEditor> {
   }
 }
 
+class _SentAttachmentPill extends StatelessWidget {
+  final String name;
+  final String type;
+  final String? base64Data;
+  final String ext;
+
+  const _SentAttachmentPill({
+    required this.name,
+    required this.type,
+    this.base64Data,
+    required this.ext,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    Color extColor = Colors.grey;
+    if (ext == 'pdf') extColor = Colors.redAccent;
+    else if (ext == 'doc' || ext == 'docx') extColor = Colors.blueAccent;
+    else if (ext == 'xls' || ext == 'xlsx') extColor = Colors.green;
+    else if (ext == 'txt') extColor = Colors.white70;
+    else extColor = Colors.orangeAccent;
+
+    return Container(
+      margin: const EdgeInsets.only(right: 8, bottom: 8),
+      constraints: const BoxConstraints(maxWidth: 240),
+      width: type == 'image' ? 120 : null,
+      height: type == 'image' ? 120 : null,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+        color: type == 'image' ? null : const Color(0xFF2C2C2C),
+        image: type == 'image' && base64Data != null
+            ? DecorationImage(
+                image: MemoryImage(base64Decode(base64Data!)),
+                fit: BoxFit.cover,
+              )
+            : null,
+      ),
+      child: type != 'image'
+          ? Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 10.0),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: extColor.withValues(alpha: 0.5)),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(ext.toUpperCase(), style: TextStyle(color: extColor, fontSize: 8, fontWeight: FontWeight.bold)),
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(name,
+                            style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis),
+                        const SizedBox(height: 2),
+                        Text("DOCUMENT",
+                            style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 10, fontWeight: FontWeight.w500)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : null,
+    );
+  }
+}
+
 class _HoverableAttachmentPill extends StatefulWidget {
   final dynamic file;
   final VoidCallback onRemove;
@@ -2870,6 +3010,15 @@ class _HoverableAttachmentPillState extends State<_HoverableAttachmentPill> {
 
   @override
   Widget build(BuildContext context) {
+    String filename = widget.file.name;
+    String ext = filename.contains('.') ? filename.split('.').last.toLowerCase() : 'file';
+    Color extColor = Colors.grey;
+    if (ext == 'pdf') extColor = Colors.redAccent;
+    else if (ext == 'doc' || ext == 'docx') extColor = Colors.blueAccent;
+    else if (ext == 'xls' || ext == 'xlsx') extColor = Colors.green;
+    else if (ext == 'txt') extColor = Colors.white70;
+    else extColor = Colors.orangeAccent;
+
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
@@ -2900,10 +3049,10 @@ class _HoverableAttachmentPillState extends State<_HoverableAttachmentPill> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                           decoration: BoxDecoration(
-                            border: Border.all(color: Colors.redAccent.withValues(alpha: 0.5)),
+                            border: Border.all(color: extColor.withValues(alpha: 0.5)),
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: const Text("PDF", style: TextStyle(color: Colors.redAccent, fontSize: 8, fontWeight: FontWeight.bold)),
+                          child: Text(ext.toUpperCase(), style: TextStyle(color: extColor, fontSize: 8, fontWeight: FontWeight.bold)),
                         ),
                         const SizedBox(width: 8),
                         Flexible(
@@ -2916,7 +3065,7 @@ class _HoverableAttachmentPillState extends State<_HoverableAttachmentPill> {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis),
                               const SizedBox(height: 2),
-                              Text(widget.file.type.toUpperCase(),
+                              Text("DOCUMENT",
                                   style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 10, fontWeight: FontWeight.w500)),
                             ],
                           ),

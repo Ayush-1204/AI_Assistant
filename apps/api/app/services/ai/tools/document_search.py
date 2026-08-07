@@ -14,7 +14,12 @@ class DocumentSearchTool(BaseTool):
         
     @property
     def description(self) -> str:
-        return "Search the user's RAG knowledge base for specific documents, literature, code names, or concepts avoiding hallucinations."
+        return (
+            "Search the user's RAG knowledge base for specific past documents, literature, code names, or concepts. "
+            "CRITICAL: Do NOT use this tool if the user asks about a document they claim to have attached (e.g. 'what is in the pdf?'), "
+            "but you do NOT see any '[Attached Document: ...]' in the current conversation context. In that case, "
+            "just tell them to upload the document first."
+        )
         
     @property
     def parameters_schema(self) -> dict:

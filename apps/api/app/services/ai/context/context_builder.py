@@ -189,13 +189,13 @@ class ContextBuilder:
                     
                 clean_content = re.sub(pattern, "", msg.content, flags=re.DOTALL).strip()
                 # Scrub massive base64 markdown images added by frontend for UI rendering
-                clean_content = re.sub(r"!\[attachment\]\(data:image\/[^;]+;base64,[^\)]+\)", "[Attached Image]", clean_content)
+                clean_content = re.sub(r"!\[.*?\]\(data:image\/[^;]+;base64,[^\)]+\)", "[Attached Image]", clean_content)
                 
                 if clean_content:
                      processed_history.append({"role": msg.role, "content": clean_content, "images": msg_images})
             else:
                 # Scrub massive base64 markdown images added by frontend for UI rendering
-                clean_content = re.sub(r"!\[attachment\]\(data:image\/[^;]+;base64,[^\)]+\)", "[Attached Image]", msg.content)
+                clean_content = re.sub(r"!\[.*?\]\(data:image\/[^;]+;base64,[^\)]+\)", "[Attached Image]", msg.content)
                 processed_history.append({"role": msg.role, "content": clean_content, "images": msg_images})
                 
         # --- Conversation Summarization Engine ---
@@ -208,7 +208,8 @@ class ContextBuilder:
             try:
                 from app.dependencies import _router_instance
                 if _router_instance:
-                    compress_prompt = f"Summarize the core topics, user preferences, and established facts from these older conversation turns into a dense paragraph. Omit pleasantries:\\n\\n{old_messages}"
+                    clean_old = [{"role": m["role"], "content": m["content"]} for m in old_messages]
+                    compress_prompt = f"Summarize the core topics, user preferences, and established facts from these older conversation turns into a dense paragraph. Omit pleasantries:\\n\\n{clean_old}"
                     summary = await _router_instance.chat([{"role": "user", "content": compress_prompt}], intent="general")
                     if summary:
                         summary_block = f"\\n\\n=== PAST CONVERSATION SUMMARY ===\\n{summary.strip()}\\n================================="
@@ -293,6 +294,6 @@ class ContextBuilder:
         )
         
         # Attach securely without crashing native unpack loops
-        self.last_metadata = stats
+        self.last_metadata = {**stats, "memories_list": memory_items}
 
         return context, citations

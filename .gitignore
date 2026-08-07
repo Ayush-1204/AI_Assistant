@@ -69,3 +69,5 @@ dist/
 jarvis_research/
 openjarvis/
 
+# API Storage
+apps/api/storage/uploads/

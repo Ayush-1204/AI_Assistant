@@ -538,6 +538,9 @@ def get_tool_orchestrator(
     registry.register(PlaywrightBrowserTool())
     registry.register(ComputerControlTool())
     
+    from app.services.ai.tools.vision_analysis import VisionAnalysisTool
+    registry.register(VisionAnalysisTool())
+    
     if settings.GOOGLE_CLIENT_ID:
         oauth_repo = OAuthRepository(db)
         auth_service = GoogleAuthService(oauth_repo)

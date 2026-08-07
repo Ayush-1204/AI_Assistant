@@ -4,6 +4,7 @@ import '../markdown/ai_message_renderer.dart';
 import 'models.dart';
 import 'weather_widget.dart' show WeatherCardWidget;
 import 'fullscreen_gallery.dart';
+import 'registry.dart';
 
 void _openFullScreenGallery(BuildContext context, List<Map<String, String>> images, int initialIndex) {
   Navigator.of(context).push(PageRouteBuilder(
@@ -770,6 +771,194 @@ class _BentoGalleryWidget extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class HeaderWidget extends StatelessWidget {
+  final HeaderNode node;
+  const HeaderWidget({super.key, required this.node});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+      margin: const EdgeInsets.symmetric(vertical: 16.0),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            theme.colorScheme.primaryContainer,
+            theme.colorScheme.primary.withValues(alpha: 0.1)
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (node.userName.isNotEmpty)
+            Text(
+              'Hi ${node.userName}, here is your dashboard',
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: theme.colorScheme.primary,
+                letterSpacing: 1.2,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          const SizedBox(height: 8),
+          Text(
+            node.title,
+            style: theme.textTheme.headlineMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class CardWidget extends StatelessWidget {
+  final CardNode node;
+  const CardWidget({super.key, required this.node});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: theme.dividerColor.withValues(alpha: 0.2)),
+      ),
+      color: theme.colorScheme.surface,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min, // shrink-wrap contents
+          children: [
+            Text(
+              node.title,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              node.description,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                height: 1.4,
+              ),
+            ),
+            if (node.tags.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: node.tags.map((tag) => Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.secondaryContainer.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Text(
+                    tag,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: theme.colorScheme.onSecondaryContainer,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                )).toList(),
+              ),
+            ]
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class GridWidget extends StatelessWidget {
+  final GridNode node;
+  const GridWidget({super.key, required this.node});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16.0),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Responsive layout: fallback to 1 column if too narrow
+          final isNarrow = constraints.maxWidth < 600;
+          final columns = isNarrow ? 1 : node.columns;
+          final spacing = 12.0;
+          
+          return Wrap(
+            spacing: spacing,
+            runSpacing: spacing,
+            children: node.items.map((item) {
+              final childWidth = (constraints.maxWidth - (spacing * (columns - 1))) / columns;
+              return SizedBox(
+                width: columns == 1 ? constraints.maxWidth : childWidth,
+                child: PresentationRegistry.buildWidget(context, item),
+              );
+            }).toList(),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class SectionWidget extends StatelessWidget {
+  final SectionNode node;
+  const SectionWidget({super.key, required this.node});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 20.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 4,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  node.title,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          AiMessageRenderer(
+            text: node.content,
+            wrapInSelectionArea: false,
+          ),
+        ],
       ),
     );
   }

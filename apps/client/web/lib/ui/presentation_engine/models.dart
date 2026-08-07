@@ -31,6 +31,14 @@ abstract class PresentationNode {
         return TimelineNode.fromJson(json);
       case 'Accordion':
         return AccordionNode.fromJson(json);
+      case 'header':
+        return HeaderNode.fromJson(json);
+      case 'grid':
+        return GridNode.fromJson(json);
+      case 'card':
+        return CardNode.fromJson(json);
+      case 'section':
+        return SectionNode.fromJson(json);
       default:
         return UnknownNode(id: id, rawJson: json);
     }
@@ -261,3 +269,71 @@ class AccordionNode extends PresentationNode {
     );
   }
 }
+
+class HeaderNode extends PresentationNode {
+  final String title;
+  final String userName;
+
+  HeaderNode({required super.id, required this.title, required this.userName})
+      : super(type: 'header');
+
+  factory HeaderNode.fromJson(Map<String, dynamic> json) {
+    final content = json['content'] as Map<String, dynamic>? ?? {};
+    return HeaderNode(
+      id: json['id'] ?? '',
+      title: content['title'] ?? json['title'] ?? '',
+      userName: content['user_name'] ?? json['user_name'] ?? '',
+    );
+  }
+}
+
+class CardNode extends PresentationNode {
+  final String title;
+  final String description;
+  final List<String> tags;
+
+  CardNode({required super.id, required this.title, required this.description, required this.tags})
+      : super(type: 'card');
+
+  factory CardNode.fromJson(Map<String, dynamic> json) {
+    return CardNode(
+      id: json['id'] ?? '',
+      title: json['title'] ?? '',
+      description: json['description'] ?? '',
+      tags: (json['tags'] as List<dynamic>? ?? []).map((e) => e.toString()).toList(),
+    );
+  }
+}
+
+class GridNode extends PresentationNode {
+  final int columns;
+  final List<PresentationNode> items;
+
+  GridNode({required super.id, required this.columns, required this.items}) : super(type: 'grid');
+
+  factory GridNode.fromJson(Map<String, dynamic> json) {
+    final rawItems = json['items'] as List<dynamic>? ?? [];
+    return GridNode(
+      id: json['id'] ?? '',
+      columns: json['columns'] ?? 2,
+      items: rawItems.map((e) => PresentationNode.fromJson(e as Map<String, dynamic>)).toList(),
+    );
+  }
+}
+
+class SectionNode extends PresentationNode {
+  final String title;
+  final String content;
+
+  SectionNode({required super.id, required this.title, required this.content})
+      : super(type: 'section');
+
+  factory SectionNode.fromJson(Map<String, dynamic> json) {
+    return SectionNode(
+      id: json['id'] ?? '',
+      title: json['title'] ?? '',
+      content: json['content'] ?? '',
+    );
+  }
+}
+
