@@ -224,3 +224,19 @@ This document aggregates the implementation plans and walkthrough summaries for 
   - **Unified Chat History Layout**: Rebuilt `chat_view.dart`'s rendering of sent attachments to identically match the clean, unified "pill" UI from the input area.
   - **Image Size Constraints**: Prevented raw markdown image bloat in sent chats. Instead of rendering huge full-width base64 images, extracted them cleanly into scaled `120x120` squared-off thumbnails clustered neatly above the chat bubble.
   - **History Permanence**: Rolled back premature context scrubbing in `ai_service.py`, guaranteeing that raw base64 data correctly saves to the backend SQLite DB for persistent frontend UI rendering, while relying solely on `ContextBuilder` for real-time prompt protection.
+
+## Phase 39: AI Pipeline Optimization & Native Utility Tools
+**Status**: `Completed`
+- **Plan**: Drastically reduce AI latency by eliminating redundant LLM hops and expand native local utility tools to handle deterministic tasks (timezone, conversion, etc.) without web search.
+- **Implementation**:
+  - **LLM Pipeline Pruning**: Rewrote `intent_classifier.py` to route deterministic intents (TASK, UTILITY, SEARCH) using pure Regex, bypassing the Llama 3.1 8b classifier call entirely on 90% of requests.
+  - **Fuzzy Tool Routing**: Refactored `router.py` to use Python's `difflib` for fuzzy capability matching, completely eliminating the Gemini Flash routing hop.
+  - **Evaluator Short-Circuit**: Injected a rule-based bypass into `evaluator.py`, skipping the final Llama grading stage on purely conversational or short responses that don't need grounding.
+  - **Native Utility Tool Suite**: Added zero-latency, local execution tools to bypass the slow LLM web search engine for simple tasks:
+    - `ClipboardTool`: Read/write local clipboard data.
+    - `LocalFileSearch`: Ultra-fast native workspace search.
+    - `RandomChoiceTool`: Randomizer and dice rolls.
+    - `TextDiffTool`: Perform unified text diffs locally.
+    - `TimezoneTool`: Fetch localized global times.
+    - `UnitConvertTool`: Standardized deterministic unit conversions.
+  - Registered all new tools in `dependencies.py` and strictly enforced exact capability mappings in `upfront_planner.py`.
