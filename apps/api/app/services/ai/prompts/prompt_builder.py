@@ -29,7 +29,7 @@ class PromptBuilder:
         """
 
         return f"""
-Generate a concise conversation title based on a 4-word key phrase from the AI's response.
+Generate a concise conversation title based on the provided text.
 
 Rules:
 - Max 4 words 
@@ -38,7 +38,7 @@ Rules:
 - Title Case
 - Return ONLY the title
 
-AI Response:
+Text:
 
 {ai_response}
 """

@@ -27,10 +27,10 @@ class WeatherTool(BaseTool):
             "properties": {
                 "location": {
                     "type": "string",
-                    "description": "The city or location name to get the weather for. Examples: 'Delhi', 'New York', 'Paris'. If the user asks for the weather 'here' or doesn't specify a location, pass 'auto'."
+                    "description": "The city or location name to get the weather for (e.g., 'Delhi', 'New York'). CRITICAL: If the user does not explicitly specify a city in their query (like 'how is the weather today?'), you MUST strictly pass the exact string 'auto' to use their GPS coordinates."
                 }
             },
-            "required": []
+            "required": ["location"]
         }
 
     def _wmo_to_condition(self, wmo: int) -> str:

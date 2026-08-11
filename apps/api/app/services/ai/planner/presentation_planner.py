@@ -257,6 +257,7 @@ Return ONLY a JSON array of objects. EVERY object must have:
 
 CRITICAL INSTRUCTION: If you use a rich card (like WeatherCard or NewsCard), you MUST also include a 'Paragraph' node either before or after it to provide a conversational, descriptive brief to the user.
 CRITICAL INSTRUCTION FOR NEWS: If the user specifically asked for news or current events, and the context contains multiple distinct news stories, you MUST generate a separate NewsCard for EACH distinct story. If the user did NOT ask for news, DO NOT output NewsCards, even if news stories are present in the context!
+CRITICAL INSTRUCTION FOR WEATHER: If the context contains current weather or forecast data, you MUST include a 'WeatherCard' node.
 CRITICAL INSTRUCTION FOR IMAGES: If "Available Images" is empty, you are STRICTLY FORBIDDEN from generating an 'ImageGallery' node! If it is not empty, you MUST include an 'ImageGallery' node.
 CRITICAL INSTRUCTION FOR COMPARISON: If the user asks to compare entities or options, you MUST include a 'ComparisonTable' node.
 ImageGallery Layout Heuristics:

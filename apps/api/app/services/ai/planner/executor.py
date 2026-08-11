@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import uuid
+import typing
 from collections.abc import AsyncGenerator
 from datetime import datetime
 
@@ -47,7 +48,7 @@ class AgentExecutor:
         self.tool_router = ToolRouter(self.planner.provider, self.orchestrator.registry)
         self.presentation_planner = PresentationPlanner(self.planner.provider)
 
-    async def execute_task_graph(self, tasks: list[dict], context: dict, trace: ExecutionTrace) -> list[NormalizedToolResult]:
+    async def execute_task_graph(self, tasks: list[dict], context: dict, trace: ExecutionTrace, progress_callback=None) -> list[NormalizedToolResult]:
         """
         Executes a list of DAG tasks using capability routing.
         """
@@ -73,6 +74,9 @@ class AgentExecutor:
                 name=tool_name,
                 arguments=task_def.get("tool_arguments", {})
             )
+            
+            if progress_callback:
+                await progress_callback(f"Executing {tool_name}...")
             
             # Step 2: Execution
             resp = await self.orchestrator.execute_tool(req, context)
@@ -177,7 +181,7 @@ class AgentExecutor:
         logger.info(f"[Trace] {trace.model_dump_json()}")
         return final_presentation_json
         
-    async def stream_run(self, query: str, context: dict, messages: list[dict], tools_payload: list[dict]) -> AsyncGenerator[str, None]:
+    async def stream_run(self, query: str, context: dict, messages: list[dict], tools_payload: list[dict], fastapi_request: typing.Any | None = None) -> AsyncGenerator[str, None]:
         trace = ExecutionTrace(id=str(uuid.uuid4()))
         plan = await self.upfront.generate_plan(query, context_messages=messages)
         if not plan or not plan.get("tools_needed", False):
@@ -187,6 +191,8 @@ class AgentExecutor:
             router_inst = typing.cast(ProviderRouter, self.planner.provider)
             
             async for chunk in router_inst.stream_chat(messages, tools=None, intent=self.intent):
+                if fastapi_request and await fastapi_request.is_disconnected():
+                    raise asyncio.CancelledError("Client disconnected")
                 if isinstance(chunk, str):
                     payload = json.dumps({"type": "content", "delta": chunk})
                     yield f"data: {payload}\n\n"
@@ -195,26 +201,66 @@ class AgentExecutor:
             logger.info(f"[Trace] Raw text stream completed. {trace.model_dump_json()}")
             return
 
-        raw_results = await self.execute_task_graph(plan.get("tasks", []), context, trace)
-        
-        valid_results = []
-        for i, r in enumerate(raw_results):
-            report = await self.validator.validate(query, r)
-            if report.is_trustworthy:
-                valid_results.append(r)
-            else:
-                original_task = plan.get("tasks", [])[i] if i < len(plan.get("tasks", [])) else {}
-                replan_task = await self.upfront.replan_branch(query, original_task, report.reason)
-                if replan_task:
-                    trace.replans_triggered += 1
-                    replan_results = await self.execute_task_graph([replan_task], context, trace)
-                    for rr in replan_results:
-                        rr_report = await self.validator.validate(query, rr)
-                        if rr_report.is_trustworthy:
-                            valid_results.append(rr)
+        import typing
+        queue: asyncio.Queue[typing.Any] = asyncio.Queue()
+        async def put_progress(msg: str):
+            await queue.put({"type": "tool", "name": msg})
+
+        async def _run_dag_and_curate():
+            try:
+                raw_results = await self.execute_task_graph(plan.get("tasks", []), context, trace, put_progress)
                 
-        curated_context = await self.editor.curate(query, valid_results)
+                valid_results = []
+                for i, r in enumerate(raw_results):
+                    report = await self.validator.validate(query, r)
+                    if report.is_trustworthy:
+                        valid_results.append(r)
+                    else:
+                        original_task = plan.get("tasks", [])[i] if i < len(plan.get("tasks", [])) else {}
+                        await put_progress(f"Replanning {r.tool_name}...")
+                        replan_task = await self.upfront.replan_branch(query, original_task, report.reason)
+                        if replan_task:
+                            trace.replans_triggered += 1
+                            replan_results = await self.execute_task_graph([replan_task], context, trace, put_progress)
+                            for rr in replan_results:
+                                rr_report = await self.validator.validate(query, rr)
+                                if rr_report.is_trustworthy:
+                                    valid_results.append(rr)
+                        
+                await put_progress("Curating results...")
+                cc = await self.editor.curate(query, valid_results)
+                await queue.put({"type": "done", "curated_context": cc})
+            except asyncio.CancelledError:
+                pass
+            except Exception as e:
+                logger.error(f"[Executor] DAG task failed: {str(e)}")
+                await queue.put({"type": "error", "error": str(e)})
+
+        dag_task = asyncio.create_task(_run_dag_and_curate())
         
+        curated_context = typing.cast(CuratedContext, None)
+        while True:
+            if fastapi_request and await fastapi_request.is_disconnected():
+                dag_task.cancel()
+                raise asyncio.CancelledError("Client disconnected")
+            
+            try:
+                msg = typing.cast(dict, await asyncio.wait_for(queue.get(), timeout=1.0))
+                if msg.get("type") == "done":
+                    curated_context = msg.get("curated_context")
+                    break
+                elif msg.get("type") == "error":
+                    dag_task.cancel()
+                    raise Exception(msg.get("error"))
+                else:
+                    yield f"data: {json.dumps(msg)}\n\n"
+            except asyncio.TimeoutError:
+                yield f"data: {json.dumps({'type': 'ping'})}\n\n"
+            except asyncio.CancelledError:
+                dag_task.cancel()
+                raise
+        
+        assert curated_context is not None
         # Stream Mode: Decide UI, then Generate Content progressively
         layout = await self.presentation_planner.plan_layout(query, curated_context, context_messages=messages)
         
@@ -222,6 +268,9 @@ class AgentExecutor:
         # Accumulate the final JSON to evaluate for quality
         accumulated_nodes = []
         async for event in self.presentation_planner.generate_content_stream(query, layout, curated_context, context_messages=messages):
+            if fastapi_request and await fastapi_request.is_disconnected():
+                raise asyncio.CancelledError("Client disconnected")
+                
             if event.get("event_type") == "presentation_node":
                 accumulated_nodes.append(event["node"])
             

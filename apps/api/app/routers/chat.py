@@ -100,6 +100,7 @@ async def stream_chat_route(
             images=request.images,
             intent=request.intent,
             user_name=current_user.full_name,
+            fastapi_request=fastapi_req
         ),
         media_type="text/event-stream"
     )

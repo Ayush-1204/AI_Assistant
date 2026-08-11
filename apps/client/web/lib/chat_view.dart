@@ -602,8 +602,8 @@ class _ChatViewState extends ConsumerState<ChatView> {
       // If a new message was added, animate to bottom
       if (prev == null || prev.length != next.length) {
         _scrollToBottom();
-      } else if (ref.read(chatProvider).isProcessing) {
-        // If streaming an existing message, smoothly track the bottom without animation spam
+      } else {
+        // If streaming an existing message (or typewriter is running), smoothly track the bottom without animation spam
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (_scrollController.hasClients) {
             final pos = _scrollController.position;
@@ -617,16 +617,14 @@ class _ChatViewState extends ConsumerState<ChatView> {
     });
 
     ref.listen(chatProvider.select((state) => state.streamingNodes), (prev, next) {
-      if (ref.read(chatProvider).isProcessing) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (_scrollController.hasClients) {
-            final pos = _scrollController.position;
-            if (pos.maxScrollExtent - pos.pixels < 300) {
-              _scrollController.jumpTo(pos.maxScrollExtent);
-            }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          final pos = _scrollController.position;
+          if (pos.maxScrollExtent - pos.pixels < 300) {
+            _scrollController.jumpTo(pos.maxScrollExtent);
           }
-        });
-      }
+        }
+      });
     });
     
     ref.listen(chatProvider.select((state) => state.isProcessing), (prev, isProcessing) {
@@ -634,12 +632,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
       _scrollToBottom();
     });
     
-    ref.listen(chatProvider.select((state) => state.isVoiceModeExpanded), (prev, next) {
-      if (prev == true && next == false) {
-        // When the blob shrinks, scroll down to reveal the generated UI card
-        Future.delayed(const Duration(milliseconds: 400), () => _scrollToBottom());
-      }
-    });
+    // Removed explicit scroll on voice mode shrink to allow smooth general auto-scroll
 
     final isListening = ref.watch(chatProvider).isListening;
     final isVoiceTyping = ref.watch(chatProvider).isVoiceTyping;
@@ -970,7 +963,8 @@ class _ChatViewState extends ConsumerState<ChatView> {
                                         final isThisMessageStreaming = isAssistant &&
                                             chatState.isSending &&
                                             msgStateIndex == chatState.messages.length - 1;
-                                        final liveNodes = chatState.streamingNodes[msgStateIndex];
+                                        final streamingKey = "${chatState.conversationId}_$msgStateIndex";
+                                        final liveNodes = chatState.streamingNodes[streamingKey];
                                         final List<PresentationNode> parsedNodes;
                                         if (isAssistant) {
                                           if (isThisMessageStreaming && liveNodes != null && liveNodes.isNotEmpty) {

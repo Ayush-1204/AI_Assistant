@@ -1,5 +1,6 @@
 import json
 import logging
+import typing
 from collections.abc import AsyncGenerator
 
 logger = logging.getLogger(__name__)
@@ -158,7 +159,8 @@ class AIService:
         images: list[str] | None = None,
         intent: str = "general",
         user_name: str | None = None,
-    ) -> AsyncGenerator[str, None]:
+        fastapi_request: typing.Any | None = None,
+    ) -> typing.AsyncGenerator[str, None]:
 
         import time
         start_time = time.perf_counter()
@@ -250,16 +252,19 @@ class AIService:
                 planner = Planner(self.provider, strategy, intent=intent)
                 executor = AgentExecutor(planner, self.tool_orchestrator, strategy, intent=intent)
                 
-                async for chunk in executor.stream_run(prompt, context, messages, tools_payload):
+                async for chunk in executor.stream_run(prompt, context, messages, tools_payload, fastapi_request=fastapi_request):
+                    if fastapi_request and await fastapi_request.is_disconnected():
+                        raise asyncio.CancelledError("Client disconnected")
+                    
                     if chunk.startswith("data: "):
                         try:
                             data_payload = json.loads(chunk[6:])
-                            if "delta" in data_payload:
-                                final_response += data_payload['delta']
+                            if data_payload.get("type") == "content":
+                                final_response += data_payload.get("delta", "")
                             elif data_payload.get("type") == "presentation_node":
                                 # Accumulate JSON lines as the final text
                                 final_response += json.dumps(data_payload["node"]) + "\n"
-                        except:
+                        except Exception as parse_e:
                             pass
                     yield chunk
                     
