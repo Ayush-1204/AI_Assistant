@@ -110,6 +110,21 @@ class WikipediaTool(BaseTool):
                 if thumbnail:
                     images.append(ImageReference(url=thumbnail, alt_text=title))
 
+                # Fetch supplementary images to enable Bento layouts (which require >= 4 images)
+                try:
+                    from ddgs import DDGS
+                    import asyncio
+                    def _fetch_supp():
+                        with DDGS() as ddgs:
+                            return list(ddgs.images(title, max_results=3))
+                    results = await asyncio.to_thread(_fetch_supp)
+                    for r in results:
+                        img_url = r.get("image")
+                        if img_url and isinstance(img_url, str) and "1x1" not in img_url:
+                            images.append(ImageReference(url=img_url, alt_text=r.get("title", title)))
+                except Exception as e:
+                    logger.debug(f"[WikipediaTool] DDGS supplementary images failed for {title}: {e}")
+
                 return NormalizedToolResult(
                     tool_name=self.name,
                     source="Wikipedia",
