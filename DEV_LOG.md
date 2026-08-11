@@ -420,3 +420,12 @@ The `AiMessageRenderer` (which renders `HeadingWidget`/`ParagraphWidget` text) a
   - Replaced the hardcoded input areas in workspace_view.dart and chat_view.dart with the new unified ChatInputPill.
   - Polished the chat_view.dart empty state layout to perfectly vertically center the greeting text and ChatInputPill. Implemented AnimatedAlign and AnimatedOpacity to elegantly morph the pill to the bottom center and fade out the greeting when a chat session initiates.
   - Prevented infinite loading states on the dashboard by applying aggressive syncio.wait_for timeouts (3-5 seconds) to slow backend generative services (LLM and Tavily web searches) inside dashboard.py, ensuring instantaneous fallback rendering if third-party services degrade.
+
+## Phase 42: Chat Section & History Sidebar implementation
+**Status**: Completed
+- **Plan**: Create a dedicated Chat Section separating the chat interface from the Workspace homepage, introducing a left-hand history sidebar for easy access to pinned and recent conversations.
+- **Implementation**:
+  - Built a new chat_section.dart layout combining a master-detail Row architecture.
+  - Implemented ChatHistorySidebar widget to display chat lists using the backend's is_pinned schema property.
+  - Added etchConversations() to the API client and created a chatHistoryProvider to fetch and render the list with error handling and empty states.
+  - Re-routed the main app layout (layout.dart) to render the ChatSection instead of the bare ChatView.

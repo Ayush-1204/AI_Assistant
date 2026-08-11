@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'providers/chat_provider.dart';
-import 'chat_view.dart';
+import 'chat_section.dart';
 import 'notes_view.dart';
 import 'settings_view.dart';
 import 'token_usage_view.dart';
@@ -67,7 +67,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> with SingleTickerProvid
 
   final List<Widget> _views = [
     const WorkspaceView(),
-    const ChatView(),
+    const ChatSection(),
     const NotesView(),
     const TasksView(),
     const CalendarView(),
@@ -460,3 +460,4 @@ class _SpotlightPainter extends CustomPainter {
     return oldDelegate.mousePos != mousePos;
   }
 }
+

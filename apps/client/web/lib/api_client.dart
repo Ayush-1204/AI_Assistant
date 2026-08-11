@@ -197,6 +197,19 @@ class ApiClient {
     }
   }
 
+  Future<List<ConversationInfo>> fetchConversations() async {
+    try {
+      final response = await _dio.get('/conversations');
+      if (response.data is List) {
+        return (response.data as List).map((c) => ConversationInfo.fromJson(c)).toList();
+      }
+      return [];
+    } catch (e) {
+      print('fetchConversations error: $e');
+      return [];
+    }
+  }
+
   Future<List<dynamic>> fetchDashboardWidgets() async {
     try {
       final response = await _dio.get('/dashboard/widgets');
@@ -519,3 +532,4 @@ class ApiClient {
     return response.data;
   }
 }
+
