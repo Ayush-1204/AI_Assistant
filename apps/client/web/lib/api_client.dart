@@ -136,14 +136,7 @@ class ApiClient {
     }
   }
 
-  Future<List<dynamic>> fetchConversations() async {
-    try {
-      final response = await _dio.get('/conversations');
-      return response.data as List<dynamic>;
-    } catch (_) {
-      return [];
-    }
-  }
+
 
   Future<List<dynamic>> fetchMemories() async {
     try {
