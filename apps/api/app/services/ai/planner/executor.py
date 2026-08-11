@@ -221,9 +221,14 @@ class AgentExecutor:
         # Stream out the Presentation Nodes as they are completed
         # Accumulate the final JSON to evaluate for quality
         accumulated_nodes = []
-        async for node in self.presentation_planner.generate_content_stream(query, layout, curated_context, context_messages=messages):
-            accumulated_nodes.append(node)
-            payload = json.dumps({"type": "presentation_node", "node": node})
+        async for event in self.presentation_planner.generate_content_stream(query, layout, curated_context, context_messages=messages):
+            if event.get("event_type") == "presentation_node":
+                accumulated_nodes.append(event["node"])
+            
+            if "event_type" in event:
+                event["type"] = event.pop("event_type")
+                
+            payload = json.dumps(event)
             yield f"data: {payload}\n\n"
             
         final_presentation_json = json.dumps(accumulated_nodes, indent=2)

@@ -5,31 +5,31 @@ abstract class PresentationNode {
   PresentationNode({required this.id, required this.type});
 
   factory PresentationNode.fromJson(Map<String, dynamic> json) {
-    final type = json['type'] as String?;
+    final type = (json['type'] as String?)?.toLowerCase();
     final id = json['id'] as String? ?? 'unknown';
 
     switch (type) {
-      case 'Heading':
+      case 'heading':
         return HeadingNode.fromJson(json);
-      case 'Paragraph':
+      case 'paragraph':
         return ParagraphNode.fromJson(json);
-      case 'BulletList':
+      case 'bulletlist':
         return BulletListNode.fromJson(json);
-      case 'NumberedList':
+      case 'numberedlist':
         return NumberedListNode.fromJson(json);
-      case 'NewsCard':
+      case 'newscard':
         return NewsCardNode.fromJson(json);
-      case 'WeatherCard':
+      case 'weathercard':
         return WeatherCardNode.fromJson(json);
-      case 'ComparisonTable':
+      case 'comparisontable':
         return ComparisonTableNode.fromJson(json);
-      case 'CodeBlock':
+      case 'codeblock':
         return CodeBlockNode.fromJson(json);
-      case 'ImageGallery':
+      case 'imagegallery':
         return ImageGalleryNode.fromJson(json);
-      case 'Timeline':
+      case 'timeline':
         return TimelineNode.fromJson(json);
-      case 'Accordion':
+      case 'accordion':
         return AccordionNode.fromJson(json);
       case 'header':
         return HeaderNode.fromJson(json);

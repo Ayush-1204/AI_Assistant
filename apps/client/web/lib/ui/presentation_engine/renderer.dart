@@ -27,7 +27,23 @@ class PresentationRenderer extends StatelessWidget {
         physics: const NeverScrollableScrollPhysics(),
         itemCount: nodes.length,
         itemBuilder: (context, index) {
-          return PresentationRegistry.buildWidget(context, nodes[index]);
+          final node = nodes[index];
+          return TweenAnimationBuilder<double>(
+            key: ValueKey(node.id),
+            tween: Tween<double>(begin: 0.0, end: 1.0),
+            duration: const Duration(milliseconds: 280),
+            curve: Curves.easeOutCubic,
+            builder: (context, val, child) {
+              return Transform.translate(
+                offset: Offset(0, 12 * (1 - val)),
+                child: Opacity(
+                  opacity: val,
+                  child: child,
+                ),
+              );
+            },
+            child: PresentationRegistry.buildWidget(context, node),
+          );
         },
       ),
     );

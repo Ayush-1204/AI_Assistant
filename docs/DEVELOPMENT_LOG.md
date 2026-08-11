@@ -1897,3 +1897,164 @@ Establish aggressive UI state isolation for fresh conversational threads (Phase 
 - **High-Speed OSS Model Orchestration (Phase 9)**:
   - **API Matrix Integration (`dependencies.py`)**: Bound next-generation fast models directly into the `ProviderRouter` layer utilizing dynamically generated `OpenAICompatibleProvider` configurations mapping API endpoints across Groq and OpenRouter securely.
   - **Intelligent Routing Priority (`router.py`)**: Spliced the new `qwen3` and `llama-3` inference nodes into the `IntentBasedRoutingStrategy`, aggressively pushing high-speed OSS interactions to the front-lines ensuring dashboard updates and rapid conversational logic resolve instantly, with the heavy Gemini architecture persisting securely as deliberate fallbacks.
+
+
+
+# Phase 42 — Image Positioning Fix + Intra-Node Text Streaming
+
+## Issues Being Solved
+
+1. **Images at bottom** — `ImageGallery` nodes are generated last in the LLM's output order, so they always appear at the bottom of the response.
+2. **Blink-y nodes** — With only 2–4 nodes per response, each node still "pops in" fully formed. Text within nodes doesn't stream, so they feel identical to a non-streaming response.
+
+---
+
+## Fix 1 — Image Positioning (Server-side post-process, trivial)
+
+### Root Cause
+`plan_layout()` asks the LLM to design the layout, and the LLM consistently puts `ImageGallery` last. We can't reliably fix this via prompt alone (LLMs tend to put images at the end for narrative flow reasons).
+
+### Fix
+After `plan_layout()` returns the layout array, add a **sort pass** that moves `ImageGallery` nodes to index 1 (right after the first Heading, or index 0 if there's no heading). This is pure Python list manipulation — zero LLM calls, zero quality impact.
+
+```python
+def _hoist_image_gallery(layout: list[dict]) -> list[dict]:
+    \"\"\"Move ImageGallery to just after the first Heading (or index 0).\"\"\"
+    galleries = [n for n in layout if n.get("type") == "ImageGallery"]
+    rest = [n for n in layout if n.get("type") != "ImageGallery"]
+    if not galleries:
+        return rest
+    # Insert after first Heading, otherwise at front
+    insert_at = 1 if rest and rest[0].get("type") == "Heading" else 0
+    for g in galleries:
+        rest.insert(insert_at, g)
+        insert_at += 1
+    return rest
+```
+
+#### [MODIFY] [presentation_planner.py](file:///c:/Users/AYUSH%20VERMA/Documents/AI_Assistant/apps/api/app/services/ai/planner/presentation_planner.py)
+- Add `_hoist_image_gallery()` helper
+- Call it on the returned layout in `plan_layout()` before returning
+
+---
+
+## Fix 2 — Intra-Node Text Streaming
+
+### Strategy: Partial Text Extractor + `node_text_delta` SSE Event
+
+The key insight: we don't need to stream every field. **Only text-bearing nodes** need streaming: `Heading`, `Paragraph`, `BulletList`, `NumberedList`, `CodeBlock`. Rich cards (`WeatherCard`, `NewsCard`, `ImageGallery`, `ComparisonTable`) appear instantly once parsed — that's fine, they have no meaningful text to stream.
+
+#### New SSE protocol events
+
+```
+// Announces a new node is starting (lets Flutter create a skeleton immediately)
+{"type": "node_start", "id": "p1", "node_type": "Paragraph"}
+
+// Streams text delta for the primary text field of the node
+{"type": "node_text_delta", "id": "p1", "delta": "Narendra Modi is "}
+
+// Sends the fully formed node (with all fields filled in) when JSON object is closed
+{"type": "presentation_node", "node": {...}}
+```
+
+#### How it works — Backend (`presentation_planner.py`)
+
+The raw LLM token stream looks like this for a Paragraph node:
+```
+{"id": "p1", "type": "Paragraph", "text": "Narendra Modi is the 14th Prime ..."}
+```
+
+We need a **partial text extractor** that works on the in-flight buffer:
+1. After each `{` opens a new object at depth 1, extract `"id"` and `"type"` from partial JSON → emit `node_start`
+2. Once we see `"text": "` (or `"code": "`, etc.), emit `node_text_delta` for every subsequent token until the closing `"`
+3. When `parse_json_objects_from_stream` yields the complete object → emit `presentation_node` as before
+
+The extractor is entirely **additive** to the current `generate_content_stream` — it sits alongside the existing `parse_json_objects_from_stream` call and yields additional events from the same buffer.
+
+#### New helper: `stream_text_fields_from_buffer(buffer, prev_buffer) -> list[events]`
+
+```python
+TEXT_STREAMING_FIELDS = {
+    "Paragraph": "text",
+    "Heading": "text",
+    "BulletList": None,    # stream items array text instead
+    "NumberedList": None,
+    "CodeBlock": "code",
+}
+```
+
+For each node type, we detect:
+- **Node start**: `{"id": "X", "type": "Paragraph"` (or any ordering) → emit `node_start`  
+- **Text delta**: once `"text": "` prefix is seen in buffer, the new characters added to the buffer since the last call are the delta → emit `node_text_delta`
+
+This is **stateful** — the generator tracks:
+- `current_node_id: str | None` — which node we're currently inside
+- `current_node_type: str | None`
+- `text_field_start_pos: int | None` — buffer position where the text value began
+- `last_emitted_pos: int` — how far we've emitted text deltas
+
+#### New backend event stream in `generate_content_stream`:
+```python
+async for chunk in router_inst.stream_chat(messages, intent="structured"):
+    new_events, state = extract_partial_events(buffer, buffer + chunk, state)
+    buffer += chunk
+    
+    for event in new_events:
+        yield event  # node_start or node_text_delta
+    
+    complete_nodes, buffer = parse_json_objects_from_stream(buffer)
+    for node in complete_nodes:
+        # post-process (news/weather injection)...
+        yield {"event_type": "presentation_node", "node": node}
+```
+
+---
+
+### Flutter Side
+
+#### [MODIFY] [chat_provider.dart](file:///c:/Users/AYUSH%20VERMA/Documents/AI_Assistant/apps/client/web/lib/providers/chat_provider.dart)
+
+Add to `ChatState`:
+```dart
+/// Partial node text being streamed intra-node, keyed by node id
+final Map<String, String> partialNodeText;
+/// Set of node ids that have been announced (node_start received)
+final Set<String> streamingNodeIds;
+```
+
+Handle new events:
+```dart
+} else if (data['type'] == 'node_start') {
+    final nodeId = data['id'] as String;
+    final nodeType = data['node_type'] as String;
+    // Add a skeleton node with empty text to streamingNodes
+    final skelNode = {'id': nodeId, 'type': nodeType, 'text': ''};
+    // append to live list...
+    
+} else if (data['type'] == 'node_text_delta') {
+    final nodeId = data['id'] as String;
+    final delta = data['delta'] as String;
+    // Find the skeleton node in streamingNodes and append delta to its text field
+    // Trigger rebuild — Flutter re-renders the growing text
+    
+} else if (data['type'] == 'presentation_node') {
+    // Replace the skeleton node (if any) with the final full node
+    // This ensures all fields (images, lists, etc.) are correct
+```
+
+#### [MODIFY] [chat_view.dart](file:///c:/Users/AYUSH%20VERMA/Documents/AI_Assistant/apps/client/web/lib/chat_view.dart)
+
+No changes needed — the `PresentationRenderer` already rebuilds when `streamingNodes` changes. Since the skeleton node has the same `id` as the final node, the `TweenAnimationBuilder(key: ValueKey(node.id))` will NOT re-animate it — it simply updates the text in place.
+
+The `AiMessageRenderer` (which renders `HeadingWidget`/`ParagraphWidget` text) already handles live text updates since it's a pure stateless widget — it just reads `node.text`.
+
+---
+
+## Execution Order
+
+1. **`presentation_planner.py`** — Add `_hoist_image_gallery()` + call in `plan_layout()` *(2 min, trivial)*
+2. **`presentation_planner.py`** — Add `_PartialStreamState` dataclass + `extract_partial_events()` helper + update `generate_content_stream()` to emit `node_start`/`node_text_delta`
+3. **`executor.py`** — Update the SSE yield in `stream_run` to handle the new event types from the generator
+4. **`chat_provider.dart`** — Add `partialNodeText` + `streamingNodeIds` to `ChatState`, handle `node_start`/`node_text_delta` events, update the skeleton node in place
+5. **`models.dart`** — No changes needed (nodes are already mutable maps in state before `fromJson`)
+6. autoscroll

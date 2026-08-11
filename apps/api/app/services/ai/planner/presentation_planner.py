@@ -78,6 +78,128 @@ def _match_and_inject_article(node: dict, articles: list[dict]) -> dict:
     return node
 
 
+# ---------------------------------------------------------------------------
+# Layout helpers
+# ---------------------------------------------------------------------------
+
+def _hoist_image_gallery(layout: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """
+    Move all ImageGallery nodes to just after the first Heading node (or to the
+    front of the list if there is no Heading). This ensures images always appear
+    near the top of the response rather than at the bottom where the LLM tends
+    to place them.
+    """
+    galleries = [n for n in layout if n.get("type") == "ImageGallery"]
+    rest = [n for n in layout if n.get("type") != "ImageGallery"]
+    if not galleries:
+        return rest
+    insert_at = 1 if rest and rest[0].get("type") == "Heading" else 0
+    for g in reversed(galleries):
+        rest.insert(insert_at, g)
+    return rest
+
+
+# ---------------------------------------------------------------------------
+# Intra-node text streaming helpers
+# ---------------------------------------------------------------------------
+
+# Node types whose primary text field should be streamed token-by-token.
+# Other types (WeatherCard, NewsCard, ImageGallery, …) appear fully-formed.
+_TEXT_FIELDS_BY_TYPE: dict[str, str] = {
+    "paragraph": "text",
+    "heading": "text",
+    "codeblock": "code",
+}
+
+
+class _StreamPartialState:
+    """Mutable state tracking a single in-flight JSON object during streaming."""
+    __slots__ = ("node_start_emitted", "current_id", "current_type",
+                 "streaming_field", "text_emitted_len")
+
+    def __init__(self) -> None:
+        self.node_start_emitted: bool = False
+        self.current_id: str | None = None
+        self.current_type: str | None = None
+        self.streaming_field: str | None = None
+        self.text_emitted_len: int = 0
+
+    def reset(self) -> None:
+        self.node_start_emitted = False
+        self.current_id = None
+        self.current_type = None
+        self.streaming_field = None
+        self.text_emitted_len = 0
+
+
+def _get_partial_text(buf: str, field: str) -> str | None:
+    """
+    Extract the current (possibly incomplete) decoded string value of `field`
+    from a partial JSON object buffer. Returns None if the field key hasn't
+    appeared yet. Handles basic JSON escape sequences.
+    """
+    pattern = re.compile(rf'"{re.escape(field)}"\s*:\s*"')
+    m = pattern.search(buf)
+    if not m:
+        return None
+    parts: list[str] = []
+    i = m.end()
+    esc_map = {'n': '\n', 't': '\t', '"': '"', '\\': '\\'}
+    while i < len(buf):
+        ch = buf[i]
+        if ch == '\\' and i + 1 < len(buf):
+            parts.append(esc_map.get(buf[i + 1], buf[i + 1]))
+            i += 2
+        elif ch == '"':
+            break  # closing quote — string done
+        else:
+            parts.append(ch)
+            i += 1
+    return "".join(parts)
+
+
+def _extract_partial_events(
+    buf: str, state: _StreamPartialState
+) -> list[dict[str, Any]]:
+    """
+    Inspect the current in-flight partial buffer (the content AFTER the last
+    complete JSON object) and return any new SSE events to emit:
+      - node_start  : emitted once per object when id & type are readable
+      - node_text_delta : emitted for each new chunk of text in the streaming field
+    """
+    events: list[dict[str, Any]] = []
+    if '{' not in buf:
+        return events
+
+    if not state.node_start_emitted:
+        id_m = re.search(r'"id"\s*:\s*"([^"\\]+)"', buf)
+        type_m = re.search(r'"type"\s*:\s*"([^"\\]+)"', buf)
+        if id_m and type_m:
+            state.current_id = id_m.group(1)
+            state.current_type = type_m.group(1)
+            state.node_start_emitted = True
+            state.streaming_field = _TEXT_FIELDS_BY_TYPE.get(state.current_type.lower())
+            if state.streaming_field:  # only announce text-bearing nodes
+                events.append({
+                    "event_type": "node_start",
+                    "id": state.current_id,
+                    "node_type": state.current_type,
+                })
+
+    if state.streaming_field and state.node_start_emitted:
+        partial_text = _get_partial_text(buf, state.streaming_field)
+        if partial_text is not None and len(partial_text) > state.text_emitted_len:
+            delta = partial_text[state.text_emitted_len:]
+            state.text_emitted_len = len(partial_text)
+            events.append({
+                "event_type": "node_text_delta",
+                "id": state.current_id,
+                "delta": delta,
+            })
+
+    return events
+
+
 class PresentationPlanner:
     """
     Transforms a final drafted text (and its CuratedContext) into a structured 
@@ -164,6 +286,7 @@ Example:
                 layout_raw = json.loads(result[start:end])
                 if isinstance(layout_raw, list):
                     layout = [n for n in layout_raw if isinstance(n, dict)]
+                    layout = _hoist_image_gallery(layout)
                     logger.info(f"[PresentationPlanner] Designed layout with {len(layout)} nodes.")
                     return layout
         except Exception as e:
@@ -311,7 +434,7 @@ Raw Tool Data (Use this for precise arrays, charts, forecasts, etc):
 Predefined UI Layout:
 {json.dumps(layout, indent=2)}
 
-Node Field Requirements:
+Node Field Requirements (CRITICAL: You MUST output 'id' and 'type' FIRST, before any other fields like 'text', to allow proper streaming):
 - Heading: 'id', 'type', 'text', 'level' (1, 2, or 3)
 - Paragraph: 'id', 'type', 'text'
 - BulletList: 'id', 'type', 'items' (array of strings)
@@ -340,8 +463,13 @@ Return ONLY a JSON array containing the fully populated nodes from the Predefine
             router_inst = typing.cast(ProviderRouter, self.provider)
             buffer = ""
             articles_for_stream = _build_news_index(context.raw_data) if context.raw_data else []
+            state = _StreamPartialState()
 
             async for chunk in router_inst.stream_chat(messages, intent="structured"):
+                new_events = _extract_partial_events(buffer + chunk, state)
+                for event in new_events:
+                    yield event
+
                 buffer += chunk
                 objects, buffer = parse_json_objects_from_stream(buffer)
 
@@ -375,7 +503,8 @@ Return ONLY a JSON array containing the fully populated nodes from the Predefine
                             if "forecast_7_days" in weather_data:
                                 node["forecast"] = weather_data["forecast_7_days"]
                                 
-                    yield node
+                    yield {"event_type": "presentation_node", "node": node}
+                    state.reset()
                     
         except Exception as e:
             logger.warning(f"[PresentationPlanner] Failed to generate content stream: {str(e)}")
@@ -384,6 +513,6 @@ Return ONLY a JSON array containing the fully populated nodes from the Predefine
                 "type": "Paragraph",
                 "text": "Failed to format content progressively. Check curated context."
             }
-            yield fallback
+            yield {"event_type": "presentation_node", "node": fallback}
 
 

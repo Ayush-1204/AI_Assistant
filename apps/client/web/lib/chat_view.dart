@@ -615,6 +615,19 @@ class _ChatViewState extends ConsumerState<ChatView> {
         });
       }
     });
+
+    ref.listen(chatProvider.select((state) => state.streamingNodes), (prev, next) {
+      if (ref.read(chatProvider).isProcessing) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_scrollController.hasClients) {
+            final pos = _scrollController.position;
+            if (pos.maxScrollExtent - pos.pixels < 300) {
+              _scrollController.jumpTo(pos.maxScrollExtent);
+            }
+          }
+        });
+      }
+    });
     
     ref.listen(chatProvider.select((state) => state.isProcessing), (prev, isProcessing) {
       // Scroll when processing starts (to show loading) AND when it ends (to snap to end of widget/message)
@@ -950,8 +963,29 @@ class _ChatViewState extends ConsumerState<ChatView> {
                                   child: Builder(
                                     builder: (context) {
                                         Widget mdBody;
-                                        final parsedNodes = isAssistant ? StreamingParser.parseStream(processedMsg) : <PresentationNode>[];
-                                        
+                                        // During streaming: use the live typed node list so each node
+                                        // renders the moment it arrives rather than waiting for all nodes.
+                                        // After stream ends: fall back to full-string parse for history rendering.
+                                        final msgStateIndex = index - 1;
+                                        final isThisMessageStreaming = isAssistant &&
+                                            chatState.isSending &&
+                                            msgStateIndex == chatState.messages.length - 1;
+                                        final liveNodes = chatState.streamingNodes[msgStateIndex];
+                                        final List<PresentationNode> parsedNodes;
+                                        if (isAssistant) {
+                                          if (isThisMessageStreaming && liveNodes != null && liveNodes.isNotEmpty) {
+                                            // Live path — incremental render from state list
+                                            parsedNodes = liveNodes
+                                                .map((n) => PresentationNode.fromJson(n))
+                                                .toList();
+                                          } else {
+                                            // History / fully loaded path — parse from accumulated string
+                                            parsedNodes = StreamingParser.parseStream(processedMsg);
+                                          }
+                                        } else {
+                                          parsedNodes = const [];
+                                        }
+
                                         if (parsedNodes.isNotEmpty) {
                                             mdBody = PresentationRenderer(nodes: parsedNodes);
                                         } else {

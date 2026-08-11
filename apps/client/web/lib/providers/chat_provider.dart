@@ -41,6 +41,9 @@ class ChatState {
   final String loadingText;
   final List<Map<String, dynamic>>? pendingPlan; // non-null when plan_approval is pending
   final int? pendingPlanMsgIndex;
+  /// Live list of presentation nodes arriving over SSE, keyed by message index.
+  /// Used to render nodes incrementally during streaming without re-parsing the full string.
+  final Map<int, List<Map<String, dynamic>>> streamingNodes;
 
   ChatState({
     this.conversationId,
@@ -61,6 +64,7 @@ class ChatState {
     this.loadingText = "Thinking...",
     this.pendingPlan,
     this.pendingPlanMsgIndex,
+    this.streamingNodes = const {},
   }) : messages = messages ?? [];
 
   ChatState copyWith({
@@ -83,6 +87,8 @@ class ChatState {
     List<Map<String, dynamic>>? pendingPlan,
     bool clearPendingPlan = false,
     int? pendingPlanMsgIndex,
+    Map<int, List<Map<String, dynamic>>>? streamingNodes,
+    bool clearStreamingNodes = false,
   }) {
     return ChatState(
       conversationId: conversationId ?? this.conversationId,
@@ -103,6 +109,7 @@ class ChatState {
       loadingText: loadingText ?? this.loadingText,
       pendingPlan: clearPendingPlan ? null : (pendingPlan ?? this.pendingPlan),
       pendingPlanMsgIndex: clearPendingPlan ? null : (pendingPlanMsgIndex ?? this.pendingPlanMsgIndex),
+      streamingNodes: clearStreamingNodes ? {} : (streamingNodes ?? this.streamingNodes),
     );
   }
 }
@@ -125,6 +132,16 @@ class ChatNotifier extends StateNotifier<ChatState> {
   final List<int> _voiceTypingBuffer = [];
 
   void Function(Uint8List, bool)? _onAudioChunk;
+
+  Timer? _typewriterTimer;
+  String _networkMessageBuffer = "";
+  final Map<String, String> _networkNodeTextBuffers = {};
+  final Map<String, String> _networkNodeCodeBuffers = {};
+  int _visibleMessageLen = 0;
+  final Map<String, int> _visibleNodeTextLen = {};
+  final Map<String, int> _visibleNodeCodeLen = {};
+  int _currentMsgIndex = -1;
+  bool _streamIsActive = false;
 
   ChatNotifier(this._apiClient) : super(ChatState()) {
     _audioPlayer.onPlayerComplete.listen((_) {
@@ -599,6 +616,63 @@ class ChatNotifier extends StateNotifier<ChatState> {
     state = state.copyWith(pendingFiles: []);
   }
 
+   void _startTypewriterIfNeeded() {
+      if (_typewriterTimer != null && _typewriterTimer!.isActive) return;
+      _typewriterTimer = Timer.periodic(const Duration(milliseconds: 16), (timer) {
+          bool didUpdate = false;
+          final newMsgs = List<String>.from(state.messages);
+          final currentNodes = List<Map<String, dynamic>>.from(state.streamingNodes[_currentMsgIndex] ?? []);
+          
+          // 1. Advance global message buffer (used for raw content, but not JSON structure)
+          // (Wait, _networkMessageBuffer is also used for presentation_node json. We only want to animate if we are NOT in structured mode. If currentNodes is empty, we animate global message)
+          if (currentNodes.isEmpty && _visibleMessageLen < _networkMessageBuffer.length) {
+              _visibleMessageLen = (_visibleMessageLen + 3).clamp(0, _networkMessageBuffer.length);
+              if (_currentMsgIndex >= 0 && _currentMsgIndex < newMsgs.length) {
+                  newMsgs[_currentMsgIndex] = "Assistant: " + _networkMessageBuffer.substring(0, _visibleMessageLen);
+              }
+              didUpdate = true;
+          }
+          
+          // 2. Advance node text buffers
+          for (int i = 0; i < currentNodes.length; i++) {
+              final node = Map<String, dynamic>.from(currentNodes[i]);
+              final id = node['id'] as String;
+              
+              if (_networkNodeTextBuffers.containsKey(id)) {
+                  final targetLen = _networkNodeTextBuffers[id]!.length;
+                  final currentLen = _visibleNodeTextLen[id] ?? 0;
+                  if (currentLen < targetLen) {
+                      final remaining = targetLen - currentLen;
+                      final step = (remaining * 0.3).ceil().clamp(1, 15);
+                      _visibleNodeTextLen[id] = (currentLen + step).clamp(0, targetLen);
+                      node['text'] = _networkNodeTextBuffers[id]!.substring(0, _visibleNodeTextLen[id]!);
+                      currentNodes[i] = node;
+                      didUpdate = true;
+                  }
+              }
+              
+              if (_networkNodeCodeBuffers.containsKey(id)) {
+                  final targetLen = _networkNodeCodeBuffers[id]!.length;
+                  final currentLen = _visibleNodeCodeLen[id] ?? 0;
+                  if (currentLen < targetLen) {
+                      _visibleNodeCodeLen[id] = (currentLen + 3).clamp(0, targetLen);
+                      node['code'] = _networkNodeCodeBuffers[id]!.substring(0, _visibleNodeCodeLen[id]!);
+                      currentNodes[i] = node;
+                      didUpdate = true;
+                  }
+              }
+          }
+          
+          if (didUpdate) {
+              state = state.copyWith(
+                  messages: newMsgs,
+                  streamingNodes: currentNodes.isEmpty ? state.streamingNodes : {...state.streamingNodes, _currentMsgIndex: currentNodes},
+              );
+          } else if (!_streamIsActive) {
+              timer.cancel();
+          }
+      });
+   }
   void removeAttachment(int index) {
     if (index >= 0 && index < state.pendingFiles.length) {
       final updatedFiles = List<PendingFile>.from(state.pendingFiles)..removeAt(index);
@@ -730,9 +804,16 @@ class ChatNotifier extends StateNotifier<ChatState> {
       
       state = state.copyWith(isProcessing: true, loadingText: "Thinking...");
       
-      String accumulated = "";
+      _networkMessageBuffer = "";
+      _networkNodeTextBuffers.clear();
+      _networkNodeCodeBuffers.clear();
+      _visibleMessageLen = 0;
+      _visibleNodeTextLen.clear();
+      _visibleNodeCodeLen.clear();
+      _currentMsgIndex = -1;
+      _streamIsActive = true;
+      
       bool firstChunkReceived = false;
-      int msgIndex = -1;
       
       final stream = _apiClient.sendChatMessageStream(
         state.conversationId.toString(), 
@@ -743,6 +824,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
       
       await for (final payload in stream) {
          if (payload == "[DONE]") {
+             _streamIsActive = false;
              state = state.copyWith(isProcessing: false);
              continue;
          }
@@ -756,38 +838,80 @@ class ChatNotifier extends StateNotifier<ChatState> {
               if (!firstChunkReceived) {
                   firstChunkReceived = true;
                   state = state.copyWith(messages: [...state.messages, "Assistant: "]);
-                  msgIndex = state.messages.length - 1;
+                  _currentMsgIndex = state.messages.length - 1;
               }
-              accumulated += data['delta'];
-              // Update latest message progressively
-              final newMsgs = List<String>.from(state.messages);
-              if (msgIndex >= 0 && msgIndex < newMsgs.length) {
-                  newMsgs[msgIndex] = "Assistant: " + accumulated;
-                  state = state.copyWith(messages: newMsgs);
-              }
+              _networkMessageBuffer += data['delta'];
+              _startTypewriterIfNeeded();
            } else if (data['type'] == 'metadata') {
               final newMeta = Map<int, Map<String, dynamic>>.from(state.messageMetadata);
-              if (msgIndex >= 0) {
-                  newMeta[msgIndex] = data;
+              if (_currentMsgIndex >= 0) {
+                  newMeta[_currentMsgIndex] = data;
                   state = state.copyWith(messageMetadata: newMeta);
               }
+           } else if (data['type'] == 'node_start') {
+              if (state.isProcessing) state = state.copyWith(isProcessing: false);
+              if (!firstChunkReceived) {
+                  firstChunkReceived = true;
+                  state = state.copyWith(messages: [...state.messages, "Assistant: "]);
+                  _currentMsgIndex = state.messages.length - 1;
+              }
+              final nodeId = data['id'] as String;
+              final nodeType = data['node_type'] as String;
+              final skelNode = <String, dynamic>{'id': nodeId, 'type': nodeType, 'text': '', 'code': ''};
+              
+              final currentNodes = List<Map<String, dynamic>>.from(state.streamingNodes[_currentMsgIndex] ?? []);
+              currentNodes.add(skelNode);
+              state = state.copyWith(streamingNodes: {...state.streamingNodes, _currentMsgIndex: currentNodes});
+              
+           } else if (data['type'] == 'node_text_delta') {
+              final nodeId = data['id'] as String;
+              final delta = data['delta'] as String;
+              
+              final currentNodes = List<Map<String, dynamic>>.from(state.streamingNodes[_currentMsgIndex] ?? []);
+              final nodeIndex = currentNodes.indexWhere((n) => n['id'] == nodeId);
+              if (nodeIndex >= 0) {
+                 final node = Map<String, dynamic>.from(currentNodes[nodeIndex]);
+                 if ((node['type'] as String).toLowerCase() == 'codeblock') {
+                     _networkNodeCodeBuffers[nodeId] = (_networkNodeCodeBuffers[nodeId] ?? "") + delta;
+                 } else {
+                     _networkNodeTextBuffers[nodeId] = (_networkNodeTextBuffers[nodeId] ?? "") + delta;
+                 }
+                 _startTypewriterIfNeeded();
+              }
+              
            } else if (data['type'] == 'presentation_node') {
               if (state.isProcessing) {
                   state = state.copyWith(isProcessing: false);
               }
-              if (!firstChunkReceived) {
-                  firstChunkReceived = true;
-                  state = state.copyWith(messages: [...state.messages, "Assistant: "]);
-                  msgIndex = state.messages.length - 1;
-              }
-              accumulated += jsonEncode(data['node']) + "\n";
-              
+               if (!firstChunkReceived) {
+                   firstChunkReceived = true;
+                   state = state.copyWith(messages: [...state.messages, "Assistant: "]);
+                   _currentMsgIndex = state.messages.length - 1;
+               }
+               final nodeMap = Map<String, dynamic>.from(data['node'] as Map);
+               _networkMessageBuffer += jsonEncode(nodeMap) + "\n";
+
+              // Update message string for persistence
               final newMsgs = List<String>.from(state.messages);
-              if (msgIndex >= 0 && msgIndex < newMsgs.length) {
-                  newMsgs[msgIndex] = "Assistant: " + accumulated;
-                  state = state.copyWith(messages: newMsgs);
+              if (_currentMsgIndex >= 0 && _currentMsgIndex < newMsgs.length) {
+                  newMsgs[_currentMsgIndex] = "Assistant: " + _networkMessageBuffer;
               }
               
+              // Update live node list: replace skeleton or append
+              final currentNodes = List<Map<String, dynamic>>.from(state.streamingNodes[_currentMsgIndex] ?? []);
+              final nodeId = nodeMap['id'];
+              final existingIndex = currentNodes.indexWhere((n) => n['id'] == nodeId);
+              if (existingIndex >= 0) {
+                  currentNodes[existingIndex] = nodeMap;
+              } else {
+                  currentNodes.add(nodeMap);
+              }
+              
+              state = state.copyWith(
+                  messages: newMsgs,
+                  streamingNodes: {...state.streamingNodes, _currentMsgIndex: currentNodes},
+              );
+
               // Auto-compress voice mode to reveal widgets
               if (state.isVoiceModeExpanded) {
                   setVoiceModeExpanded(false);
@@ -802,19 +926,19 @@ class ChatNotifier extends StateNotifier<ChatState> {
               state = state.copyWith(
                 isProcessing: false,
                 pendingPlan: typedPlan,
-                pendingPlanMsgIndex: msgIndex,
+                pendingPlanMsgIndex: _currentMsgIndex,
               );
            }
          } catch (_) {}
       }
       
-      if (state.isContinuousVoiceMode && accumulated.trim().isNotEmpty) {
-         readAloud(accumulated);
+      if (state.isContinuousVoiceMode && _networkMessageBuffer.trim().isNotEmpty) {
+         readAloud(_networkMessageBuffer);
       }
       
       // Auto-edit title on first user/assistant exchange
       if (state.messages.length <= 3 && state.conversationId != null) {
-        String cleaned = accumulated.replaceAll(RegExp(r'\n|#|\*'), ' ').trim();
+        String cleaned = _networkMessageBuffer.replaceAll(RegExp(r'\n|#|\*'), ' ').trim();
         if (cleaned.isNotEmpty) {
            final newTitle = await _apiClient.generateConversationTitle(state.conversationId!, cleaned);
            if (newTitle != null && newTitle.isNotEmpty) {
