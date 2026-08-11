@@ -198,7 +198,8 @@ async def fetch_real_time_news() -> str:
     try:
         from app.integrations.search.tavily import TavilySearchProvider
         tavily = TavilySearchProvider()
-        res = await tavily.search("latest essential top breaking news headlines india tech business sports", max_results=6)
+        import asyncio
+        res = await asyncio.wait_for(tavily.search("latest essential top breaking news headlines india tech business sports", max_results=6), timeout=3.0)
         return str(res)
     except Exception as e:
         import logging
@@ -231,7 +232,8 @@ async def _generate_ai_dashboard_payload(weather_data: dict, today_events_titles
     """
     
     try:
-        response = await router._execute_with_router("chat", [{"role": "user", "content": prompt}], intent="dashboard")
+        import asyncio
+        response = await asyncio.wait_for(router._execute_with_router("chat", [{"role": "user", "content": prompt}], intent="dashboard"), timeout=5.0)
         
         # Accommodate object response from Gemini native providers lacking a raw strip()
         if hasattr(response, "text"):

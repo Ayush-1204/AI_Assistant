@@ -8,16 +8,17 @@ import 'token_usage_view.dart';
 import 'calendar_view.dart';
 import 'tasks_view.dart';
 import 'scheduled_jobs_view.dart';
+import 'providers/nav_provider.dart';
+import 'workspace_view.dart';
 
-class MainLayout extends StatefulWidget {
+class MainLayout extends ConsumerStatefulWidget {
   const MainLayout({super.key});
 
   @override
-  State<MainLayout> createState() => _MainLayoutState();
+  ConsumerState<MainLayout> createState() => _MainLayoutState();
 }
 
-class _MainLayoutState extends State<MainLayout> with SingleTickerProviderStateMixin {
-  int _selectedIndex = 0;
+class _MainLayoutState extends ConsumerState<MainLayout> with SingleTickerProviderStateMixin {
   final ValueNotifier<Offset> _mousePos = ValueNotifier(Offset.zero);
   bool _isSidebarOpen = true;
 
@@ -65,6 +66,7 @@ class _MainLayoutState extends State<MainLayout> with SingleTickerProviderStateM
 
 
   final List<Widget> _views = [
+    const WorkspaceView(),
     const ChatView(),
     const NotesView(),
     const TasksView(),
@@ -76,6 +78,7 @@ class _MainLayoutState extends State<MainLayout> with SingleTickerProviderStateM
 
   static const List<_NavItem> _navItems = [
     _NavItem(icon: Icons.dashboard_outlined, activeIcon: Icons.dashboard, label: 'Workspace'),
+    _NavItem(icon: Icons.chat_bubble_outline, activeIcon: Icons.chat_bubble, label: 'Chat'),
     _NavItem(icon: Icons.note_outlined, activeIcon: Icons.note, label: 'Notes'),
     _NavItem(icon: Icons.check_circle_outline, activeIcon: Icons.check_circle, label: 'Tasks'),
     _NavItem(icon: Icons.calendar_month_outlined, activeIcon: Icons.calendar_month, label: 'Calendar'),
@@ -145,17 +148,17 @@ class _MainLayoutState extends State<MainLayout> with SingleTickerProviderStateM
                       // Nav items
                       ...List.generate(_navItems.length, (i) {
                         final item = _navItems[i];
-                        final selected = _selectedIndex == i;
+                        final selected = ref.watch(navIndexProvider) == i;
                         return _SidebarTile(
                           icon: selected ? item.activeIcon : item.icon,
                           label: item.label,
                           selected: selected,
                           isExpanded: _isSidebarOpen,
-                          onTap: () => setState(() => _selectedIndex = i),
+                          onTap: () => ref.read(navIndexProvider.notifier).state = i,
                         );
                       }),
                       
-                      if (_selectedIndex == 0) ...[
+                      if (ref.watch(navIndexProvider) == 1) ...[
                         Expanded(
                           child: AnimatedOpacity(
                             duration: const Duration(milliseconds: 400),
@@ -201,11 +204,11 @@ class _MainLayoutState extends State<MainLayout> with SingleTickerProviderStateM
                       Container(height: 1, color: Colors.white.withValues(alpha: 0.06)),
 
                       _SidebarTile(
-                        icon: _selectedIndex == 10 ? Icons.settings : Icons.settings_outlined,
+                        icon: ref.watch(navIndexProvider) == 10 ? Icons.settings : Icons.settings_outlined,
                         label: 'Settings',
-                        selected: _selectedIndex == 10,
+                        selected: ref.watch(navIndexProvider) == 10,
                         isExpanded: _isSidebarOpen,
-                        onTap: () => setState(() => _selectedIndex = 10),
+                        onTap: () => ref.read(navIndexProvider.notifier).state = 10,
                       ),
                       const SizedBox(height: 12),
                       ],
@@ -217,7 +220,7 @@ class _MainLayoutState extends State<MainLayout> with SingleTickerProviderStateM
                 Container(width: 1, color: Colors.white.withValues(alpha: 0.06)),
                 Expanded(
                   child: IndexedStack(
-                    index: _selectedIndex,
+                    index: ref.watch(navIndexProvider),
                     children: _views,
                   ),
                 ),

@@ -402,7 +402,7 @@ The `AiMessageRenderer` (which renders `HeadingWidget`/`ParagraphWidget` text) a
 6. autoscroll
 
 
-## Phase 29: Chat Streaming & Voice Scroll Refinement
+## Phase 40: Chat Streaming & Voice Scroll Refinement
 **Status**: `Completed`
 - **Plan**: Refine the chat auto-scrolling behavior to perfectly track dynamically generated presentation nodes and text in real-time, removing visual fighting between UI components. Fix the auto-title generator to reliably process AI responses containing specialized JSON widgets.
 - **Implementation**:
@@ -411,3 +411,12 @@ The `AiMessageRenderer` (which renders `HeadingWidget`/`ParagraphWidget` text) a
   - Removed conflicting explicit `animateTo` scroll commands when voice mode shrinks, allowing the default smooth-scrolling algorithm to perfectly track the AI widget without hampering UX.
   - Patched the backend AI service layer to properly catch disconnects via `await fastapi_request.is_disconnected()` inside generation loops, immediately halting LLM execution if the user aborts.
 
+
+## Phase 41: Chat Input Component Refactoring & Layout Polish
+**Status**: Completed
+- **Plan**: Unify the main interaction element across the app by extracting the complex chat input logic into a standalone component (ChatInputPill), allowing it to be used universally on the Workspace dashboard and the Chat views. Clean up animations and fix dashboard widget loading hangups.
+- **Implementation**:
+  - Abstracted the chat textfield, microphone, attachment UI, and hover logic into a new ChatInputPill widget.
+  - Replaced the hardcoded input areas in workspace_view.dart and chat_view.dart with the new unified ChatInputPill.
+  - Polished the chat_view.dart empty state layout to perfectly vertically center the greeting text and ChatInputPill. Implemented AnimatedAlign and AnimatedOpacity to elegantly morph the pill to the bottom center and fade out the greeting when a chat session initiates.
+  - Prevented infinite loading states on the dashboard by applying aggressive syncio.wait_for timeouts (3-5 seconds) to slow backend generative services (LLM and Tavily web searches) inside dashboard.py, ensuring instantaneous fallback rendering if third-party services degrade.
