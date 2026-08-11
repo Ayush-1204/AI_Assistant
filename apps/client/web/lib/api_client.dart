@@ -1,3 +1,4 @@
+import 'models/conversation_info.dart';
 import 'dart:typed_data';
 
 import 'dart:convert';
@@ -525,4 +526,5 @@ class ApiClient {
     return response.data;
   }
 }
+
 
