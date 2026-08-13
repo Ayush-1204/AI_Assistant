@@ -318,6 +318,7 @@ class NewsSearchTool(BaseTool):
         query: str = kwargs.get("query", "")
         max_results: int = min(int(kwargs.get("max_results", 5)), 8)
         days: int = min(int(kwargs.get("days", 1)), 7)
+        skip_images: bool = kwargs.get("skip_images", False)
         
         # Enforce strict time boundaries for "today" / "now"
         timeframe = str(kwargs.get("timeframe", "")).lower()
@@ -414,6 +415,12 @@ class NewsSearchTool(BaseTool):
                     "source": _extract_domain(url_str),
                     "imageUrl": valid_img,
                     "publishedAt": pub,
+                })
+
+            if skip_images:
+                return json.dumps({
+                    "region": region,
+                    "articles": articles_raw,
                 })
 
             # --- Phase 4: Scrape og:image via cloudscraper for articles still missing images ---

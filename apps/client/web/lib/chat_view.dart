@@ -21,6 +21,7 @@ import 'voice_view.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'ui/presentation_engine/renderer.dart';
 import 'ui/presentation_engine/models.dart';
+import 'widgets/chat_input_pill.dart';
 
 class CollageSyntax extends md.InlineSyntax {
   CollageSyntax() : super(r'\[COLLAGE:(.*?)\]');
@@ -437,13 +438,11 @@ class ChatView extends ConsumerStatefulWidget {
 class _ChatViewState extends ConsumerState<ChatView> {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  Future<List<dynamic>>? _dashboardFuture;
 
   @override
   void initState() {
     super.initState();
     _initLocation();
-    _dashboardFuture = ref.read(apiClientProvider).fetchDashboardWidgets();
   }
 
   Future<void> _initLocation() async {
@@ -555,45 +554,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
             ));
   }
 
-  Widget _buildDashboardWidgets() {
-    final screenWidth = MediaQuery.of(context).size.width;
-    int crossAxisCount = screenWidth > 1200 ? 3 : (screenWidth > 800 ? 2 : 1);
 
-    return FutureBuilder<List<dynamic>>(
-      future: _dashboardFuture,
-      builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return GridView.count(
-            crossAxisCount: crossAxisCount,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio:
-                screenWidth > 800 ? 1.45 : 1.75, // Lower ratio = taller cards
-            children: List.generate(3, (index) {
-              return const _SkeletonDashboardCard();
-            }),
-          );
-        }
-
-        final widgets = snapshot.data!;
-        return GridView.count(
-          crossAxisCount: crossAxisCount,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-          childAspectRatio:
-              screenWidth > 800 ? 1.45 : 1.75, // Consistent aspect ratio
-          children: List.generate(widgets.length, (index) {
-            return _DashboardWidgetCard(
-                data: widgets[index] as Map<String, dynamic>, index: index);
-          }),
-        );
-      },
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -655,7 +616,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
               ),
               child: Row(
                 children: [
-                  const Text('Workspace Overview',
+                  const Text('Chat',
                       style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.w600,
@@ -698,22 +659,15 @@ class _ChatViewState extends ConsumerState<ChatView> {
                 final chatState = ref.watch(chatProvider);
                 return ListView.builder(
                   controller: _scrollController,
-                  padding: const EdgeInsets.all(24),
+                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 160),
                   itemCount: chatState.messages.length +
-                      1 +
                       (chatState.isProcessing ? 1 : 0) +
                       (chatState.pendingPlan != null ? 1 : 0),
                   itemBuilder: (context, index) {
-                    if (index == 0) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 32.0),
-                        child: _buildDashboardWidgets(),
-                      );
-                    }
 
                     // Loading indicator logic
                     if (chatState.isProcessing &&
-                        index == chatState.messages.length + 1) {
+                        index == chatState.messages.length) {
                       return Center(
                         child: ConstrainedBox(
                           constraints: const BoxConstraints(maxWidth: 800),
@@ -775,7 +729,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
 
                     // Plan Approval Card
                     if (chatState.pendingPlan != null &&
-                        index == chatState.messages.length + 1 + (chatState.isProcessing ? 1 : 0)) {
+                        index == chatState.messages.length + (chatState.isProcessing ? 1 : 0)) {
                       return _PlanApprovalCard(
                         plan: chatState.pendingPlan!,
                         onApprove: (steps) =>
@@ -785,7 +739,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
                       );
                     }
 
-                    final msg = chatState.messages[index - 1];
+                    final msg = chatState.messages[index];
                     
                     if (msg.startsWith("System:")) {
                        return Center(
@@ -1103,7 +1057,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
                                                   finalMsg += '\n${img.trim()}';
                                                 }
                                               }
-                                              ref.read(chatProvider.notifier).editMessageAndSend(index - 1, finalMsg);
+                                              ref.read(chatProvider.notifier).editMessageAndSend(index, finalMsg);
                                             },
                                             onCopy: () {
                                               Clipboard.setData(ClipboardData(text: cleanEditText));
@@ -1226,7 +1180,10 @@ class _ChatViewState extends ConsumerState<ChatView> {
                 );
               }),
             ),
-            // Floating Chat Bar Region
+          ], // End main Column children
+        ), // End main Column
+        
+        // Floating Chat Bar Region
             Consumer(builder: (context, ref, child) {
               final isListening = ref.watch(chatProvider).isListening;
               final isSending = ref.watch(chatProvider).isSending;
@@ -1237,24 +1194,23 @@ class _ChatViewState extends ConsumerState<ChatView> {
               return Positioned.fill(
                 child: Container(
                 padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-                color: Colors.transparent,
                 child: SafeArea(
                   child: AnimatedAlign(
-                    duration: const Duration(milliseconds: 600),
+                    duration: const Duration(seconds: 10),
                     curve: Curves.easeOutCubic,
                     alignment: isEmpty
-                        ? const Alignment(0, 0.3)
+                        ? Alignment.center
                         : Alignment.bottomCenter,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                           AnimatedSize(
-                            duration: const Duration(milliseconds: 600),
+                            duration: const Duration(seconds: 10),
                             curve: Curves.easeOutCubic,
                             child: SizedBox(
                               height: isEmpty ? null : 0,
                               child: AnimatedOpacity(
-                                duration: const Duration(milliseconds: 400),
+                                duration: const Duration(seconds: 10),
                                 opacity: isEmpty ? 1.0 : 0.0,
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
@@ -1283,9 +1239,6 @@ class _ChatViewState extends ConsumerState<ChatView> {
                 ), // End SafeArea
               )); // End return Positioned.fill
             }), // End Consumer
-          ], // End main Column children
-        ), // End main Column
-        
         // Voice session overlay
         const VoiceModeView(),
       ], // End Stack children
@@ -2821,107 +2774,3 @@ class _SentAttachmentPill extends StatelessWidget {
   }
 }
 
-class HoverableAttachmentPill extends StatefulWidget {
-  final dynamic file;
-  final VoidCallback onRemove;
-
-  const HoverableAttachmentPill({required this.file, required this.onRemove});
-
-  @override
-  State<HoverableAttachmentPill> createState() => HoverableAttachmentPillState();
-}
-
-class HoverableAttachmentPillState extends State<HoverableAttachmentPill> {
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    String filename = widget.file.name;
-    String ext = filename.contains('.') ? filename.split('.').last.toLowerCase() : 'file';
-    Color extColor = Colors.grey;
-    if (ext == 'pdf') extColor = Colors.redAccent;
-    else if (ext == 'doc' || ext == 'docx') extColor = Colors.blueAccent;
-    else if (ext == 'xls' || ext == 'xlsx') extColor = Colors.green;
-    else if (ext == 'txt') extColor = Colors.white70;
-    else extColor = Colors.orangeAccent;
-
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            margin: const EdgeInsets.only(right: 8, top: 4),
-            constraints: const BoxConstraints(maxWidth: 240),
-            width: widget.file.type == 'image' ? 50 : null,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-              color: widget.file.type == 'image' ? null : const Color(0xFF2C2C2C),
-              image: widget.file.type == 'image'
-                  ? DecorationImage(
-                      image: MemoryImage(base64Decode(widget.file.base64Data)),
-                      fit: BoxFit.cover,
-                    )
-                  : null,
-            ),
-            child: widget.file.type != 'image'
-                ? Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 10.0),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: extColor.withValues(alpha: 0.5)),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(ext.toUpperCase(), style: TextStyle(color: extColor, fontSize: 8, fontWeight: FontWeight.bold)),
-                        ),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(widget.file.name,
-                                  style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis),
-                              const SizedBox(height: 2),
-                              Text("DOCUMENT",
-                                  style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 10, fontWeight: FontWeight.w500)),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : null,
-          ),
-          if (_isHovered)
-            Positioned(
-              right: 0,
-              top: 0,
-              child: InkWell(
-                onTap: widget.onRemove,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))
-                    ],
-                  ),
-                  child: const Icon(Icons.close, size: 10, color: Colors.black87),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}

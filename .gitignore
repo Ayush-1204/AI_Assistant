@@ -71,3 +71,15 @@ openjarvis/
 
 # API Storage
 apps/api/storage/uploads/
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Tokens
+token.json
+
+# Temp dart files
+*_old.dart
+missing.dart

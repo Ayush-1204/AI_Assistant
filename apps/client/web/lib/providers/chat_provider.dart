@@ -245,18 +245,9 @@ class ChatNotifier extends StateNotifier<ChatState> {
     
     state = state.copyWith(isSending: true);
     try {
-      final newId = await _apiClient.createConversation("New Chat");
-      
-      final Map<String, dynamic> newSession = {
-        'id': newId,
-        'title': 'New Chat',
-      };
-      
-      final updatedSessions = [newSession, ...state.sessions];
-      
       state = ChatState(
-        conversationId: newId,
-        sessions: updatedSessions,
+        conversationId: null,
+        sessions: state.sessions,
         messageMetadata: const {},
         messages: [],
       );
@@ -265,10 +256,10 @@ class ChatNotifier extends StateNotifier<ChatState> {
       _channel?.sink.close();
       _channel = null;
       if (state.isContinuousVoiceMode) {
-        _initWebSocket();
+        // _initWebSocket will be called when a conversation is actually created upon first message
       }
     } catch (e) {
-      debugPrint("Failed to create new chat: $e");
+      debugPrint("Failed to start new chat: $e");
     } finally {
       state = state.copyWith(isSending: false);
     }
@@ -280,11 +271,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
       final newSessions = state.sessions.where((s) => s['id'] != id).toList();
       state = state.copyWith(sessions: newSessions);
       if (state.conversationId == id) {
-         if (newSessions.isNotEmpty) {
-           await switchSession(newSessions.first['id'] as int);
-         } else {
-           await startNewChat();
-         }
+         await startNewChat();
       }
     } catch (e) {
       debugPrint("Failed to delete chat: $e");

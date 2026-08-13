@@ -31,6 +31,8 @@ abstract class PresentationNode {
         return TimelineNode.fromJson(json);
       case 'accordion':
         return AccordionNode.fromJson(json);
+      case 'eventcard':
+        return EventCardNode.fromJson(json);
       case 'header':
         return HeaderNode.fromJson(json);
       case 'grid':
@@ -333,6 +335,34 @@ class SectionNode extends PresentationNode {
       id: json['id'] ?? '',
       title: json['title'] ?? '',
       content: json['content'] ?? '',
+    );
+  }
+}
+
+class EventCardNode extends PresentationNode {
+  final String title;
+  final String startTime;
+  final String endTime;
+  final String? link;
+  final String? eventId;
+
+  EventCardNode({
+    required super.id,
+    required this.title,
+    required this.startTime,
+    required this.endTime,
+    this.link,
+    this.eventId,
+  }) : super(type: 'EventCard');
+
+  factory EventCardNode.fromJson(Map<String, dynamic> json) {
+    return EventCardNode(
+      id: json['id'] ?? '',
+      title: json['title'] ?? '',
+      startTime: json['start_time'] ?? json['startTime'] ?? '',
+      endTime: json['end_time'] ?? json['endTime'] ?? '',
+      link: json['link'] ?? json['url'],
+      eventId: json['event_id'] ?? json['eventId'],
     );
   }
 }

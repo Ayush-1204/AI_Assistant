@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../markdown/ai_message_renderer.dart';
 import 'models.dart';
 import 'weather_widget.dart' show WeatherCardWidget;
 import 'fullscreen_gallery.dart';
 import 'registry.dart';
+import '../../providers/auth_provider.dart';
 
-void _openFullScreenGallery(BuildContext context, List<Map<String, String>> images, int initialIndex) {
+void _openFullScreenGallery(
+    BuildContext context, List<Map<String, String>> images, int initialIndex) {
   Navigator.of(context).push(PageRouteBuilder(
-    pageBuilder: (context, animation, secondaryAnimation) => 
-      FullScreenGallery(images: images, initialIndex: initialIndex),
+    pageBuilder: (context, animation, secondaryAnimation) =>
+        FullScreenGallery(images: images, initialIndex: initialIndex),
     transitionsBuilder: (context, animation, secondaryAnimation, child) {
       return FadeTransition(opacity: animation, child: child);
     },
@@ -62,7 +66,6 @@ class HeadingWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: AiMessageRenderer(
@@ -113,7 +116,8 @@ class NumberedListWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     int index = 1;
-    final listMarkdown = node.items.map((item) => '${index++}. $item').join('\n');
+    final listMarkdown =
+        node.items.map((item) => '${index++}. $item').join('\n');
     return Padding(
       padding: const EdgeInsets.only(bottom: 0.0),
       child: AiMessageRenderer(
@@ -135,9 +139,14 @@ class ComparisonTableWidget extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 16.0),
         child: DataTable(
-          headingRowColor: WidgetStateProperty.all(Colors.grey.withValues(alpha: 0.1)),
+          headingRowColor:
+              WidgetStateProperty.all(Colors.grey.withValues(alpha: 0.1)),
           border: TableBorder.all(color: Colors.grey.withValues(alpha: 0.3)),
-          columns: node.headers.map((h) => DataColumn(label: Text(h, style: const TextStyle(fontWeight: FontWeight.bold)))).toList(),
+          columns: node.headers
+              .map((h) => DataColumn(
+                  label: Text(h,
+                      style: const TextStyle(fontWeight: FontWeight.bold))))
+              .toList(),
           rows: node.rows.map((row) {
             return DataRow(
               cells: row.map((cell) => DataCell(Text(cell))).toList(),
@@ -170,14 +179,21 @@ class CodeBlockWidget extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(node.language.toUpperCase(), style: const TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold)),
+              Text(node.language.toUpperCase(),
+                  style: const TextStyle(
+                      color: Colors.white54,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold)),
               const Icon(Icons.copy, color: Colors.white54, size: 16),
             ],
           ),
           const SizedBox(height: 8),
           SelectableText(
             node.code,
-            style: const TextStyle(fontFamily: 'monospace', color: Colors.greenAccent, fontSize: 14),
+            style: const TextStyle(
+                fontFamily: 'monospace',
+                color: Colors.greenAccent,
+                fontSize: 14),
           ),
         ],
       ),
@@ -192,13 +208,13 @@ class NewsCardWidget extends StatelessWidget {
   /// Wraps any image URL through wsrv.nl proxy to bypass Flutter-web CORS restrictions
   String? _proxiedImage(String? url) {
     if (url == null || url.isEmpty) return null;
-    
+
     // Clean Wikipedia/Wikimedia URLs to avoid wsrv.nl cache corruption or encoding bugs
     String cleanUrl = url;
     if (cleanUrl.contains('?utm_') || cleanUrl.contains('&utm_')) {
       cleanUrl = cleanUrl.split('?').first;
     }
-    
+
     final encoded = Uri.encodeComponent(cleanUrl);
     return 'https://wsrv.nl/?url=$encoded&w=800&h=400&fit=cover&output=jpg';
   }
@@ -208,7 +224,20 @@ class NewsCardWidget extends StatelessWidget {
     try {
       final dt = DateTime.parse(dateStr).toLocal();
       // Using a simple format like "MMM d, yyyy h:mm a" without adding intl dependency logic
-      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      final months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec'
+      ];
       final month = months[dt.month - 1];
       final hour = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
       final amPm = dt.hour >= 12 ? 'PM' : 'AM';
@@ -251,7 +280,8 @@ class NewsCardWidget extends StatelessWidget {
     final theme = Theme.of(context);
     final hasUrl = node.url != null && node.url!.isNotEmpty;
     final images = _images;
-    final mappedImages = images.map((url) => {'url': url, 'alt': node.title}).toList();
+    final mappedImages =
+        images.map((url) => {'url': url, 'alt': node.title}).toList();
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10.0),
@@ -275,9 +305,11 @@ class NewsCardWidget extends StatelessWidget {
                 // --- Top image banner ---
                 if (images.length == 1)
                   GestureDetector(
-                    onTap: () => _openFullScreenGallery(context, mappedImages, 0),
+                    onTap: () =>
+                        _openFullScreenGallery(context, mappedImages, 0),
                     child: ClipRRect(
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+                      borderRadius:
+                          const BorderRadius.vertical(top: Radius.circular(14)),
                       child: HoverZoomWrapper(
                         child: Image.network(
                           images.first,
@@ -290,7 +322,9 @@ class NewsCardWidget extends StatelessWidget {
                             return Container(
                               height: 160,
                               color: theme.colorScheme.surfaceContainer,
-                              child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                              child: const Center(
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2)),
                             );
                           },
                         ),
@@ -302,12 +336,15 @@ class NewsCardWidget extends StatelessWidget {
                     height: 180,
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 14),
                       itemCount: images.length,
-                      separatorBuilder: (context, index) => const SizedBox(width: 12),
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(width: 12),
                       itemBuilder: (context, index) {
                         return GestureDetector(
-                          onTap: () => _openFullScreenGallery(context, mappedImages, index),
+                          onTap: () => _openFullScreenGallery(
+                              context, mappedImages, index),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(10),
                             child: HoverZoomWrapper(
@@ -316,14 +353,17 @@ class NewsCardWidget extends StatelessWidget {
                                 height: 152,
                                 width: 240,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                                errorBuilder: (_, __, ___) =>
+                                    const SizedBox.shrink(),
                                 loadingBuilder: (_, child, progress) {
                                   if (progress == null) return child;
                                   return Container(
                                     height: 152,
                                     width: 240,
                                     color: theme.colorScheme.surfaceContainer,
-                                    child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                                    child: const Center(
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2)),
                                   );
                                 },
                               ),
@@ -341,11 +381,14 @@ class NewsCardWidget extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Category chip
-                      if (node.category != null && node.category!.isNotEmpty) ...[
+                      if (node.category != null &&
+                          node.category!.isNotEmpty) ...[
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 3),
                           decoration: BoxDecoration(
-                            color: theme.colorScheme.primary.withValues(alpha: 0.12),
+                            color: theme.colorScheme.primary
+                                .withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
@@ -376,20 +419,24 @@ class NewsCardWidget extends StatelessWidget {
                       Text(
                         node.summary,
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.65),
                           height: 1.5,
                         ),
                       ),
                       const SizedBox(height: 14),
 
                       // Divider
-                      Divider(height: 1, color: theme.dividerColor.withValues(alpha: 0.2)),
+                      Divider(
+                          height: 1,
+                          color: theme.dividerColor.withValues(alpha: 0.2)),
                       const SizedBox(height: 10),
 
                       // Footer: source + date + open icon
                       Row(
                         children: [
-                          Icon(Icons.article_outlined, size: 14, color: theme.colorScheme.primary),
+                          Icon(Icons.article_outlined,
+                              size: 14, color: theme.colorScheme.primary),
                           const SizedBox(width: 5),
                           Expanded(
                             child: Text(
@@ -402,19 +449,23 @@ class NewsCardWidget extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          if (node.publishedAt != null && node.publishedAt!.isNotEmpty) ...[
+                          if (node.publishedAt != null &&
+                              node.publishedAt!.isNotEmpty) ...[
                             Text(
                               _formatDate(node.publishedAt),
                               style: TextStyle(
                                 fontSize: 11,
-                                color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                                color: theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.4),
                               ),
                             ),
                             const SizedBox(width: 8),
                           ],
                           if (hasUrl)
-                            Icon(Icons.open_in_new_rounded, size: 14,
-                                color: theme.colorScheme.primary.withValues(alpha: 0.7)),
+                            Icon(Icons.open_in_new_rounded,
+                                size: 14,
+                                color: theme.colorScheme.primary
+                                    .withValues(alpha: 0.7)),
                         ],
                       ),
                     ],
@@ -450,9 +501,13 @@ class TimelineWidget extends StatelessWidget {
                     Container(
                       width: 12,
                       height: 12,
-                      decoration: const BoxDecoration(color: Colors.blue, shape: BoxShape.circle),
+                      decoration: const BoxDecoration(
+                          color: Colors.blue, shape: BoxShape.circle),
                     ),
-                    Container(width: 2, height: 50, color: Colors.blue.withValues(alpha: 0.3)),
+                    Container(
+                        width: 2,
+                        height: 50,
+                        color: Colors.blue.withValues(alpha: 0.3)),
                   ],
                 ),
                 const SizedBox(width: 16),
@@ -460,11 +515,18 @@ class TimelineWidget extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(event['time'] ?? '', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+                      Text(event['time'] ?? '',
+                          style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey)),
                       const SizedBox(height: 4),
-                      Text(event['title'] ?? '', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      Text(event['title'] ?? '',
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
-                      Text(event['description'] ?? '', style: const TextStyle(fontSize: 14)),
+                      Text(event['description'] ?? '',
+                          style: const TextStyle(fontSize: 14)),
                     ],
                   ),
                 ),
@@ -491,7 +553,8 @@ class AccordionWidget extends StatelessWidget {
         side: BorderSide(color: Colors.grey.withValues(alpha: 0.3)),
       ),
       child: ExpansionTile(
-        title: Text(node.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(node.title,
+            style: const TextStyle(fontWeight: FontWeight.bold)),
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 16.0),
@@ -529,13 +592,13 @@ class _SingleImageGalleryWidget extends StatelessWidget {
 
   String? _proxiedImage(String? url) {
     if (url == null || url.isEmpty) return null;
-    
+
     // Clean Wikipedia/Wikimedia URLs to avoid wsrv.nl cache corruption or encoding bugs
     String cleanUrl = url;
     if (cleanUrl.contains('?utm_') || cleanUrl.contains('&utm_')) {
       cleanUrl = cleanUrl.split('?').first;
     }
-    
+
     final encoded = Uri.encodeComponent(cleanUrl);
     // Remove strict crop (fit=cover) and height limits so it scales proportionally
     return 'https://wsrv.nl/?url=$encoded&w=800&output=jpg';
@@ -545,13 +608,14 @@ class _SingleImageGalleryWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final url = _proxiedImage(image['url']);
     if (url == null) return const SizedBox.shrink();
-    
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16.0),
       child: GestureDetector(
         onTap: () => _openFullScreenGallery(context, [image], 0),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 400, maxWidth: double.infinity),
+          constraints:
+              const BoxConstraints(maxHeight: 400, maxWidth: double.infinity),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: HoverZoomWrapper(
@@ -561,14 +625,16 @@ class _SingleImageGalleryWidget extends StatelessWidget {
                 errorBuilder: (_, __, ___) => Container(
                   height: 200,
                   color: Theme.of(context).colorScheme.surfaceContainer,
-                  child: const Center(child: Icon(Icons.broken_image, color: Colors.grey)),
+                  child: const Center(
+                      child: Icon(Icons.broken_image, color: Colors.grey)),
                 ),
                 loadingBuilder: (_, child, progress) {
                   if (progress == null) return child;
                   return Container(
                     height: 200,
                     color: Theme.of(context).colorScheme.surfaceContainer,
-                    child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                    child: const Center(
+                        child: CircularProgressIndicator(strokeWidth: 2)),
                   );
                 },
               ),
@@ -586,13 +652,13 @@ class _CarouselGalleryWidget extends StatelessWidget {
 
   String? _proxiedImage(String? url) {
     if (url == null || url.isEmpty) return null;
-    
+
     // Clean Wikipedia/Wikimedia URLs to avoid wsrv.nl cache corruption or encoding bugs
     String cleanUrl = url;
     if (cleanUrl.contains('?utm_') || cleanUrl.contains('&utm_')) {
       cleanUrl = cleanUrl.split('?').first;
     }
-    
+
     final encoded = Uri.encodeComponent(cleanUrl);
     return 'https://wsrv.nl/?url=$encoded&w=500&h=500&fit=cover&output=jpg';
   }
@@ -619,7 +685,7 @@ class _CarouselGalleryWidget extends StatelessWidget {
                 final img = images[index];
                 final url = _proxiedImage(img['url']);
                 if (url == null) return const SizedBox.shrink();
-                
+
                 return GestureDetector(
                   onTap: () => _openFullScreenGallery(context, images, index),
                   child: ClipRRect(
@@ -634,15 +700,20 @@ class _CarouselGalleryWidget extends StatelessWidget {
                           width: itemWidth,
                           height: itemHeight,
                           color: Theme.of(context).colorScheme.surfaceContainer,
-                          child: const Center(child: Icon(Icons.broken_image, color: Colors.grey)),
+                          child: const Center(
+                              child:
+                                  Icon(Icons.broken_image, color: Colors.grey)),
                         ),
                         loadingBuilder: (_, child, progress) {
                           if (progress == null) return child;
                           return Container(
                             height: itemHeight,
                             width: itemWidth,
-                            color: Theme.of(context).colorScheme.surfaceContainer,
-                            child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                            color:
+                                Theme.of(context).colorScheme.surfaceContainer,
+                            child: const Center(
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2)),
                           );
                         },
                       ),
@@ -664,12 +735,12 @@ class _BentoGalleryWidget extends StatelessWidget {
 
   String? _proxiedImage(String? url, {int w = 800, int h = 600}) {
     if (url == null || url.isEmpty) return null;
-    
+
     String cleanUrl = url;
     if (cleanUrl.contains('?utm_') || cleanUrl.contains('&utm_')) {
       cleanUrl = cleanUrl.split('?').first;
     }
-    
+
     final encoded = Uri.encodeComponent(cleanUrl);
     return 'https://wsrv.nl/?url=$encoded&w=$w&h=$h&fit=cover&output=jpg';
   }
@@ -689,13 +760,15 @@ class _BentoGalleryWidget extends StatelessWidget {
           height: double.infinity,
           errorBuilder: (_, __, ___) => Container(
             color: Theme.of(context).colorScheme.surfaceContainer,
-            child: const Center(child: Icon(Icons.broken_image, color: Colors.grey)),
+            child: const Center(
+                child: Icon(Icons.broken_image, color: Colors.grey)),
           ),
           loadingBuilder: (_, child, progress) {
             if (progress == null) return child;
             return Container(
               color: Theme.of(context).colorScheme.surfaceContainer,
-              child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+              child: const Center(
+                  child: CircularProgressIndicator(strokeWidth: 2)),
             );
           },
         ),
@@ -706,7 +779,7 @@ class _BentoGalleryWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final remainingCount = images.length - 3;
-    
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16.0),
       child: SizedBox(
@@ -716,7 +789,8 @@ class _BentoGalleryWidget extends StatelessWidget {
             Expanded(
               flex: 2,
               child: ClipRRect(
-                borderRadius: const BorderRadius.horizontal(left: Radius.circular(12)),
+                borderRadius:
+                    const BorderRadius.horizontal(left: Radius.circular(12)),
                 child: _buildImage(context, 0, 800, 700),
               ),
             ),
@@ -727,14 +801,16 @@ class _BentoGalleryWidget extends StatelessWidget {
                 children: [
                   Expanded(
                     child: ClipRRect(
-                      borderRadius: const BorderRadius.only(topRight: Radius.circular(12)),
+                      borderRadius: const BorderRadius.only(
+                          topRight: Radius.circular(12)),
                       child: _buildImage(context, 1, 400, 350),
                     ),
                   ),
                   const SizedBox(height: 4),
                   Expanded(
                     child: ClipRRect(
-                      borderRadius: const BorderRadius.only(bottomRight: Radius.circular(12)),
+                      borderRadius: const BorderRadius.only(
+                          bottomRight: Radius.circular(12)),
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
@@ -744,9 +820,11 @@ class _BentoGalleryWidget extends StatelessWidget {
                               bottom: 8,
                               right: 8,
                               child: GestureDetector(
-                                onTap: () => _openFullScreenGallery(context, images, 2),
+                                onTap: () =>
+                                    _openFullScreenGallery(context, images, 2),
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 4),
                                   decoration: BoxDecoration(
                                     color: Colors.black54,
                                     borderRadius: BorderRadius.circular(12),
@@ -797,7 +875,8 @@ class HeaderWidget extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.2)),
+        border:
+            Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -864,21 +943,25 @@ class CardWidget extends StatelessWidget {
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
-                children: node.tags.map((tag) => Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.secondaryContainer.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Text(
-                    tag,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: theme.colorScheme.onSecondaryContainer,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                )).toList(),
+                children: node.tags
+                    .map((tag) => Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.secondaryContainer
+                                .withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Text(
+                            tag,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: theme.colorScheme.onSecondaryContainer,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ))
+                    .toList(),
               ),
             ]
           ],
@@ -902,12 +985,13 @@ class GridWidget extends StatelessWidget {
           final isNarrow = constraints.maxWidth < 600;
           final columns = isNarrow ? 1 : node.columns;
           final spacing = 12.0;
-          
+
           return Wrap(
             spacing: spacing,
             runSpacing: spacing,
             children: node.items.map((item) {
-              final childWidth = (constraints.maxWidth - (spacing * (columns - 1))) / columns;
+              final childWidth =
+                  (constraints.maxWidth - (spacing * (columns - 1))) / columns;
               return SizedBox(
                 width: columns == 1 ? constraints.maxWidth : childWidth,
                 child: PresentationRegistry.buildWidget(context, item),
@@ -957,6 +1041,154 @@ class SectionWidget extends StatelessWidget {
           AiMessageRenderer(
             text: node.content,
             wrapInSelectionArea: false,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class EventCardWidget extends ConsumerWidget {
+  final EventCardNode node;
+  const EventCardWidget({super.key, required this.node});
+
+  String _formatDate(String isoString) {
+    if (isoString.isEmpty) return '';
+    try {
+      final dt = DateTime.parse(isoString).toLocal();
+      return DateFormat('MMM d, yyyy • h:mm a').format(dt);
+    } catch (_) {
+      return isoString;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E1E).withOpacity(0.9),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.4),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.indigoAccent.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.event,
+                    color: Colors.indigoAccent, size: 24),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      node.title.isEmpty ? 'Untitled Event' : node.title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${_formatDate(node.startTime)} - ${_formatDate(node.endTime).split('•').last.trim()}',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Colors.white60,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              if (node.eventId != null && node.eventId!.isNotEmpty) ...[
+                IconButton(
+                  onPressed: () {
+                    // TODO: Implement Edit logic (e.g. open rich edit dialog)
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content:
+                                Text('Edit event not fully hooked up yet.')),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.edit_outlined,
+                      color: Colors.blueAccent, size: 20),
+                  tooltip: 'Edit Event',
+                ),
+                IconButton(
+                  onPressed: () async {
+                    try {
+                      await ref
+                          .read(apiClientProvider)
+                          .deleteCalendarEvent(node.eventId!);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content: Text('Event deleted successfully.')),
+                        );
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content: Text('Failed to delete event.')),
+                        );
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.delete_outline,
+                      color: Colors.redAccent, size: 20),
+                  tooltip: 'Delete Event',
+                ),
+              ],
+              const SizedBox(width: 8),
+              if (node.link != null && node.link!.isNotEmpty)
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    final url = Uri.parse(node.link!);
+                    if (await canLaunchUrl(url)) {
+                      await launchUrl(url);
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
+                  ),
+                  icon: const Icon(Icons.open_in_new, size: 16),
+                  label: const Text('View in Calendar',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                ),
+            ],
           ),
         ],
       ),

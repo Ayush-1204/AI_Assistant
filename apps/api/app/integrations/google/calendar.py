@@ -1,5 +1,6 @@
 import datetime
 import logging
+from typing import Any
 
 from googleapiclient.discovery import build
 
@@ -62,14 +63,24 @@ class GoogleCalendarService:
         ).execute()
         return events_result.get('items', [])
 
-    async def create_event(self, user_id: int, summary: str, description: str, start_time: str, end_time: str):
+    async def create_event(self, user_id: int, summary: str, description: str, start_time: str, end_time: str, reminders: list | dict | None = None, time_zone: str = 'Asia/Kolkata'):
         service = await self._get_client(user_id)
-        event = {
+        event: dict[str, Any] = {
             'summary': summary,
             'description': description,
-            'start': {'dateTime': start_time},
-            'end': {'dateTime': end_time},
+            'start': {'dateTime': start_time, 'timeZone': time_zone},
+            'end': {'dateTime': end_time, 'timeZone': time_zone},
         }
+        if reminders is not None:
+            if isinstance(reminders, dict) and 'overrides' in reminders:
+                # LLM generated the full object instead of a list
+                event['reminders'] = reminders
+            elif isinstance(reminders, list):
+                # LLM correctly generated a list of overrides
+                event['reminders'] = {
+                    'useDefault': False,
+                    'overrides': reminders
+                }
         event_result = service.events().insert(calendarId='primary', body=event).execute()
         return event_result
 

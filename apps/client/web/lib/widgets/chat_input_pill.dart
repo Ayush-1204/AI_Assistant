@@ -234,3 +234,58 @@ class _ChatInputPillState extends ConsumerState<ChatInputPill> {
     );
   }
 }
+
+
+
+
+
+class HoverableAttachmentPill extends StatefulWidget {
+  final dynamic file;
+  final VoidCallback onRemove;
+
+  const HoverableAttachmentPill({Key? key, required this.file, required this.onRemove}) : super(key: key);
+
+  @override
+  _HoverableAttachmentPillState createState() => _HoverableAttachmentPillState();
+}
+
+class _HoverableAttachmentPillState extends State<HoverableAttachmentPill> {
+  bool isHovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => isHovering = true),
+      onExit: (_) => setState(() => isHovering = false),
+      child: Container(
+        margin: const EdgeInsets.only(right: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white10,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white24, width: 1),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.insert_drive_file, size: 16, color: Colors.white70),
+            const SizedBox(width: 6),
+            Text(
+              widget.file.name,
+              style: const TextStyle(color: Colors.white, fontSize: 12),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (isHovering) ...[
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: widget.onRemove,
+                child: const Icon(Icons.close, size: 16, color: Colors.white),
+              )
+            ]
+          ],
+        ),
+      ),
+    );
+  }
+}

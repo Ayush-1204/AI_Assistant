@@ -246,6 +246,7 @@ Available Node Types:
 - ImageGallery
 - Timeline
 - Accordion
+- EventCard
 
 Available Images:
 {json.dumps([{"url": img.url, "alt": img.alt_text} for img in context.curated_images], indent=2)}
@@ -256,6 +257,7 @@ Return ONLY a JSON array of objects. EVERY object must have:
 - 'purpose': brief instruction on what this node will contain (e.g. "Main title", "Compare speed and cost")
 
 CRITICAL INSTRUCTION: If you use a rich card (like WeatherCard or NewsCard), you MUST also include a 'Paragraph' node either before or after it to provide a conversational, descriptive brief to the user.
+CRITICAL INSTRUCTION FOR EVENT CARD: If the context indicates that a calendar event was successfully scheduled, retrieved, or modified, you MUST include an 'EventCard' node.
 CRITICAL INSTRUCTION FOR NEWS: If the user specifically asked for news or current events, and the context contains multiple distinct news stories, you MUST generate a separate NewsCard for EACH distinct story. If the user did NOT ask for news, DO NOT output NewsCards, even if news stories are present in the context!
 CRITICAL INSTRUCTION FOR WEATHER: If the context contains current weather or forecast data, you MUST include a 'WeatherCard' node.
 CRITICAL INSTRUCTION FOR IMAGES: If "Available Images" is empty, you are STRICTLY FORBIDDEN from generating an 'ImageGallery' node! If it is not empty, you MUST include an 'ImageGallery' node.
@@ -335,6 +337,8 @@ Node Field Requirements:
 - ImageGallery: 'id', 'type', 'layout' ('bento' or 'carousel'), 'images' (array of {{url, alt}})
 - Timeline: 'id', 'type', 'events' (array of {{time, title, description}})
 - Accordion: 'id', 'type', 'title', 'content'
+- EventCard: 'id', 'type', 'title', 'start_time', 'end_time', 'link', 'event_id' (Extract these from the raw data or context)
+
 
 Return ONLY a JSON array containing the fully populated nodes from the Predefined UI Layout. Do not change the IDs or Types.
 """
@@ -448,6 +452,7 @@ Node Field Requirements (CRITICAL: You MUST output 'id' and 'type' FIRST, before
 - ImageGallery: 'id', 'type', 'layout' ('bento' or 'carousel'), 'images' (array of {{url, alt}})
 - Timeline: 'id', 'type', 'events' (array of {{time, title, description}})
 - Accordion: 'id', 'type', 'title', 'content'
+- EventCard: 'id', 'type', 'title', 'start_time', 'end_time', 'link', 'event_id' (Extract these from the raw data or context)
 
 Return ONLY a JSON array containing the fully populated nodes from the Predefined UI Layout. Do not change the IDs or Types.
 """

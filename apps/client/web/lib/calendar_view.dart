@@ -179,14 +179,8 @@ class _CalendarViewState extends ConsumerState<CalendarView>
             duration: const Duration(milliseconds: 220), curve: Curves.easeOut);
         break;
       case CalView.month:
-        // Advance one row (one week) at a time
-        if (_monthScrollCtrl.hasClients && _monthRowH > 0) {
-          _monthScrollCtrl.animateTo(
-            _monthScrollCtrl.offset + _monthRowH,
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOut,
-          );
-        }
+        final nextMonth = DateTime(_focusDate.year, _focusDate.month + 1, 1);
+        _jumpToDate(nextMonth);
         break;
     }
   }
@@ -202,13 +196,8 @@ class _CalendarViewState extends ConsumerState<CalendarView>
             duration: const Duration(milliseconds: 220), curve: Curves.easeOut);
         break;
       case CalView.month:
-        if (_monthScrollCtrl.hasClients && _monthRowH > 0) {
-          _monthScrollCtrl.animateTo(
-            _monthScrollCtrl.offset - _monthRowH,
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOut,
-          );
-        }
+        final prevMonth = DateTime(_focusDate.year, _focusDate.month - 1, 1);
+        _jumpToDate(prevMonth);
         break;
     }
   }
@@ -276,136 +265,30 @@ class _CalendarViewState extends ConsumerState<CalendarView>
 
   // ── Add event dialog ─────────────────────────────────────────────────────
   Future<void> _showAddEventDialog([DateTime? preselected]) async {
-    final titleCtrl = TextEditingController();
-    final descCtrl = TextEditingController();
-    DateTime selDate = preselected ?? _focusDate;
-    TimeOfDay selTime = const TimeOfDay(hour: 10, minute: 0);
+    final selDate = preselected ?? _focusDate;
+    final selTime = const TimeOfDay(hour: 10, minute: 0);
 
     await showDialog(
       context: context,
-      builder: (ctx) => StatefulBuilder(builder: (context, setSB) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF131313),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-            side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
-          ),
-          title: const Text('New Event',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 20)),
-          content: SizedBox(
-            width: 380,
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              _dialogField(titleCtrl, 'Event Title'),
-              const SizedBox(height: 12),
-              _dialogField(descCtrl, 'Description'),
-              const SizedBox(height: 20),
-              Row(children: [
-                Expanded(
-                    child: _dateTile(ctx, selDate, () async {
-                  final d = await showDatePicker(
-                      context: ctx,
-                      initialDate: selDate,
-                      firstDate: DateTime(2000),
-                      lastDate: DateTime(2100));
-                  if (d != null) setSB(() => selDate = d);
-                })),
-                const SizedBox(width: 12),
-                Expanded(
-                    child: _timeTile(ctx, selTime, () async {
-                  final t =
-                      await showTimePicker(context: ctx, initialTime: selTime);
-                  if (t != null) setSB(() => selTime = t);
-                })),
-              ])
-            ]),
-          ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cancel',
-                    style: TextStyle(color: Colors.white54))),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.black,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12))),
-              onPressed: () async {
-                if (titleCtrl.text.isEmpty) return;
-                final start = DateTime(selDate.year, selDate.month, selDate.day,
-                    selTime.hour, selTime.minute);
-                final end = start.add(const Duration(hours: 1));
-                Navigator.pop(ctx);
-                setState(() => _isLoading = true);
-                try {
-                  await ref.read(apiClientProvider).createCalendarEvent(
-                      titleCtrl.text,
-                      descCtrl.text,
-                      start.toUtc().toIso8601String(),
-                      end.toUtc().toIso8601String());
-                } catch (_) {}
-                _fetchEvents();
-              },
-              child: const Text('Save Event'),
-            ),
-          ],
-        );
-      }),
+      builder: (ctx) => _RichAddEventDialog(
+        initialDate: selDate,
+        initialTime: selTime,
+        onSave: (title, desc, start, end, allDay) async {
+          Navigator.pop(ctx);
+          setState(() => _isLoading = true);
+          try {
+            await ref.read(apiClientProvider).createCalendarEvent(
+                  title,
+                  desc,
+                  start.toUtc().toIso8601String(),
+                  end.toUtc().toIso8601String(),
+                );
+          } catch (_) {}
+          _fetchEvents();
+        },
+      ),
     );
   }
-
-  Widget _dialogField(TextEditingController ctrl, String label) =>
-      TextField(
-        controller: ctrl,
-        style: const TextStyle(color: Colors.white),
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: const TextStyle(color: Colors.white54),
-          enabledBorder: UnderlineInputBorder(
-              borderSide:
-                  BorderSide(color: Colors.white.withValues(alpha: 0.15))),
-          focusedBorder: const UnderlineInputBorder(
-              borderSide: BorderSide(color: Colors.white38)),
-        ),
-      );
-
-  Widget _dateTile(BuildContext ctx, DateTime d, VoidCallback onTap) =>
-      InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: _tileBox(
-            'Date', DateFormat('MMM dd, yyyy').format(d)),
-      );
-
-  Widget _timeTile(BuildContext ctx, TimeOfDay t, VoidCallback onTap) =>
-      InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: _tileBox('Time', t.format(ctx)),
-      );
-
-  Widget _tileBox(String label, String val) => Container(
-        padding:
-            const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.04),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-        ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label,
-              style: const TextStyle(fontSize: 10, color: Colors.white38)),
-          const SizedBox(height: 4),
-          Text(val,
-              style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white)),
-        ]),
-      );
 
   Future<void> _confirmDelete(String eventId) async {
     final act = await showDialog<bool>(
@@ -2056,6 +1939,341 @@ class _SegmentedToggle extends StatelessWidget {
             }).toList(),
           ),
         ],
+      ),
+    );
+  }
+}
+
+
+class _RichAddEventDialog extends StatefulWidget {
+  final DateTime initialDate;
+  final TimeOfDay initialTime;
+  final Function(String title, String desc, DateTime start, DateTime end, bool allDay) onSave;
+
+  const _RichAddEventDialog({
+    super.key,
+    required this.initialDate,
+    required this.initialTime,
+    required this.onSave,
+  });
+
+  @override
+  State<_RichAddEventDialog> createState() => _RichAddEventDialogState();
+}
+
+class _RichAddEventDialogState extends State<_RichAddEventDialog> {
+  final TextEditingController _titleCtrl = TextEditingController();
+  final TextEditingController _descCtrl = TextEditingController();
+
+  late DateTime _startDate;
+  late TimeOfDay _startTime;
+  late DateTime _endDate;
+  late TimeOfDay _endTime;
+  bool _isAllDay = false;
+  int _tabIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _startDate = widget.initialDate;
+    _startTime = widget.initialTime;
+    _endDate = widget.initialDate;
+    final startDt = DateTime(2000, 1, 1, _startTime.hour, _startTime.minute);
+    final endDt = startDt.add(const Duration(hours: 1));
+    _endTime = TimeOfDay(hour: endDt.hour, minute: endDt.minute);
+  }
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    _descCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDate(bool isStart) async {
+    final d = await showDatePicker(
+      context: context,
+      initialDate: isStart ? _startDate : _endDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (d != null) {
+      setState(() {
+        if (isStart) {
+          _startDate = d;
+          if (_endDate.isBefore(_startDate)) _endDate = _startDate;
+        } else {
+          _endDate = d;
+          if (_startDate.isAfter(_endDate)) _startDate = _endDate;
+        }
+      });
+    }
+  }
+
+  Future<void> _pickTime(bool isStart) async {
+    final t = await showTimePicker(
+      context: context,
+      initialTime: isStart ? _startTime : _endTime,
+    );
+    if (t != null) {
+      setState(() {
+        if (isStart) _startTime = t;
+        else _endTime = t;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.all(20),
+      child: Container(
+        width: 500,
+        decoration: BoxDecoration(
+          color: const Color(0xFF161618),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withOpacity(0.08), width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.5),
+              blurRadius: 32,
+              offset: const Offset(0, 16),
+            )
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF232326),
+                  border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.05))),
+                ),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white70, size: 20),
+                      onPressed: () => Navigator.pop(context),
+                      hoverColor: Colors.white.withOpacity(0.1),
+                      splashRadius: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    const Text('Add event', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500)),
+                    const Spacer(),
+                    MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: GestureDetector(
+                        onTap: () {
+                          if (_titleCtrl.text.isEmpty) _titleCtrl.text = 'Untitled Event';
+                          final start = DateTime(_startDate.year, _startDate.month, _startDate.day, _isAllDay ? 0 : _startTime.hour, _isAllDay ? 0 : _startTime.minute);
+                          final end = DateTime(_endDate.year, _endDate.month, _endDate.day, _isAllDay ? 0 : _endTime.hour, _isAllDay ? 0 : _endTime.minute);
+                          widget.onSave(_titleCtrl.text, _descCtrl.text, start, end, _isAllDay);
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(colors: [Color(0xFF3B82F6), Color(0xFF2563EB)]),
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(color: const Color(0xFF3B82F6).withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2))
+                            ]
+                          ),
+                          child: const Text('Save', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white, fontSize: 13)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                ),
+              ),
+
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: _titleCtrl,
+                      style: const TextStyle(fontSize: 24, color: Colors.white, fontWeight: FontWeight.w400),
+                      decoration: InputDecoration(
+                        hintText: 'Add title and time',
+                        hintStyle: TextStyle(fontSize: 24, color: Colors.white.withOpacity(0.3)),
+                        enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white.withOpacity(0.2))),
+                        focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF3B82F6), width: 2)),
+                        isDense: true,
+                        contentPadding: const EdgeInsets.only(bottom: 8),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    Row(
+                      children: [
+                        _buildTab(0, 'Event'),
+                        const SizedBox(width: 8),
+                        _buildTab(1, 'Task'),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+
+                    Row(
+                      children: [
+                        const Icon(Icons.access_time, color: Colors.white54, size: 20),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Wrap(
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 4,
+                                runSpacing: 8,
+                                children: [
+                                  _buildHoverBtn(DateFormat('EEEE, d MMMM').format(_startDate), () => _pickDate(true)),
+                                  if (!_isAllDay) _buildHoverBtn(_startTime.format(context), () => _pickTime(true)),
+                                  const Padding(padding: EdgeInsets.symmetric(horizontal: 4), child: Text('–', style: TextStyle(color: Colors.white54))),
+                                  if (!_isAllDay) _buildHoverBtn(_endTime.format(context), () => _pickTime(false)),
+                                  _buildHoverBtn(DateFormat('EEEE, d MMMM').format(_endDate), () => _pickDate(false)),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: Checkbox(
+                                      value: _isAllDay,
+                                      activeColor: const Color(0xFF3B82F6),
+                                      checkColor: Colors.white,
+                                      side: BorderSide(color: Colors.white.withOpacity(0.4)),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                                      onChanged: (v) => setState(() => _isAllDay = v ?? false),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Text('All day', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                                  const SizedBox(width: 24),
+                                  _buildHoverBtn('Does not repeat ▾', () {}),
+                                ],
+                              )
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Padding(padding: EdgeInsets.only(top: 10), child: Icon(Icons.sort, color: Colors.white54, size: 20)),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.04),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.white.withOpacity(0.1)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.05))),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      _iconBtn(Icons.format_bold),
+                                      _iconBtn(Icons.format_italic),
+                                      _iconBtn(Icons.format_underlined),
+                                      const SizedBox(width: 12),
+                                      _iconBtn(Icons.format_list_bulleted),
+                                      _iconBtn(Icons.format_list_numbered),
+                                      const SizedBox(width: 12),
+                                      _iconBtn(Icons.link),
+                                    ],
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: TextField(
+                                    controller: _descCtrl,
+                                    style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.5),
+                                    maxLines: 4,
+                                    decoration: const InputDecoration(
+                                      hintText: 'Add description',
+                                      hintStyle: TextStyle(color: Colors.white38, fontSize: 13),
+                                      border: InputBorder.none,
+                                      isDense: true,
+                                      contentPadding: EdgeInsets.zero,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTab(int index, String label) {
+    final active = _tabIndex == index;
+    return GestureDetector(
+      onTap: () => setState(() => _tabIndex = index),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: active ? const Color(0xFF3B82F6).withOpacity(0.2) : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: active ? const Color(0xFF3B82F6) : Colors.white60,
+            fontWeight: active ? FontWeight.w600 : FontWeight.w500,
+            fontSize: 13,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _iconBtn(IconData icon) {
+    return InkWell(
+      onTap: () {},
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
+        padding: const EdgeInsets.all(4.0),
+        child: Icon(icon, color: Colors.white54, size: 18),
+      ),
+    );
+  }
+
+  Widget _buildHoverBtn(String text, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      hoverColor: Colors.white.withOpacity(0.08),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: Text(text, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500)),
       ),
     );
   }

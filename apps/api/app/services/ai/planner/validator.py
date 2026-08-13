@@ -18,6 +18,14 @@ class ValidatorStage:
         if result.confidence < 0.5:
             return ValidationReport(is_trustworthy=False, confidence_score=result.confidence, reason="Tool execution failed or returned very low confidence natively.")
 
+        action_tools = ["google_calendar", "gmail", "tasks", "google_tasks", "google_drive", "browser_automation", "system_control", "computer_control"]
+        if result.tool_name in action_tools:
+            return ValidationReport(
+                is_trustworthy=True,
+                confidence_score=result.confidence,
+                reason="Action tool executed successfully."
+            )
+
         import datetime
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 

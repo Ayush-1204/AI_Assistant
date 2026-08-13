@@ -33,9 +33,9 @@ class ToolOrchestrator:
             result = await tool.execute(execution_context=context, **request.arguments)
             latency = (time.perf_counter() - start_time) * 1000.0
             
-            logger.info("Tool executed successfully", extra={"tool": request.name, "latency_ms": latency})
             from app.security.credential_stripper import CredentialStripper
             safe_content = CredentialStripper().strip(str(result))
+            logger.info(f"Tool executed successfully. Result: {safe_content}", extra={"tool": request.name, "latency_ms": latency})
             
             # Normalization
             if isinstance(result, NormalizedToolResult):

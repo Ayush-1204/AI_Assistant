@@ -4,6 +4,7 @@ import 'dart:math';
 import 'dart:ui';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:geolocator/geolocator.dart';
 import 'providers/chat_provider.dart';
 import 'providers/nav_provider.dart';
 import 'providers/auth_provider.dart'; // Added this
@@ -22,7 +23,38 @@ class _WorkspaceViewState extends ConsumerState<WorkspaceView> {
   @override
   void initState() {
     super.initState();
-    _dashboardFuture = ref.read(apiClientProvider).fetchDashboardWidgets();
+    // Default to an empty future immediately so the UI knows we are loading
+    _dashboardFuture = Future.value([]);
+    _initDashboard();
+  }
+
+  Future<void> _initDashboard() async {
+    if (mounted) {
+      setState(() {
+        _dashboardFuture = ref.read(apiClientProvider).fetchDashboardWidgets();
+      });
+    }
+
+    // Fetch location in background if already permitted, without aggressively requesting
+    _fetchLocationQuietly();
+  }
+
+  Future<void> _fetchLocationQuietly() async {
+    try {
+      if (await Geolocator.isLocationServiceEnabled()) {
+        var perm = await Geolocator.checkPermission();
+        if (perm == LocationPermission.whileInUse || perm == LocationPermission.always) {
+          final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.low);
+          ref.read(apiClientProvider).setLocation(pos.latitude, pos.longitude);
+          // Optionally refresh dashboard to update weather with exact location
+          if (mounted) {
+            setState(() {
+              _dashboardFuture = ref.read(apiClientProvider).fetchDashboardWidgets();
+            });
+          }
+        }
+      }
+    } catch (_) {}
   }
 
   Widget _buildDashboardWidgets() {
@@ -479,6 +511,17 @@ class _DashboardWidgetCardState extends State<_DashboardWidgetCard>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (w['location'] != null && w['location'].toString().isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8.0),
+            child: Text(
+              w['location'],
+              style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white),
+            ),
+          ),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -506,7 +549,7 @@ class _DashboardWidgetCardState extends State<_DashboardWidgetCard>
                         fontWeight: FontWeight.w600,
                         color: Colors.white)),
                 const SizedBox(height: 4),
-                Text('Feels like ${(double.tryParse((w['title'] ?? '0').replaceAll('°C', '')) ?? 0) + 2}°',
+                Text(w['subtitle']?.toString() ?? '',
                     style: TextStyle(
                         fontSize: 12,
                         color: Colors.white.withValues(alpha: 0.5))),
@@ -545,6 +588,14 @@ class _DashboardWidgetCardState extends State<_DashboardWidgetCard>
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                         color: Colors.white)),
+                if (f['low'] != null && f['low'].toString() != '--')
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text("${f['low']}°",
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.white.withValues(alpha: 0.5))),
+                  ),
               ],
             );
           }).toList(),
