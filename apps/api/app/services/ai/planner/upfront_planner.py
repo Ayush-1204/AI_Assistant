@@ -24,13 +24,19 @@ class UpfrontPlanner:
                 if len(memory_parts) > 1:
                     memory_context = "=== RELEVANT MEMORIES ===" + memory_parts[1].split("===")[0]
 
+        import datetime
+        current_time = datetime.datetime.now().astimezone().isoformat()
+
         system_prompt = f"""You are an architectural planning agent. Your job is to evaluate the user's request and output a strict JSON plan.
+The current local date and time is: {current_time}
+IMPORTANT: When outputting timestamps for arguments, you MUST preserve the timezone offset exactly as provided in the local time. DO NOT convert to UTC ('Z') unless requested.
+
 Do NOT attempt to fulfill the user's request. Only output the plan.
 
 {memory_context}
 
 You must decide:
-1. `tools_needed`: true/false (Do we need external tools like web_search, image_search, weather, etc?)
+1. `tools_needed`: true/false (Do we need ANY tools to fulfill the user's request, such as web_search, weather, calendar scheduling, email, opening/launching desktop apps, playing music/media, system controls, etc? Almost ALL user commands require tools.)
 2. `output_structure`: One of [direct_answer, step_by_step_guide, news_briefing, checklist, comparison, report, snippet]
 3. `is_parallelizable`: true/false (Can the required tasks run concurrently?)
 4. `tasks`: A list of detailed objects representing the execution graph. Each task MUST have:
@@ -44,6 +50,7 @@ You must decide:
 
 CRITICAL INSTRUCTION: If the request requires multiple independent facts or news topics, you MUST break them down into separate, independent tasks in the `tasks` array. Do NOT group them into a single broad task.
 - For weather requests, the 'Local Weather' capability automatically handles user geolocation internally. Do NOT create separate geolocation tasks for weather.
+- For calendar event scheduling, you MUST use 'start_time' and 'end_time' with absolute ISO-8601 date-time strings. Do NOT use relative offsets (like time_offset_hours).
 - Do NOT schedule 'Knowledge Search' or 'Image Retrieval' for conversational chatter, user names, or self-introductions (e.g., "my name is X").
 - When a document is attached, do NOT assume its semantic or visual content from the filename alone. Do NOT schedule 'Image Retrieval' or external knowledge searches based solely on a filename. 
 - ONLY schedule 'Image Retrieval' if the user explicitly asks for pictures, or if the core informational intent heavily relies on visual context (e.g. famous landmarks, artwork, or specific products).
@@ -138,6 +145,7 @@ Return ONLY the JSON object for the single new ExecutionTask:
             "UPFRONT EXECUTION PLAN (MANDATORY):\n"
             "You are strictly bound to the following execution plan. You must not deviate.\n"
             f"1. OUTPUT STRUCTURE REQUIRED: '{structure}'. You must format your final response to perfectly match this layout.\n"
+            "   IMPORTANT: For simple actions (like playing music, opening websites, setting timers), provide a short, natural, conversational confirmation (e.g. 'Playing Loser on YouTube Music for you!'). NEVER output robotic status lists, bullet points of 'Command / Status / Service', or raw JSON keys in your final response to the user.\n"
             f"2. TASKS TO EXECUTE:\n{tasks}\n"
             "3. TOOL EXECUTION RULE: You must execute the tools needed for these tasks BEFORE writing your final response. "
             "If tasks are distinct, execute them in parallel tool calls within a single turn.\n"

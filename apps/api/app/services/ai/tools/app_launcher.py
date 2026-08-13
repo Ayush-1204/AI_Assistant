@@ -28,14 +28,32 @@ class AppLauncherTool(BaseTool):
     }
 
     async def execute(self, execution_context: dict, **kwargs) -> Any:
-        action = kwargs.get("action")
-        app_name = kwargs.get("app_name")
+        action = kwargs.get("action", "launch_app")
+        app_name = kwargs.get("app_name") or kwargs.get("application_name") or kwargs.get("query")
 
         try:
             if action == "launch_app":
-                # Basic os.startfile for Windows native mapping fallback
+                app_name_lower = str(app_name).lower()
+                target = app_name
+                
+                # Map common friendly names to executables or URIs
+                if "spotify" in app_name_lower: target = "spotify:"
+                elif "calc" in app_name_lower: target = "calc.exe"
+                elif "notepad" in app_name_lower: target = "notepad.exe"
+                elif "word" in app_name_lower and "pass" not in app_name_lower: target = "winword.exe"
+                elif "excel" in app_name_lower: target = "excel.exe"
+                elif "powerpoint" in app_name_lower: target = "powerpnt.exe"
+                elif "browser" in app_name_lower or "chrome" in app_name_lower: target = "chrome.exe"
+                elif "edge" in app_name_lower: target = "msedge.exe"
+                
                 import threading
-                def _launch(): os.system(f"start {app_name}")
+                def _launch(): 
+                    # If it's a URI, use explorer, otherwise use start with empty title
+                    if str(target).endswith(":"):
+                        os.system(f"explorer {target}")
+                    else:
+                        os.system(f'start "" "{target}"')
+                        
                 threading.Thread(target=_launch).start()
                 return {"status": "success", "message": f"Sent launch command for {app_name}"}
 

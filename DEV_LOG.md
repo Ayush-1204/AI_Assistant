@@ -429,3 +429,13 @@ The `AiMessageRenderer` (which renders `HeadingWidget`/`ParagraphWidget` text) a
   - Implemented ChatHistorySidebar widget to display chat lists using the backend's is_pinned schema property.
   - Added etchConversations() to the API client and created a chatHistoryProvider to fetch and render the list with error handling and empty states.
   - Re-routed the main app layout (layout.dart) to render the ChatSection instead of the bare ChatView.
+
+
+## Phase 39: AI Tool Resilience & Local App Launch Optimization
+**Status**: Completed
+- **Plan**: Resolve AI hallucination bugs where the planner suppresses tool usage for local desktop applications. Enhance open_url and app_launcher tools to accurately handle media playback and desktop app launches dynamically.
+- **Implementation**:
+  - **Browser Automation Enhancements**: Expanded the browser automation schema to formally include play_ytmusic. Injected a fallback redirect converting natural language phrases into Google Searches when accidentally routed to open_url instead of media playback.
+  - **App Launcher Lenience**: Relaxed pp_launcher.py arguments schema to accept pplication_name or query safely.
+  - **Windows Start Intercept**: Refactored os.system in the App Launcher to explicitly support URIs using explorer and wrap executable commands natively inside empty-title strings for reliable execution.
+  - **Planner Prompt Refinements**: Hardcoded instructions into the upfront_planner.py indicating that executing local system operations (such as opening apps/music) fundamentally requires tool execution, completely eliminating 	ools_needed: False bypasses on local requests.
