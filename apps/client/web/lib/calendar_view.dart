@@ -918,11 +918,7 @@ class _CalendarViewState extends ConsumerState<CalendarView>
                     ),
                     // Events
                     eventLayer,
-                    // Current time line
-                    _CurrentTimeLine(
-                        dayCount: dayCount,
-                        startHour: 0,
-                        hourH: hourH),
+
                   ]),
                 ),
               ]),
