@@ -7,11 +7,11 @@ import 'providers/auth_provider.dart';
 
 // ─── Event color palette (cycles by hash) ─────────────────────────────────
 const _kEventColors = [
-  Color(0xFF8AB4F8), // pastel blue
-  Color(0xFFFDE293), // pastel yellow
-  Color(0xFFC58AF9), // pastel purple
-  Color(0xFF81C995), // pastel green
-  Color(0xFFF28B82), // pastel red
+  Color(0xFF039BE5), // Google Blue
+  Color(0xFFD50000), // Google Red
+  Color(0xFFF4511E), // Google Orange
+  Color(0xFF8E24AA), // Google Purple
+  Color(0xFF0B8043), // Google Green
 ];
 
 Color _eventColor(String? summary) {
@@ -1320,7 +1320,7 @@ class _MonthCellState extends State<_MonthCell> {
                             child: Text(e['summary'] ?? 'Event',
                                 style: TextStyle(
                                     fontSize: 11,
-                                    color: allDay ? Colors.white : Colors.white,
+                                    color: Colors.white,
                                     fontWeight: allDay ? FontWeight.bold : FontWeight.w600),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis),
