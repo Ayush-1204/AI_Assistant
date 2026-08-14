@@ -7,11 +7,11 @@ import 'providers/auth_provider.dart';
 
 // ─── Event color palette (cycles by hash) ─────────────────────────────────
 const _kEventColors = [
-  Color(0xFF2979FF), // blue  – Team Sync
-  Color(0xFFFFB300), // amber – Deadlines
-  Color(0xFFB39DDB), // lavender – Personal
-  Color(0xFF4CAF50), // green
-  Color(0xFFFF5722), // deep orange
+  Color(0xFF8AB4F8), // pastel blue
+  Color(0xFFFDE293), // pastel yellow
+  Color(0xFFC58AF9), // pastel purple
+  Color(0xFF81C995), // pastel green
+  Color(0xFFF28B82), // pastel red
 ];
 
 Color _eventColor(String? summary) {
@@ -79,7 +79,7 @@ class _CalendarViewState extends ConsumerState<CalendarView>
   double _monthRowH = 0;
   bool _isSnapping = false;
   
-  final DateTime _anchorDate = DateTime.now();
+  final DateTime _anchorDate = DateTime(DateTime.now().year, DateTime.now().month, 1);
   
   int _daysBetween(DateTime a, DateTime b) {
     return DateTime.utc(b.year, b.month, b.day)
@@ -514,7 +514,7 @@ class _CalendarViewState extends ConsumerState<CalendarView>
               const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(4),
             border: Border.all(color: Colors.white.withValues(alpha: 0.15),
                 width: 0.5),
           ),
@@ -555,7 +555,7 @@ class _CalendarViewState extends ConsumerState<CalendarView>
     if (n is ScrollUpdateNotification) {
       // Determine which month is most visible and update _focusDate
       final offset = _monthScrollCtrl.offset;
-      final weekOffset = (offset / _monthRowH).round();
+      final weekOffset = (offset / _monthRowH).round() + 2;
       final currentSun = _weekStartForOffset(weekOffset);
       // The "focus date" for fetching events is set to the middle of the most visible week
       final midWeek = currentSun.add(const Duration(days: 3));
@@ -938,7 +938,7 @@ class _CalendarViewState extends ConsumerState<CalendarView>
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: color.withValues(alpha: 0.06),
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(4),
                           border: Border(
                               left:
                                   BorderSide(color: color, width: 2.5)),
@@ -969,13 +969,13 @@ class _CalendarViewState extends ConsumerState<CalendarView>
         const SizedBox(height: 12),
         InkWell(
           onTap: () => _showAddEventDialog(_focusDate),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(4),
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 10),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(4),
               border: Border.all(
                   color: Colors.white.withValues(alpha: 0.1)),
             ),
@@ -1177,35 +1177,40 @@ class _MonthCellState extends State<_MonthCell> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 5, vertical: 2),
                       decoration: BoxDecoration(
-                        color: allDay
-                            ? c.withValues(alpha: 0.20)
-                            : c.withValues(alpha: 0.10),
+                        color: allDay ? c : Colors.transparent,
                         borderRadius: BorderRadius.horizontal(
                           left: isSpanningLeft ? Radius.zero : const Radius.circular(4),
                           right: isSpanningRight ? Radius.zero : const Radius.circular(4),
                         ),
-                        border: allDay
-                            ? null
-                            : Border(left: BorderSide(color: c, width: 2)),
                       ),
                       child: Row(
                         children: [
                           if (birthday)
                             const Text('🎁 ', style: TextStyle(fontSize: 9)),
+                          if (!allDay)
+                            Container(
+                               width: 6,
+                               height: 6,
+                               margin: const EdgeInsets.only(right: 4),
+                               decoration: BoxDecoration(
+                                 color: c,
+                                 shape: BoxShape.circle,
+                               ),
+                            ),
                           if (timePrefix != null) ...[
                             Text(timePrefix,
                                 style: TextStyle(
                                     fontSize: 8,
-                                    color: c,
+                                    color: allDay ? Colors.black87 : Colors.white70,
                                     fontWeight: FontWeight.w600)),
                             const SizedBox(width: 3),
                           ],
                           Expanded(
                             child: Text(e['summary'] ?? 'Event',
-                                style: const TextStyle(
-                                    fontSize: 9,
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w500),
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    color: allDay ? Colors.black87 : Colors.white,
+                                    fontWeight: FontWeight.w600),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis),
                           ),
