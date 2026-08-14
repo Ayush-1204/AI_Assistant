@@ -43,6 +43,9 @@ class _WorkspaceViewState extends ConsumerState<WorkspaceView> {
     try {
       if (await Geolocator.isLocationServiceEnabled()) {
         var perm = await Geolocator.checkPermission();
+        if (perm == LocationPermission.denied) {
+          perm = await Geolocator.requestPermission();
+        }
         if (perm == LocationPermission.whileInUse || perm == LocationPermission.always) {
           final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.low);
           ref.read(apiClientProvider).setLocation(pos.latitude, pos.longitude);
@@ -55,6 +58,12 @@ class _WorkspaceViewState extends ConsumerState<WorkspaceView> {
         }
       }
     } catch (_) {}
+    
+    if (mounted) {
+      setState(() {
+        _dashboardFuture = ref.read(apiClientProvider).fetchDashboardWidgets();
+      });
+    }
   }
 
   Widget _buildDashboardWidgets() {
