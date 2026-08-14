@@ -294,7 +294,7 @@ class ProviderRouter(BaseLLMProvider):
         raise AllProvidersFailedError("All providers fallback chain entirely failed.")
 
     async def chat(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None = None, intent: str = "general") -> str:
-        return str(await self._execute_with_router("chat", messages, tools=tools, intent=intent))
+        return await self._execute_with_router("chat", messages, tools=tools, intent=intent)
 
     async def generate_title(self, ai_response: str) -> str:
         return await self._execute_with_router("generate_title", ai_response)
@@ -303,7 +303,7 @@ class ProviderRouter(BaseLLMProvider):
 
     async def stream_chat(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None = None, intent: str = "general") -> AsyncGenerator[Any, None]:
         requires_vision = any("images" in m and bool(m.get("images", False)) for m in messages)
-        available_at_start = await self._get_available_providers(bool(requires_vision))
+        available_at_start = await self._get_available_providers(requires_vision)
         tried_providers = set()
         estimated_tokens = self._estimate_tokens("stream_chat", (messages,))
         

@@ -27,13 +27,60 @@ class AppLauncherTool(BaseTool):
         "required": ["action", "app_name"]
     }
 
+    @staticmethod
+    def _find_windows_app_sync(query: str) -> str | None:
+        query_lower = query.lower().replace("yt music", "youtube music")
+        import subprocess
+        import json
+        import os
+        
+        # 1. Check UWP / Store apps via Get-StartApps
+        try:
+            res = subprocess.run(["powershell", "-Command", "Get-StartApps | ConvertTo-Json"], capture_output=True, text=True, timeout=10)
+            if res.returncode == 0 and res.stdout:
+                apps = json.loads(res.stdout)
+                if isinstance(apps, dict):
+                    apps = [apps]
+                for app in apps:
+                    name = app.get("Name", "")
+                    if query_lower in name.lower():
+                        appid = app.get("AppID")
+                        if appid:
+                            return f"explorer shell:AppsFolder\\{appid}"
+        except Exception as e:
+            logger.error(f"Error checking Get-StartApps: {e}")
+
+        # 2. Check Classic Desktop Apps (.lnk)
+        appdata = os.environ.get('APPDATA')
+        programdata = os.environ.get('ALLUSERSPROFILE')
+        
+        paths = []
+        if appdata:
+            paths.append(os.path.join(appdata, r"Microsoft\Windows\Start Menu\Programs"))
+        if programdata:
+            paths.append(os.path.join(programdata, r"Microsoft\Windows\Start Menu\Programs"))
+            
+        for p in paths:
+            if not os.path.exists(p): continue
+            for root, _, files in os.walk(p):
+                for f in files:
+                    if f.endswith('.lnk'):
+                        name = f[:-4].lower()
+                        if query_lower in name:
+                            return os.path.join(root, f)
+                            
+        return None
+
     async def execute(self, execution_context: dict, **kwargs) -> Any:
         action = kwargs.get("action", "launch_app")
         app_name = kwargs.get("app_name") or kwargs.get("application_name") or kwargs.get("query")
 
         try:
             if action == "launch_app":
-                app_name_lower = str(app_name).lower()
+                if not app_name:
+                    return {"status": "error", "message": "app_name required"}
+                app_name = str(app_name)
+                app_name_lower = app_name.lower()
                 target = app_name
                 
                 # Map common friendly names to executables or URIs
@@ -45,14 +92,23 @@ class AppLauncherTool(BaseTool):
                 elif "powerpoint" in app_name_lower: target = "powerpnt.exe"
                 elif "browser" in app_name_lower or "chrome" in app_name_lower: target = "chrome.exe"
                 elif "edge" in app_name_lower: target = "msedge.exe"
+                else:
+                    # Dynamic Search
+                    found = await asyncio.to_thread(self._find_windows_app_sync, app_name)
+                    if found:
+                        target = found
+                    else:
+                        return {"status": "error", "message": f"Could not find any installed application matching '{app_name}'"}
                 
                 import threading
+                import subprocess
                 def _launch(): 
-                    # If it's a URI, use explorer, otherwise use start with empty title
-                    if str(target).endswith(":"):
-                        os.system(f"explorer {target}")
+                    # If it's a URI or shell command, use subprocess directly, otherwise use start with empty title
+                    if target.startswith("explorer shell:") or target.endswith(":"):
+                        cmd = target if target.startswith("explorer") else f"explorer {target}"
+                        subprocess.run(cmd, shell=True)
                     else:
-                        os.system(f'start "" "{target}"')
+                        subprocess.run(f'start "" "{target}"', shell=True)
                         
                 threading.Thread(target=_launch).start()
                 return {"status": "success", "message": f"Sent launch command for {app_name}"}
