@@ -938,7 +938,12 @@ class _CalendarViewState extends ConsumerState<CalendarView>
                     ),
                     // Events
                     eventLayer,
-
+                    if (hasToday)
+                      _CurrentTimeLine(
+                        dayCount: dayCount,
+                        startHour: 0,
+                        hourH: hourH,
+                      ),
                   ]),
                 ),
               ]),
@@ -1363,26 +1368,33 @@ class _WeekDayHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12),
-      decoration: isToday
-          ? BoxDecoration(
-              border: const Border(
-                  top: BorderSide(color: Colors.white, width: 2)))
-          : null,
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Text(DateFormat('EEE').format(date).toUpperCase(),
             style: TextStyle(
-                fontSize: 9,
+                fontSize: 11,
                 letterSpacing: 1.2,
                 fontWeight: FontWeight.w600,
                 color:
-                    isToday ? Colors.white : Colors.white38)),
+                    isToday ? Colors.redAccent : Colors.white54)),
         const SizedBox(height: 4),
-        Text(DateFormat('d').format(date),
-            style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w600,
-                color:
-                    isToday ? Colors.white : Colors.white60)),
+        isToday 
+            ? Container(
+                width: 36,
+                height: 36,
+                decoration: const BoxDecoration(
+                    color: Colors.redAccent,
+                    shape: BoxShape.circle),
+                alignment: Alignment.center,
+                child: Text(DateFormat('d').format(date),
+                    style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white)))
+            : Text(DateFormat('d').format(date),
+                style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white70)),
       ]),
     );
   }
@@ -1485,7 +1497,7 @@ class _AllDayBanner extends StatelessWidget {
                     child: Row(children: [
                       if (birthday) const Text('🎁 ', style: TextStyle(fontSize: 9)),
                       if (timePrefix != null) ...[
-                        Text(timePrefix, style: TextStyle(fontSize: 9, color: color, fontWeight: FontWeight.w600)),
+                        Text(timePrefix, style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w600)),
                         const SizedBox(width: 4),
                       ],
                       Expanded(
@@ -1777,22 +1789,18 @@ class _CurrentTimeLineState extends State<_CurrentTimeLine> {
     return AnimatedPositioned(
       duration: const Duration(seconds: 1),
       curve: Curves.easeInOut,
-      top: top,
+      top: top - 10, // Shift up slightly to vertically center the pill on the time
       left: 0,
       right: 0,
       child: Row(children: [
         Container(
-            width: 9,
-            height: 9,
-            decoration: BoxDecoration(
-                color: Colors.redAccent, 
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.redAccent.withValues(alpha: 0.5), 
-                      blurRadius: 6, 
-                      spreadRadius: 2)
-                ])),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: Colors.redAccent,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(DateFormat('h:mm a').format(now), style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600)),
+        ),
         Expanded(
             child: Container(
                 height: 1.5, 
