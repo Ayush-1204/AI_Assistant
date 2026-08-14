@@ -146,7 +146,11 @@ class _CalendarViewState extends ConsumerState<CalendarView>
 
       if (mounted) {
         setState(() {
-          _events = evts;
+          for (var evt in evts) {
+            if (evt['id'] != null) {
+              _events[evt['id'].toString()] = evt;
+            }
+          }
           _isLoading = false;
         });
         if (_isFirstLoad) {
@@ -854,7 +858,7 @@ class _CalendarViewState extends ConsumerState<CalendarView>
     const hourH = 60.0;
 
     // All-day events: events that span entire days (date-only start string)
-    final allDayEvents = _events
+    final allDayEvents = _events.values
         .where((e) => _isAllDay(e) && days.any((d) => _eventSpansDay(e, d)))
         .toList();
 
@@ -1989,7 +1993,7 @@ class _SegmentedToggle extends StatelessWidget {
         children: [
           // Sliding indicator pill
           AnimatedAlign(
-            duration: const Duration(milliseconds: 300),
+            duration: const Duration(seconds: 10),
             curve: Curves.easeOutCubic,
             alignment: idx == 0 
                 ? Alignment.centerLeft 
