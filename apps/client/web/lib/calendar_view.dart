@@ -61,6 +61,7 @@ class _CalendarViewState extends ConsumerState<CalendarView>
   CalView _view = CalView.month;
   late DateTime _focusDate; // selected day / week anchor / month anchor
   Map<String, dynamic> _events = {};
+  final Set<String> _loadedMonths = {};
   bool _isLoading = true;
   bool _isFirstLoad = true;
   int _slideDir = 1;
@@ -132,7 +133,17 @@ class _CalendarViewState extends ConsumerState<CalendarView>
     });
   }
 
-  Future<void> _fetchEvents() async {
+  Future<void> _fetchEvents({bool force = false}) async {
+    final monthKey = '-';
+    
+    if (!force && _loadedMonths.contains(monthKey)) {
+      if (_isFirstLoad && mounted) {
+        setState(() => _isFirstLoad = false);
+        _fadeCtrl.forward();
+      }
+      return;
+    }
+
     // Only show spinner on very first load
     if (_isFirstLoad && mounted) {
       setState(() => _isLoading = true);
@@ -145,6 +156,7 @@ class _CalendarViewState extends ConsumerState<CalendarView>
           year: _focusDate.year, month: _focusDate.month);
 
       if (mounted) {
+        _loadedMonths.add(monthKey);
         setState(() {
           for (var evt in evts) {
             if (evt['id'] != null) {
@@ -380,7 +392,7 @@ class _CalendarViewState extends ConsumerState<CalendarView>
                   end.toUtc().toIso8601String(),
                 );
           } catch (_) {}
-          _fetchEvents();
+          _fetchEvents(force: true);
         },
       ),
     );
@@ -411,7 +423,7 @@ class _CalendarViewState extends ConsumerState<CalendarView>
       try {
         await ref.read(apiClientProvider).deleteCalendarEvent(eventId);
       } catch (_) {}
-      _fetchEvents();
+      _fetchEvents(force: true);
     }
   }
 
@@ -978,7 +990,7 @@ class _CalendarViewState extends ConsumerState<CalendarView>
             if (_view == CalView.month) {
               // if month changed, refetch
               if (d.month != _focusDate.month || d.year != _focusDate.year) {
-                _fetchEvents();
+                _fetchEvents(force: true);
               }
             }
           },
