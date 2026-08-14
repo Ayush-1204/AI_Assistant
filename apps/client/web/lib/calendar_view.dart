@@ -1212,20 +1212,26 @@ class _MonthCellState extends State<_MonthCell> {
                       const Spacer(),
                       widget.isToday
                           ? Container(
-                              width: widget.monthName != null ? null : 24,
-                              height: 24,
+                              width: widget.monthName != null ? null : 26,
+                              height: 26,
                               padding: widget.monthName != null ? const EdgeInsets.symmetric(horizontal: 8) : null,
                               decoration: BoxDecoration(
-                                color: Colors.redAccent,
-                                borderRadius: widget.monthName != null ? BorderRadius.circular(12) : null,
+                                color: Colors.white,
+                                borderRadius: widget.monthName != null ? BorderRadius.circular(13) : null,
                                 shape: widget.monthName != null ? BoxShape.rectangle : BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                      color: Colors.white
+                                          .withValues(alpha: 0.4),
+                                      blurRadius: 12)
+                                ],
                               ),
                               alignment: Alignment.center,
                               child: Text(widget.monthName != null ? '${widget.monthName} ${widget.cellDate.day}' : '${widget.cellDate.day}',
                                   style: const TextStyle(
-                                      fontSize: 13,
+                                      fontSize: 12,
                                       fontWeight: FontWeight.bold,
-                                      color: Colors.white)),
+                                      color: Colors.black)),
                             )
                           : Text(widget.monthName != null ? '${widget.monthName} ${widget.cellDate.day}' : '${widget.cellDate.day}',
                               style: TextStyle(
@@ -1368,6 +1374,11 @@ class _WeekDayHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12),
+      decoration: isToday
+          ? BoxDecoration(
+              border: const Border(
+                  top: BorderSide(color: Colors.white, width: 2)))
+          : null,
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Text(DateFormat('EEE').format(date).toUpperCase(),
             style: TextStyle(
@@ -1375,26 +1386,14 @@ class _WeekDayHeader extends StatelessWidget {
                 letterSpacing: 1.2,
                 fontWeight: FontWeight.w600,
                 color:
-                    isToday ? Colors.redAccent : Colors.white54)),
+                    isToday ? Colors.white : Colors.white38)),
         const SizedBox(height: 4),
-        isToday 
-            ? Container(
-                width: 36,
-                height: 36,
-                decoration: const BoxDecoration(
-                    color: Colors.redAccent,
-                    shape: BoxShape.circle),
-                alignment: Alignment.center,
-                child: Text(DateFormat('d').format(date),
-                    style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white)))
-            : Text(DateFormat('d').format(date),
-                style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.white70)),
+        Text(DateFormat('d').format(date),
+            style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w600,
+                color:
+                    isToday ? Colors.white : Colors.white60)),
       ]),
     );
   }
