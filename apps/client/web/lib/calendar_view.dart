@@ -264,6 +264,98 @@ class _CalendarViewState extends ConsumerState<CalendarView>
   }
 
   // ── Add event dialog ─────────────────────────────────────────────────────
+  void _showEventSummary(BuildContext context, dynamic event) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          width: 400,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: const Color(0xFF161618),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withOpacity(0.08), width: 1.5),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.5),
+                blurRadius: 32,
+                offset: const Offset(0, 16),
+              )
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.edit, color: Colors.white70, size: 20),
+                    onPressed: () {
+                      // TODO: Implement actual edit flow
+                      Navigator.pop(ctx);
+                    },
+                    hoverColor: Colors.white.withOpacity(0.1),
+                    splashRadius: 20,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.white70, size: 20),
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _confirmDelete(event['id']);
+                    },
+                    hoverColor: Colors.white.withOpacity(0.1),
+                    splashRadius: 20,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white70, size: 20),
+                    onPressed: () => Navigator.pop(ctx),
+                    hoverColor: Colors.white.withOpacity(0.1),
+                    splashRadius: 20,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 16,
+                    height: 16,
+                    margin: const EdgeInsets.only(top: 4, right: 12),
+                    decoration: BoxDecoration(
+                      color: _eventColor(event['summary']),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          event['summary'] ?? 'No Title',
+                          style: const TextStyle(fontSize: 22, color: Colors.white, fontWeight: FontWeight.w500),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'From: \nTo: ',
+                          style: const TextStyle(fontSize: 14, color: Colors.white70),
+                        ),
+                      ],
+                    ),
+                  )
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _showAddEventDialog([DateTime? preselected]) async {
     final selDate = preselected ?? _focusDate;
     final selTime = const TimeOfDay(hour: 10, minute: 0);
@@ -1062,6 +1154,7 @@ class _MonthCellState extends State<_MonthCell> {
       onExit: (_) => setState(() => _hovered = false),
       child: GestureDetector(
         onTap: widget.onTap,
+          onDoubleTap: widget.onAddTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           decoration: BoxDecoration(
@@ -1172,8 +1265,10 @@ class _MonthCellState extends State<_MonthCell> {
                       }
                     }
 
-                    return Container(
-                      margin: EdgeInsets.only(bottom: 2, left: ml, right: mr),
+                    return GestureDetector(
+                      onTap: () => _showEventSummary(context, e),
+                      child: Container(
+                        margin: EdgeInsets.only(bottom: 2, left: ml, right: mr),
                       padding: const EdgeInsets.symmetric(
                           horizontal: 5, vertical: 2),
                       decoration: BoxDecoration(
@@ -1209,14 +1304,14 @@ class _MonthCellState extends State<_MonthCell> {
                             child: Text(e['summary'] ?? 'Event',
                                 style: TextStyle(
                                     fontSize: 11,
-                                    color: allDay ? Colors.black87 : Colors.white,
-                                    fontWeight: FontWeight.w600),
+                                    color: allDay ? Colors.white : Colors.white,
+                                    fontWeight: allDay ? FontWeight.bold : FontWeight.w600),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis),
                           ),
                         ],
                       ),
-                    );
+                    ));
                   }),
                   if (widget.events.length > 2)
                     Padding(
