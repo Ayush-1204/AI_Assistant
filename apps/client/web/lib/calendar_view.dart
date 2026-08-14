@@ -744,9 +744,9 @@ class _CalendarViewState extends ConsumerState<CalendarView>
                       child: Text(h,
                           textAlign: TextAlign.center,
                           style: const TextStyle(
-                              fontSize: 11,
+                              fontSize: 13,
                               fontWeight: FontWeight.w600,
-                              color: Colors.white38,
+                              color: Colors.white54,
                               letterSpacing: 1)),
                     ),
                   ))
@@ -1207,30 +1207,24 @@ class _MonthCellState extends State<_MonthCell> {
                       const Spacer(),
                       widget.isToday
                           ? Container(
-                              width: widget.monthName != null ? null : 26,
-                              height: 26,
+                              width: widget.monthName != null ? null : 24,
+                              height: 24,
                               padding: widget.monthName != null ? const EdgeInsets.symmetric(horizontal: 8) : null,
                               decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: widget.monthName != null ? BorderRadius.circular(13) : null,
+                                color: Colors.redAccent,
+                                borderRadius: widget.monthName != null ? BorderRadius.circular(12) : null,
                                 shape: widget.monthName != null ? BoxShape.rectangle : BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                      color: Colors.white
-                                          .withValues(alpha: 0.4),
-                                      blurRadius: 12)
-                                ],
                               ),
                               alignment: Alignment.center,
                               child: Text(widget.monthName != null ? '${widget.monthName} ${widget.cellDate.day}' : '${widget.cellDate.day}',
                                   style: const TextStyle(
-                                      fontSize: 12,
+                                      fontSize: 13,
                                       fontWeight: FontWeight.bold,
-                                      color: Colors.black)),
+                                      color: Colors.white)),
                             )
                           : Text(widget.monthName != null ? '${widget.monthName} ${widget.cellDate.day}' : '${widget.cellDate.day}',
                               style: TextStyle(
-                                  fontSize: 12,
+                                  fontSize: 14,
                                   fontWeight: widget.monthName != null ? FontWeight.bold : FontWeight.w500,
                                   color: widget.isOutsideMonth 
                                       ? Colors.white.withValues(alpha: 0.15)
@@ -1310,16 +1304,16 @@ class _MonthCellState extends State<_MonthCell> {
                             ),
                           if (timePrefix != null) ...[
                             Text(timePrefix,
-                                style: TextStyle(
-                                    fontSize: 8,
-                                    color: allDay ? Colors.black87 : Colors.white70,
+                                style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.white,
                                     fontWeight: FontWeight.w600)),
-                            const SizedBox(width: 3),
+                            const SizedBox(width: 4),
                           ],
                           Expanded(
                             child: Text(e['summary'] ?? 'Event',
                                 style: TextStyle(
-                                    fontSize: 11,
+                                    fontSize: 12,
                                     color: Colors.white,
                                     fontWeight: allDay ? FontWeight.bold : FontWeight.w600),
                                 maxLines: 1,
