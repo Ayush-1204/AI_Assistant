@@ -1266,7 +1266,7 @@ class _MonthCellState extends State<_MonthCell> {
                     }
 
                     return GestureDetector(
-                      onTap: () => _showEventSummary(context, e),
+                      onTap: () => widget.onEventTap(e),
                       child: Container(
                         margin: EdgeInsets.only(bottom: 2, left: ml, right: mr),
                       padding: const EdgeInsets.symmetric(
