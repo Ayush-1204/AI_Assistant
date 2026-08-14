@@ -60,7 +60,7 @@ class _CalendarViewState extends ConsumerState<CalendarView>
     with TickerProviderStateMixin {
   CalView _view = CalView.month;
   late DateTime _focusDate; // selected day / week anchor / month anchor
-  List<dynamic> _events = [];
+  Map<String, dynamic> _events = {};
   bool _isLoading = true;
   bool _isFirstLoad = true;
   int _slideDir = 1;
@@ -233,7 +233,7 @@ class _CalendarViewState extends ConsumerState<CalendarView>
 
   // ── Events for a given date ──────────────────────────────────────────────
   List<dynamic> _eventsForDate(DateTime date) {
-    return _events.where((e) {
+    return _events.values.where((e) {
       // All-day events: use _eventSpansDay which handles date-only strings
       if (_isAllDay(e)) return _eventSpansDay(e, date);
 
@@ -799,7 +799,7 @@ class _CalendarViewState extends ConsumerState<CalendarView>
           }).toList(),
           eventLayer: _WeekEventLayer(
               days: weekDays,
-              events: _events,
+              events: _events.values.toList(),
               onEventTap: (e) => _confirmDelete(e['id'].toString())),
           dayCount: 7,
           days: weekDays,
@@ -968,7 +968,7 @@ class _CalendarViewState extends ConsumerState<CalendarView>
       child: Column(children: [
         _MiniCalendar(
           focusDate: _focusDate,
-          events: _events,
+          events: _events.values.toList(),
           onDayTap: (d) {
             setState(() => _focusDate = d);
             if (_view == CalView.month) {
@@ -1466,7 +1466,7 @@ class _AllDayBanner extends StatelessWidget {
                     margin: EdgeInsets.only(top: 1, bottom: 1, left: ml, right: mr),
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                     decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.25),
+                      color: color,
                       borderRadius: BorderRadius.horizontal(
                         left: isStart ? const Radius.circular(4) : Radius.zero,
                         right: isEnd ? const Radius.circular(4) : Radius.zero,
