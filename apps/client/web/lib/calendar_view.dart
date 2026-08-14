@@ -862,6 +862,10 @@ class _CalendarViewState extends ConsumerState<CalendarView>
         .where((e) => _isAllDay(e) && days.any((d) => _eventSpansDay(e, d)))
         .toList();
 
+    final now = DateTime.now();
+    final hasToday = days.any((d) => d.year == now.year && d.month == now.month && d.day == now.day);
+
+
     return _glassPanel(
       child: Column(children: [
         // Day header row
