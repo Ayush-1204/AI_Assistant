@@ -79,7 +79,7 @@ class _CalendarViewState extends ConsumerState<CalendarView>
   double _monthRowH = 0;
   bool _isSnapping = false;
   
-  final DateTime _anchorDate = DateTime(DateTime.now().year, DateTime.now().month, 1);
+  final DateTime _anchorDate = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
   
   int _daysBetween(DateTime a, DateTime b) {
     return DateTime.utc(b.year, b.month, b.day)
