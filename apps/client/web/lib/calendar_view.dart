@@ -79,6 +79,7 @@ class _CalendarViewState extends ConsumerState<CalendarView>
   final ScrollController _monthScrollCtrl = ScrollController();
   double _monthRowH = 0;
   bool _isSnapping = false;
+  bool _isProgrammaticMonthScroll = false;
   
   final DateTime _anchorDate = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
   
@@ -230,11 +231,14 @@ class _CalendarViewState extends ConsumerState<CalendarView>
       final anchorSunday = _anchorDate.subtract(Duration(days: _anchorDate.weekday % 7));
       final daysDiff = targetFirst.difference(anchorSunday).inDays;
       final weekOffset = (daysDiff / 7.0).floorToDouble(); 
+      _isProgrammaticMonthScroll = true;
       _monthScrollCtrl.animateTo(
         weekOffset * _monthRowH,
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOut,
-      );
+      ).whenComplete(() {
+        if (mounted) _isProgrammaticMonthScroll = false;
+      });
     }
     if (_weekPageCtrl.hasClients) {
       _weekPageCtrl.animateToPage(_calcWeekIdx(d),
@@ -660,7 +664,7 @@ class _CalendarViewState extends ConsumerState<CalendarView>
 
   /// Handler for the CustomScrollView's NotificationListener.
   bool _onMonthScroll(ScrollNotification n) {
-    if (n is ScrollUpdateNotification) {
+    if (n is ScrollUpdateNotification && !_isProgrammaticMonthScroll) {
       // Determine which month is most visible and update _focusDate
       final offset = _monthScrollCtrl.offset;
       final weekOffset = (offset / _monthRowH).round() + 2;
