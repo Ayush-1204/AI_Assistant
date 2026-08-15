@@ -70,6 +70,7 @@ class _CalendarViewState extends ConsumerState<CalendarView>
   ScrollController? _timeGridScrollCtrl;
   
   Timer? _debounceTimer;
+  Timer? _autoRefreshTimer;
 
   late PageController _weekPageCtrl;
   late PageController _dayPageCtrl;
@@ -113,10 +114,14 @@ class _CalendarViewState extends ConsumerState<CalendarView>
     _dayPageCtrl = PageController(initialPage: _calcDayIdx(_focusDate));
         
     _fetchEvents();
+    _autoRefreshTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) _fetchEvents(isBackground: true);
+    });
   }
 
   @override
   void dispose() {
+    _autoRefreshTimer?.cancel();
     _debounceTimer?.cancel();
     _fadeCtrl.dispose();
     _timeGridScrollCtrl?.dispose();
@@ -134,15 +139,34 @@ class _CalendarViewState extends ConsumerState<CalendarView>
     });
   }
 
-  Future<void> _fetchMonth(int year, int month) async {
+  Future<void> _fetchMonth(int year, int month, {bool bypassCache = false}) async {
     final monthKey = '$year-$month';
-    if (_loadedMonths.contains(monthKey)) return;
-    _loadedMonths.add(monthKey); // Optimistically add to prevent duplicate concurrent fetches
+    if (!bypassCache && _loadedMonths.contains(monthKey)) return;
+    if (!bypassCache) _loadedMonths.add(monthKey); // Optimistically add to prevent duplicate concurrent fetches
     try {
       final api = ref.read(apiClientProvider);
       final evts = await api.fetchCalendarEvents(year: year, month: month);
       if (mounted) {
+        final newIds = <String>{};
+        for (var evt in evts) {
+          if (evt['id'] != null) newIds.add(evt['id'].toString());
+        }
+        
         setState(() {
+          // Remove events that are in this month but missing from payload
+          _events.removeWhere((id, evt) {
+             if (evt['start'] == null) return false;
+             final s = evt['start']['dateTime'] ?? evt['start']['date'];
+             if (s == null) return false;
+             try {
+                final dt = DateTime.parse(s).toLocal();
+                if (dt.year == year && dt.month == month) {
+                   return !newIds.contains(id);
+                }
+             } catch (_) {}
+             return false;
+          });
+          
           for (var evt in evts) {
             if (evt['id'] != null) {
               _events[evt['id'].toString()] = evt;
@@ -151,11 +175,11 @@ class _CalendarViewState extends ConsumerState<CalendarView>
         });
       }
     } catch (_) {
-      _loadedMonths.remove(monthKey);
+      if (!bypassCache) _loadedMonths.remove(monthKey);
     }
   }
 
-  Future<void> _fetchEvents({bool force = false}) async {
+  Future<void> _fetchEvents({bool force = false, bool isBackground = false}) async {
     if (force) {
       _loadedMonths.clear();
       _events.clear();
@@ -168,13 +192,13 @@ class _CalendarViewState extends ConsumerState<CalendarView>
     // Proactively preload adjacent months in the background
     final prevMonth = currentMonth == 1 ? 12 : currentMonth - 1;
     final prevYear = currentMonth == 1 ? currentYear - 1 : currentYear;
-    _fetchMonth(prevYear, prevMonth);
+    _fetchMonth(prevYear, prevMonth, bypassCache: isBackground);
     
     final nextMonth = currentMonth == 12 ? 1 : currentMonth + 1;
     final nextYear = currentMonth == 12 ? currentYear + 1 : currentYear;
-    _fetchMonth(nextYear, nextMonth);
+    _fetchMonth(nextYear, nextMonth, bypassCache: isBackground);
 
-    if (!force && _loadedMonths.contains(currentKey)) {
+    if (!force && !isBackground && _loadedMonths.contains(currentKey)) {
       if (_isFirstLoad && mounted) {
         setState(() => _isFirstLoad = false);
         _fadeCtrl.forward();
@@ -182,15 +206,15 @@ class _CalendarViewState extends ConsumerState<CalendarView>
       return;
     }
 
-    if (_isFirstLoad && mounted) {
+    if (_isFirstLoad && mounted && !isBackground) {
       setState(() => _isLoading = true);
       _fadeCtrl.reset();
     }
 
-    await _fetchMonth(currentYear, currentMonth);
+    await _fetchMonth(currentYear, currentMonth, bypassCache: isBackground);
 
     if (mounted) {
-      setState(() => _isLoading = false);
+      if (!isBackground) setState(() => _isLoading = false);
       if (_isFirstLoad) {
         _isFirstLoad = false;
         _fadeCtrl.forward();
