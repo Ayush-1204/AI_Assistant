@@ -15,6 +15,7 @@ from .reminder import Reminder
 from .scheduled_job import ScheduledJob
 from .task import Task
 from .user import User
+from .watch_channel import WatchChannel
 
 __all__ = [
     "User",
@@ -37,4 +38,5 @@ __all__ = [
     "Habit",
     "HabitLog",
     "Expense",
+    "WatchChannel",
 ]

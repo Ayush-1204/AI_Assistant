@@ -3,6 +3,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'dart:convert';
+import 'package:web_socket_channel/web_socket_channel.dart';
 import 'providers/auth_provider.dart';
 
 // ─── Event color palette (cycles by hash) ─────────────────────────────────
@@ -97,6 +99,36 @@ class _CalendarViewState extends ConsumerState<CalendarView>
   }
   int _calcDayIdx(DateTime d) => 10000 + _daysBetween(_anchorDate, d);
 
+  WebSocketChannel? _wsChannel;
+
+  void _initWebSocket() {
+    final api = ref.read(apiClientProvider);
+    final token = ref.read(authProvider).token;
+    if (token == null) return;
+    
+    // Register watch
+    api.registerCalendarWatch();
+    
+    // Connect WS
+    // Note: In production this should use wss:// and point to the actual backend host.
+    // For local dev, we assume localhost:8000
+    final wsUrl = 'ws://localhost:8000/dashboard/calendar/ws?token=$token';
+    try {
+      _wsChannel = WebSocketChannel.connect(Uri.parse(wsUrl));
+      _wsChannel?.stream.listen((message) {
+        try {
+          final data = jsonDecode(message);
+          if (data['type'] == 'CALENDAR_SYNC_UPDATE') {
+            _fetchEvents(force: true, isBackground: true);
+          }
+        } catch (e) {
+          debugPrint('WS Parse error: $e');
+        }
+      });
+    } catch (e) {
+      debugPrint('WS Connect error: $e');
+    }
+  }
 
   @override
   void initState() {
@@ -114,13 +146,12 @@ class _CalendarViewState extends ConsumerState<CalendarView>
     _dayPageCtrl = PageController(initialPage: _calcDayIdx(_focusDate));
         
     _fetchEvents();
-    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
-      if (mounted) _fetchEvents(isBackground: true);
-    });
+    _initWebSocket();
   }
 
   @override
   void dispose() {
+    _wsChannel?.sink.close();
     _autoRefreshTimer?.cancel();
     _debounceTimer?.cancel();
     _fadeCtrl.dispose();
@@ -155,8 +186,7 @@ class _CalendarViewState extends ConsumerState<CalendarView>
         setState(() {
           // Remove events that are in this month but missing from payload
           _events.removeWhere((id, evt) {
-             if (evt['start'] == null) return false;
-             final s = evt['start']['dateTime'] ?? evt['start']['date'];
+             final s = evt['start'] as String?;
              if (s == null) return false;
              try {
                 final dt = DateTime.parse(s).toLocal();
@@ -494,9 +524,7 @@ class _CalendarViewState extends ConsumerState<CalendarView>
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: _isFirstLoad
-              ? const Center(
-                  child: CircularProgressIndicator(
-                      color: Colors.white24, strokeWidth: 1.5))
+              ? _buildSkeletonLoader()
               : AnimatedSwitcher(
                   duration: const Duration(milliseconds: 150),
                   switchInCurve: Curves.easeOut,
@@ -772,6 +800,102 @@ class _CalendarViewState extends ConsumerState<CalendarView>
           );
         }),
       ),
+    );
+  }
+
+  Widget _buildSkeletonLoader() {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.3, end: 0.7),
+      duration: const Duration(milliseconds: 1000),
+      curve: Curves.easeInOut,
+      builder: (context, val, child) {
+        return Opacity(
+          opacity: val,
+          child: _glassPanel(
+            child: Column(
+              children: [
+                Row(
+                  children: List.generate(7, (i) => Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Container(
+                        height: 14,
+                        margin: const EdgeInsets.symmetric(horizontal: 20),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.05),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ),
+                  )),
+                ),
+                Container(height: 1, color: Colors.white.withValues(alpha: 0.05)),
+                Expanded(
+                  child: Column(
+                    children: List.generate(5, (i) => Expanded(
+                      child: Row(
+                        children: List.generate(7, (j) => Expanded(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              border: Border(
+                                right: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
+                                bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
+                              ),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Container(
+                                    height: 14,
+                                    width: 20,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withValues(alpha: 0.05),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  if ((i * 7 + j) % 3 == 0)
+                                    Container(
+                                      height: 16,
+                                      width: double.infinity,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withValues(alpha: 0.03),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                    ),
+                                  if ((i * 7 + j) % 5 == 0)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 4),
+                                      child: Container(
+                                        height: 16,
+                                        width: double.infinity,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withValues(alpha: 0.03),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        )),
+                      ),
+                    )),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+      onEnd: () {
+        // TweenAnimationBuilder doesn't loop automatically, so we could use a custom controller 
+        // if we really need it to pulse continuously. But as a simple skeleton loader, 
+        // a single fade-in is often enough, or we can reverse it.
+      },
     );
   }
 
@@ -1085,10 +1209,12 @@ class _CalendarViewState extends ConsumerState<CalendarView>
                         _eventColor(e['summary']?.toString());
                     final startStr = e['start'] as String? ?? '';
                     String timeStr = 'All Day';
-                    try {
-                      timeStr = DateFormat('h:mm a')
-                          .format(DateTime.parse(startStr).toLocal());
-                    } catch (_) {}
+                    if (!_isAllDay(e)) {
+                      try {
+                        timeStr = DateFormat('h:mm a')
+                            .format(DateTime.parse(startStr).toLocal());
+                      } catch (_) {}
+                    }
                     return GestureDetector(
                       onDoubleTap: () =>
                           _confirmDelete(e['id'].toString()),

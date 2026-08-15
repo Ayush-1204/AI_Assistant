@@ -3,6 +3,11 @@ import logging
 from typing import Any
 
 from googleapiclient.discovery import build
+import uuid
+import secrets
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from app.db.models.watch_channel import WatchChannel
 
 from app.integrations.google.auth import GoogleAuthService
 
@@ -201,3 +206,91 @@ class GoogleCalendarService:
         busy = primary.get('busy', [])
         
         return {"date": date, "busy_slots": busy}
+
+    async def register_watch(self, user_id: int, db: AsyncSession, public_url: str):
+        # Check if watch already exists and is valid
+        result = await db.execute(select(WatchChannel).where(WatchChannel.user_id == user_id))
+        watch = result.scalar_one_or_none()
+        
+        now = datetime.datetime.now(datetime.timezone.utc)
+        if watch and watch.expiration > now + datetime.timedelta(days=1):
+            return watch # Still valid for at least a day
+            
+        channel_token = secrets.token_urlsafe(32)
+        channel_id = str(uuid.uuid4())
+        
+        def _call(service):
+            return service.events().watch(
+                calendarId='primary',
+                body={
+                    "id": channel_id,
+                    "type": "web_hook",
+                    "address": public_url,
+                    "token": channel_token,
+                }
+            ).execute()
+            
+        try:
+            resp = await self._execute_call(user_id, _call)
+        except Exception as e:
+            logger.error(f"Failed to register watch channel: {e}")
+            return None
+            
+        exp_ms = int(resp.get('expiration', 0))
+        expiration = datetime.datetime.fromtimestamp(exp_ms / 1000.0, tz=datetime.timezone.utc)
+        
+        if watch:
+            # Update existing
+            watch.channel_id = channel_id
+            watch.resource_id = resp.get('resourceId')
+            watch.channel_token = channel_token
+            watch.expiration = expiration
+        else:
+            watch = WatchChannel(
+                user_id=user_id,
+                channel_id=channel_id,
+                resource_id=resp.get('resourceId'),
+                channel_token=channel_token,
+                expiration=expiration
+            )
+            db.add(watch)
+            
+        await db.commit()
+        await db.refresh(watch)
+        
+        # Perform initial full sync to get syncToken
+        await self.sync_delta(user_id, watch, db)
+        return watch
+
+    async def sync_delta(self, user_id: int, watch: WatchChannel, db: AsyncSession):
+        sync_token = watch.sync_token
+        
+        def _call(service):
+            if sync_token:
+                try:
+                    return service.events().list(calendarId='primary', syncToken=sync_token).execute()
+                except Exception as e:
+                    if '410' in str(e): # Gone - syncToken invalidated
+                        pass
+                    else:
+                        raise e
+                        
+            # Full sync if no token or token is gone
+            now = datetime.datetime.now(datetime.timezone.utc)
+            start_date = now - datetime.timedelta(days=30)
+            return service.events().list(
+                calendarId='primary',
+                timeMin=start_date.isoformat().replace('+00:00', 'Z'),
+                maxResults=2500,
+                singleEvents=True
+            ).execute()
+            
+        resp = await self._execute_call(user_id, _call)
+        new_sync_token = resp.get('nextSyncToken')
+        
+        if new_sync_token and new_sync_token != sync_token:
+            watch.sync_token = new_sync_token
+            await db.commit()
+            
+        events = resp.get('items', [])
+        return events

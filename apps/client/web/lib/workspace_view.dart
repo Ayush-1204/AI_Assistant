@@ -688,9 +688,7 @@ class _DashboardWidgetCardState extends State<_DashboardWidgetCard>
                   decoration: BoxDecoration(
                     color: isToday
                         ? Colors.indigoAccent
-                        : (isEvent
-                            ? Colors.white.withValues(alpha: 0.08)
-                            : Colors.transparent),
+                        : Colors.transparent,
                     shape: BoxShape.circle,
                   ),
                   alignment: Alignment.center,
@@ -706,14 +704,15 @@ class _DashboardWidgetCardState extends State<_DashboardWidgetCard>
                                       : FontWeight.normal,
                                   color: Colors.white.withValues(
                                       alpha: isToday ? 1.0 : 0.6)))),
-                      if (isEvent && !isToday)
+                      if (isEvent)
                         Container(
                             margin: const EdgeInsets.only(top: 2),
                             width: 4,
                             height: 4,
                             decoration: const BoxDecoration(
-                                color: Colors.indigoAccent,
-                                shape: BoxShape.circle)),
+                                color: Colors.blueAccent,
+                                shape: BoxShape.circle)
+                        ),
                     ],
                   ),
                 );

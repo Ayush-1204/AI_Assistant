@@ -522,6 +522,16 @@ class ApiClient {
     final response = await _dio.patch('/scheduled-tasks/$id/toggle');
     return response.data;
   }
+
+  Future<dynamic> registerCalendarWatch() async {
+    try {
+      final response = await _dio.post('/dashboard/calendar/watch');
+      return response.data;
+    } catch (e) {
+      print('Failed to register calendar watch: $e');
+      return null;
+    }
+  }
 }
 
 

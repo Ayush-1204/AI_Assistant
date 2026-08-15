@@ -68,3 +68,5 @@ app.include_router(dashboard_router)
 app.include_router(media_router)
 app.include_router(scheduled_tasks_router)
 app.include_router(memory_router)
+from app.routers.webhooks import router as webhooks_router
+app.include_router(webhooks_router)

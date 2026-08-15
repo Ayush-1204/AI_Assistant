@@ -12,6 +12,7 @@ class Settings(BaseSettings):
 
     HOST: str = "0.0.0.0"
     PORT: int = 8000
+    WEBHOOK_PUBLIC_URL: str | None = None
 
     # Database
     DATABASE_URL: str
