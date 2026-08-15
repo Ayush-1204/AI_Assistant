@@ -28,6 +28,20 @@ class GoogleCalendarService:
             
         return result
 
+    def _get_target_calendars(self, service):
+        try:
+            calendars_result = service.calendarList().list().execute()
+            calendars = calendars_result.get('items', [])
+            
+            target_calendars = ['primary']
+            for c in calendars:
+                if 'holiday' in c.get('id', '').lower():
+                    if c['id'] not in target_calendars:
+                        target_calendars.append(c['id'])
+            return target_calendars
+        except Exception:
+            return ['primary']
+
     async def get_todays_schedule(self, user_id: int):
                 
         now = datetime.datetime.now(datetime.timezone.utc)
@@ -35,30 +49,57 @@ class GoogleCalendarService:
         end_of_day = now.replace(hour=23, minute=59, second=59, microsecond=999999).isoformat().replace('+00:00', 'Z')
         
         def _call(service):
-            return service.events().list(
-            calendarId='primary', 
-            timeMin=start_of_day,
-            timeMax=end_of_day,
-            singleEvents=True,
-            orderBy='startTime'
-            ).execute()
+            cals = self._get_target_calendars(service)
+            all_events = []
+            for cal_id in cals:
+                try:
+                    res = service.events().list(
+                        calendarId=cal_id, 
+                        timeMin=start_of_day,
+                        timeMax=end_of_day,
+                        singleEvents=True,
+                        maxResults=2500,
+                        orderBy='startTime'
+                    ).execute()
+                    events = res.get('items', [])
+                    for e in events:
+                        if cal_id != 'primary':
+                            e['is_holiday'] = True
+                    all_events.extend(events)
+                except Exception:
+                    pass
+            all_events.sort(key=lambda x: x.get('start', {}).get('dateTime', x.get('start', {}).get('date', '')))
+            return all_events
             
-        events_result = await self._execute_call(user_id, _call)
-        return events_result.get('items', [])
+        all_events = await self._execute_call(user_id, _call)
+        return all_events
 
     async def get_upcoming_events(self, user_id: int, max_results: int = 10):
         now = datetime.datetime.now(datetime.timezone.utc).isoformat().replace('+00:00', 'Z')
         def _call(service):
-            return service.events().list(
-            calendarId='primary', 
-            timeMin=now,
-            maxResults=max_results, 
-            singleEvents=True,
-            orderBy='startTime'
-            ).execute()
+            cals = self._get_target_calendars(service)
+            all_events = []
+            for cal_id in cals:
+                try:
+                    res = service.events().list(
+                        calendarId=cal_id, 
+                        timeMin=now,
+                        singleEvents=True,
+                        maxResults=2500,
+                        orderBy='startTime'
+                    ).execute()
+                    events = res.get('items', [])
+                    for e in events:
+                        if cal_id != 'primary':
+                            e['is_holiday'] = True
+                    all_events.extend(events)
+                except Exception:
+                    pass
+            all_events.sort(key=lambda x: x.get('start', {}).get('dateTime', x.get('start', {}).get('date', '')))
+            return all_events
             
-        events_result = await self._execute_call(user_id, _call)
-        return events_result.get('items', [])
+        all_events = await self._execute_call(user_id, _call)
+        return all_events
 
     async def get_monthly_events(self, user_id: int, year: int, month: int):
         start_date = datetime.datetime(year, month, 1, tzinfo=datetime.timezone.utc)
@@ -67,17 +108,30 @@ class GoogleCalendarService:
         end_date = datetime.datetime(next_year, next_month, 1, tzinfo=datetime.timezone.utc)
         
         def _call(service):
-            return service.events().list(
-            calendarId='primary', 
-            timeMin=start_date.isoformat().replace('+00:00', 'Z'),
-            timeMax=end_date.isoformat().replace('+00:00', 'Z'),
-            singleEvents=True,
-            maxResults=2500,
-            orderBy='startTime'
-            ).execute()
+            cals = self._get_target_calendars(service)
+            all_events = []
+            for cal_id in cals:
+                try:
+                    res = service.events().list(
+                        calendarId=cal_id, 
+                        timeMin=start_date.isoformat().replace('+00:00', 'Z'),
+                        timeMax=end_date.isoformat().replace('+00:00', 'Z'),
+                        singleEvents=True,
+                        maxResults=2500,
+                        orderBy='startTime'
+                    ).execute()
+                    events = res.get('items', [])
+                    for e in events:
+                        if cal_id != 'primary':
+                            e['is_holiday'] = True
+                    all_events.extend(events)
+                except Exception:
+                    pass
+            all_events.sort(key=lambda x: x.get('start', {}).get('dateTime', x.get('start', {}).get('date', '')))
+            return all_events
             
-        events_result = await self._execute_call(user_id, _call)
-        return events_result.get('items', [])
+        all_events = await self._execute_call(user_id, _call)
+        return all_events
 
     async def create_event(self, user_id: int, summary: str, description: str, start_time: str, end_time: str, reminders: list | dict | None = None, time_zone: str = 'Asia/Kolkata'):
         event: dict[str, Any] = {
