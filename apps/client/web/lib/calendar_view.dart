@@ -134,10 +134,47 @@ class _CalendarViewState extends ConsumerState<CalendarView>
     });
   }
 
+  Future<void> _fetchMonth(int year, int month) async {
+    final monthKey = '$year-$month';
+    if (_loadedMonths.contains(monthKey)) return;
+    _loadedMonths.add(monthKey); // Optimistically add to prevent duplicate concurrent fetches
+    try {
+      final api = ref.read(apiClientProvider);
+      final evts = await api.fetchCalendarEvents(year: year, month: month);
+      if (mounted) {
+        setState(() {
+          for (var evt in evts) {
+            if (evt['id'] != null) {
+              _events[evt['id'].toString()] = evt;
+            }
+          }
+        });
+      }
+    } catch (_) {
+      _loadedMonths.remove(monthKey);
+    }
+  }
+
   Future<void> _fetchEvents({bool force = false}) async {
-    final monthKey = '-';
+    if (force) {
+      _loadedMonths.clear();
+      _events.clear();
+    }
     
-    if (!force && _loadedMonths.contains(monthKey)) {
+    final currentYear = _focusDate.year;
+    final currentMonth = _focusDate.month;
+    final currentKey = '$currentYear-$currentMonth';
+    
+    // Proactively preload adjacent months in the background
+    final prevMonth = currentMonth == 1 ? 12 : currentMonth - 1;
+    final prevYear = currentMonth == 1 ? currentYear - 1 : currentYear;
+    _fetchMonth(prevYear, prevMonth);
+    
+    final nextMonth = currentMonth == 12 ? 1 : currentMonth + 1;
+    final nextYear = currentMonth == 12 ? currentYear + 1 : currentYear;
+    _fetchMonth(nextYear, nextMonth);
+
+    if (!force && _loadedMonths.contains(currentKey)) {
       if (_isFirstLoad && mounted) {
         setState(() => _isFirstLoad = false);
         _fadeCtrl.forward();
@@ -145,38 +182,18 @@ class _CalendarViewState extends ConsumerState<CalendarView>
       return;
     }
 
-    // Only show spinner on very first load
     if (_isFirstLoad && mounted) {
       setState(() => _isLoading = true);
       _fadeCtrl.reset();
     }
 
-    try {
-      final api = ref.read(apiClientProvider);
-      final evts = await api.fetchCalendarEvents(
-          year: _focusDate.year, month: _focusDate.month);
+    await _fetchMonth(currentYear, currentMonth);
 
-      if (mounted) {
-        _loadedMonths.add(monthKey);
-        setState(() {
-          for (var evt in evts) {
-            if (evt['id'] != null) {
-              _events[evt['id'].toString()] = evt;
-            }
-          }
-          _isLoading = false;
-        });
-        if (_isFirstLoad) {
-          _isFirstLoad = false;
-          _fadeCtrl.forward();
-        }
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-           _isLoading = false;
-           _isFirstLoad = false;
-        });
+    if (mounted) {
+      setState(() => _isLoading = false);
+      if (_isFirstLoad) {
+        _isFirstLoad = false;
+        _fadeCtrl.forward();
       }
     }
   }
