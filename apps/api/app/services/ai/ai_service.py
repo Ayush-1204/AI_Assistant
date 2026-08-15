@@ -273,7 +273,10 @@ class AIService:
             
         finally:
             if final_response:
-                await self.message_service.create(conversation_id, MessageCreate(role=MessageRole.ASSISTANT, content=final_response))
+                try:
+                    await self.message_service.create(conversation_id, MessageCreate(role=MessageRole.ASSISTANT, content=final_response))
+                except Exception as e:
+                    logger.error(f"[AIService] Failed to save assistant message during teardown: {e}")
             
             latency_ms = (time.perf_counter() - start_time) * 1000.0
             metadata_dump = {

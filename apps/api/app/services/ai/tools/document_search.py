@@ -16,6 +16,7 @@ class DocumentSearchTool(BaseTool):
     def description(self) -> str:
         return (
             "Search the user's RAG knowledge base for specific past documents, literature, code names, or concepts. "
+            "Use this tool to READ, parse, or search attached documents (e.g. uploaded files like PDF, TXT) that the user provides. "
             "CRITICAL: Do NOT use this tool if the user asks about a document they claim to have attached (e.g. 'what is in the pdf?'), "
             "but you do NOT see any '[Attached Document: ...]' in the current conversation context. In that case, "
             "just tell them to upload the document first."

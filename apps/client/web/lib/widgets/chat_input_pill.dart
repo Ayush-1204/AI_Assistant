@@ -52,7 +52,7 @@ class _ChatInputPillState extends ConsumerState<ChatInputPill> {
       constraints: const BoxConstraints(maxWidth: 800),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF131313).withValues(alpha: 0.95),
+        color: const Color(0xFF131313),
         borderRadius: BorderRadius.circular(32),
         border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
         boxShadow: [
@@ -254,37 +254,112 @@ class _HoverableAttachmentPillState extends State<HoverableAttachmentPill> {
 
   @override
   Widget build(BuildContext context) {
+    String filename = widget.file.name;
+    String ext = filename.contains('.') ? filename.split('.').last.toLowerCase() : 'file';
+    Color extColor = Colors.grey;
+    String docType = 'DOCUMENT';
+    
+    if (ext == 'pdf') {
+      extColor = Colors.redAccent;
+      docType = 'PDF DOCUMENT';
+    } else if (ext == 'doc' || ext == 'docx') {
+      extColor = Colors.blueAccent;
+      docType = 'WORD DOCUMENT';
+    } else if (ext == 'xls' || ext == 'xlsx') {
+      extColor = Colors.green;
+      docType = 'EXCEL SPREADSHEET';
+    } else if (ext == 'ppt' || ext == 'pptx') {
+      extColor = Colors.orangeAccent;
+      docType = 'POWERPOINT DOCUMENT';
+    } else if (ext == 'md') {
+      extColor = Colors.orange;
+      docType = 'MARKDOWN DOCUMENT';
+    } else if (ext == 'txt') {
+      extColor = Colors.white70;
+      docType = 'TEXT DOCUMENT';
+    } else if (ext == 'csv') {
+      extColor = Colors.greenAccent;
+      docType = 'CSV DOCUMENT';
+    } else {
+      extColor = Colors.orangeAccent;
+    }
+
     return MouseRegion(
       onEnter: (_) => setState(() => isHovering = true),
       onExit: (_) => setState(() => isHovering = false),
-      child: Container(
-        margin: const EdgeInsets.only(right: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.white10,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white24, width: 1),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.insert_drive_file, size: 16, color: Colors.white70),
-            const SizedBox(width: 6),
-            Text(
-              widget.file.name,
-              style: const TextStyle(color: Colors.white, fontSize: 12),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            margin: const EdgeInsets.only(right: 8, top: 4),
+            constraints: const BoxConstraints(maxWidth: 240),
+            width: widget.file.type == 'image' ? 50 : null,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+              color: widget.file.type == 'image' ? null : const Color(0xFF2C2C2C),
+              image: widget.file.type == 'image' && widget.file.base64Data != null && widget.file.base64Data.isNotEmpty
+                  ? DecorationImage(
+                      image: MemoryImage(base64Decode(widget.file.base64Data)),
+                      fit: BoxFit.cover,
+                    )
+                  : null,
             ),
-            if (isHovering) ...[
-              const SizedBox(width: 8),
-              GestureDetector(
+            child: widget.file.type != 'image'
+                ? Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 10.0),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: extColor.withValues(alpha: 0.5)),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(ext.toUpperCase(), style: TextStyle(color: extColor, fontSize: 8, fontWeight: FontWeight.bold)),
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(widget.file.name,
+                                  style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis),
+                              const SizedBox(height: 2),
+                              Text(docType,
+                                  style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 10, fontWeight: FontWeight.w500)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : null,
+          ),
+          if (isHovering)
+            Positioned(
+              right: 0,
+              top: 0,
+              child: InkWell(
                 onTap: widget.onRemove,
-                child: const Icon(Icons.close, size: 16, color: Colors.white),
-              )
-            ]
-          ],
-        ),
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))
+                    ],
+                  ),
+                  child: const Icon(Icons.close, size: 10, color: Colors.black87),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

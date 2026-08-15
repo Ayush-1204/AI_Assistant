@@ -9,6 +9,10 @@ import 'fullscreen_gallery.dart';
 import 'registry.dart';
 import '../../providers/auth_provider.dart';
 
+import 'package:flutter/services.dart';
+import 'package:flutter_highlighter/themes/atom-one-dark.dart';
+import '../markdown/builders/selectable_highlight_view.dart';
+
 void _openFullScreenGallery(
     BuildContext context, List<Map<String, String>> images, int initialIndex) {
   Navigator.of(context).push(PageRouteBuilder(
@@ -164,38 +168,130 @@ class CodeBlockWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // For simplicity, reusing Markdown formatting for the code block
-    // A robust app would use flutter_highlighter
+    String language = node.language;
+    if (language.isEmpty) language = 'plaintext';
+
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 16.0),
       decoration: BoxDecoration(
-        color: Colors.black87,
+        color: const Color(0xFF0D0D0D), // Sleek ChatGPT dark background
         borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
-      padding: const EdgeInsets.all(16),
+      clipBehavior: Clip.antiAlias,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(node.language.toUpperCase(),
-                  style: const TextStyle(
-                      color: Colors.white54,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold)),
-              const Icon(Icons.copy, color: Colors.white54, size: 16),
-            ],
+          // Header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF212121), // Sleek header
+              border: Border(
+                bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05))
+              )
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      '</> ',
+                      style: TextStyle(
+                        color: Colors.white54,
+                        fontSize: 12,
+                        fontFamily: 'monospace',
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      language.toLowerCase(),
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                _CopyButton(text: node.code),
+              ],
+            ),
           ),
-          const SizedBox(height: 8),
-          SelectableText(
-            node.code,
-            style: const TextStyle(
+          // Code Content
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SelectableHighlightView(
+              node.code,
+              padding: const EdgeInsets.all(16),
+              language: language,
+              theme: Map<String, TextStyle>.from(atomOneDarkTheme)
+                ..['root'] = const TextStyle(
+                  backgroundColor: Colors.transparent,
+                  color: Color(0xffabb2bf),
+                ),
+              textStyle: const TextStyle(
                 fontFamily: 'monospace',
-                color: Colors.greenAccent,
-                fontSize: 14),
+                fontSize: 13,
+                height: 1.5,
+              ),
+            ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _CopyButton extends StatefulWidget {
+  final String text;
+  
+  const _CopyButton({Key? key, required this.text}) : super(key: key);
+
+  @override
+  __CopyButtonState createState() => __CopyButtonState();
+}
+
+class __CopyButtonState extends State<_CopyButton> {
+  bool _copied = false;
+
+  void _copy() {
+    Clipboard.setData(ClipboardData(text: widget.text));
+    setState(() => _copied = true);
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() => _copied = false);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: _copy,
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
+        padding: const EdgeInsets.all(4.0),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              _copied ? Icons.check : Icons.copy_outlined,
+              size: 14,
+              color: _copied ? Colors.green : Colors.white70,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              _copied ? "Copied" : "Copy code",
+              style: TextStyle(
+                color: _copied ? Colors.green : Colors.white70,
+                fontSize: 12,
+              ),
+            )
+          ],
+        ),
       ),
     );
   }

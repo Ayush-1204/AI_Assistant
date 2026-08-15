@@ -16,8 +16,8 @@ class AppLauncherTool(BaseTool):
         "properties": {
             "action": {
                 "type": "string",
-                "description": "The action to take. Allowed: 'launch_app', 'check_running'.",
-                "enum": ["launch_app", "check_running"]
+                "description": "The action to take. Allowed: 'launch_app' (or 'open', 'launch'), 'check_running', 'minimize_app', 'close_app'.",
+                "enum": ["launch_app", "check_running", "minimize_app", "close_app", "open", "launch", "minimize", "close"]
             },
             "app_name": {
                 "type": "string",
@@ -73,10 +73,10 @@ class AppLauncherTool(BaseTool):
 
     async def execute(self, execution_context: dict, **kwargs) -> Any:
         action = kwargs.get("action", "launch_app")
-        app_name = kwargs.get("app_name") or kwargs.get("application_name") or kwargs.get("query")
+        app_name = kwargs.get("app_name") or kwargs.get("application_name") or kwargs.get("application") or kwargs.get("query")
 
         try:
-            if action == "launch_app":
+            if action in ("launch_app", "open", "launch"):
                 if not app_name:
                     return {"status": "error", "message": "app_name required"}
                 app_name = str(app_name)
@@ -122,8 +122,42 @@ class AppLauncherTool(BaseTool):
                         break
                 return {"status": "success", "is_running": is_running, "app": app_name}
                 
+            elif action in ("close_app", "close"):
+                if not app_name: return {"status": "error", "message": "app_name required"}
+                closed = False
+                for proc in psutil.process_iter(['name']):
+                    if proc.info['name'] and app_name.lower() in proc.info['name'].lower():
+                        proc.kill()
+                        closed = True
+                return {"status": "success", "message": f"Closed {app_name}" if closed else f"Could not find running instance of {app_name}"}
+
+            elif action in ("minimize_app", "minimize"):
+                if not app_name: return {"status": "error", "message": "app_name required"}
+                import subprocess
+                # Use powershell to minimize the window by getting the MainWindowHandle of the matching process
+                ps_script = f"""
+                $sig = @'
+                [DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
+                '@
+                Add-Type -MemberDefinition $sig -name NativeMethods -namespace Win32 -ErrorAction SilentlyContinue
+                $procs = Get-Process | Where-Object {{ $_.MainWindowTitle -match "{app_name}" -or $_.Name -match "{app_name}" }}
+                $minimized = $false
+                foreach ($p in $procs) {{
+                    if ($p.MainWindowHandle -ne 0) {{
+                        [Win32.NativeMethods]::ShowWindowAsync($p.MainWindowHandle, 2) | Out-Null
+                        $minimized = $true
+                    }}
+                }}
+                if ($minimized) {{ Write-Output "Success" }} else {{ Write-Output "Not Found" }}
+                """
+                res = subprocess.run(["powershell", "-Command", ps_script], capture_output=True, text=True)
+                if "Success" in res.stdout:
+                    return {"status": "success", "message": f"Minimized {app_name}"}
+                else:
+                    return {"status": "error", "message": f"Could not find a visible window for {app_name}"}
+
             else:
-                return {"status": "error", "message": "Invalid action."}
+                return {"status": "error", "message": f"Invalid action: {action}"}
 
         except Exception as e:
             logger.error(f"AppLauncherTool error: {e}")

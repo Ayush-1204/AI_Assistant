@@ -9,6 +9,7 @@ import 'builders/math_builder.dart';
 import 'builders/table_builder.dart';
 import 'builders/callout_builder.dart';
 import 'parsers/latex_syntax.dart';
+import '../../widgets/hover_zoom_image.dart';
 
 class AiMessageRenderer extends StatelessWidget {
   final String text;
@@ -117,11 +118,25 @@ class AiMessageRenderer extends StatelessWidget {
                 border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
               ),
               clipBehavior: Clip.antiAlias,
-              child: Image.memory(base64Decode(base64Str), fit: BoxFit.cover),
+              child: HoverZoomImage(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.memory(base64Decode(base64Str), fit: BoxFit.cover),
+              ),
             );
           } catch (_) {}
         }
-        return Image.network(uri.toString());
+        return Container(
+          margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: HoverZoomImage(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.network(uri.toString(), fit: BoxFit.cover),
+          ),
+        );
       },
       builders: {
         'pre': CodeBlockBuilder(context),

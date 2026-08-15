@@ -6,6 +6,7 @@ import 'dart:math' as math;
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/services.dart';
+import 'widgets/hover_zoom_image.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -1020,29 +1021,60 @@ class _ChatViewState extends ConsumerState<ChatView> {
                                           ));
                                         }
                                         
+                                        Widget? userAttachWidget;
                                         if (attachments.isNotEmpty) {
-                                          Widget attachWidget = Wrap(
-                                            spacing: 8,
-                                            runSpacing: 8,
-                                            children: attachments,
+                                          List<Widget> imageWidgets = attachments.where((w) {
+                                            if (w is _SentAttachmentPill) return w.type == 'image';
+                                            return false;
+                                          }).toList();
+                                          List<Widget> docWidgets = attachments.where((w) {
+                                            if (w is _SentAttachmentPill) return w.type == 'document';
+                                            return true;
+                                          }).toList();
+
+                                          List<Widget> attachGroups = [];
+                                          if (imageWidgets.isNotEmpty) {
+                                            attachGroups.add(Wrap(
+                                              spacing: 2,
+                                              runSpacing: 2,
+                                              alignment: isAssistant ? WrapAlignment.start : WrapAlignment.end,
+                                              children: imageWidgets,
+                                            ));
+                                          }
+                                          if (docWidgets.isNotEmpty) {
+                                            if (attachGroups.isNotEmpty) attachGroups.add(const SizedBox(height: 2));
+                                            attachGroups.add(Column(
+                                              crossAxisAlignment: isAssistant ? CrossAxisAlignment.start : CrossAxisAlignment.end,
+                                              children: docWidgets,
+                                            ));
+                                          }
+                                          
+                                          Widget attachWidget = Column(
+                                            crossAxisAlignment: isAssistant ? CrossAxisAlignment.start : CrossAxisAlignment.end,
+                                            children: attachGroups,
                                           );
                                           
-                                          if (processedMsg.isEmpty) {
-                                            mdBody = attachWidget;
+                                          if (isAssistant) {
+                                            if (processedMsg.isEmpty) {
+                                              mdBody = attachWidget;
+                                            } else {
+                                              mdBody = Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  attachWidget,
+                                                  const SizedBox(height: 12),
+                                                  mdBody,
+                                                ],
+                                              );
+                                            }
                                           } else {
-                                            mdBody = Column(
-                                              crossAxisAlignment: isAssistant ? CrossAxisAlignment.start : CrossAxisAlignment.end,
-                                              children: [
-                                                attachWidget,
-                                                const SizedBox(height: 12),
-                                                mdBody,
-                                              ],
-                                            );
+                                            userAttachWidget = attachWidget;
+                                            // mdBody remains just the text for the user
                                           }
                                         }
 
                                         if (!isAssistant) {
-                                          return _UserMessageEditor(
+                                          Widget editor = _UserMessageEditor(
                                             initialText: cleanEditText,
                                             markdownBody: mdBody,
                                             onSave: (newText) {
@@ -1057,14 +1089,29 @@ class _ChatViewState extends ConsumerState<ChatView> {
                                                   finalMsg += '\n${img.trim()}';
                                                 }
                                               }
-                                              ref.read(chatProvider.notifier).editMessageAndSend(index, finalMsg);
+                                              ref.read(chatProvider.notifier).editMessageAndSend(index - 1, finalMsg);
                                             },
                                             onCopy: () {
                                               Clipboard.setData(ClipboardData(text: cleanEditText));
                                             },
                                           );
+                                          
+                                          if (userAttachWidget != null) {
+                                            if (processedMsg.isEmpty) {
+                                              return userAttachWidget; // If only attachments, don't render an empty bubble
+                                            }
+                                            return Column(
+                                              crossAxisAlignment: CrossAxisAlignment.end,
+                                              children: [
+                                                userAttachWidget,
+                                                const SizedBox(height: 4),
+                                                editor,
+                                              ],
+                                            );
+                                          }
+                                          return editor;
                                         }
-
+                                        
                                         return Container(
                                           padding: const EdgeInsets.only(top: 8, bottom: 8),
                                           child: Column(
@@ -2570,9 +2617,9 @@ class _UserMessageEditorState extends State<_UserMessageEditor> {
                 color: const Color(0xFF2A2A2A),
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(24),
-                  topRight: Radius.circular(24),
+                  topRight: Radius.circular(4),
                   bottomLeft: Radius.circular(24),
-                  bottomRight: Radius.circular(4),
+                  bottomRight: Radius.circular(24),
                 ),
                 border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
               ),
@@ -2698,7 +2745,7 @@ class _UserMessageEditorState extends State<_UserMessageEditor> {
   }
 }
 
-class _SentAttachmentPill extends StatelessWidget {
+class _SentAttachmentPill extends StatefulWidget {
   final String name;
   final String type;
   final String? base64Data;
@@ -2712,32 +2759,104 @@ class _SentAttachmentPill extends StatelessWidget {
   });
 
   @override
+  State<_SentAttachmentPill> createState() => _SentAttachmentPillState();
+}
+
+class _SentAttachmentPillState extends State<_SentAttachmentPill> {
+  bool _isHovered = false;
+  Uint8List? _decodedImage;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.type == 'image' && widget.base64Data != null) {
+      _decodedImage = base64Decode(widget.base64Data!);
+    }
+  }
+
+  void _showImagePreview(BuildContext context) {
+    if (widget.base64Data == null) return;
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(24),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            if (_decodedImage != null)
+              InteractiveViewer(
+                child: Image.memory(
+                  _decodedImage!,
+                  fit: BoxFit.contain,
+                ),
+              ),
+            Positioned(
+              top: 16,
+              right: 16,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 32),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     Color extColor = Colors.grey;
-    if (ext == 'pdf') extColor = Colors.redAccent;
-    else if (ext == 'doc' || ext == 'docx') extColor = Colors.blueAccent;
-    else if (ext == 'xls' || ext == 'xlsx') extColor = Colors.green;
-    else if (ext == 'txt') extColor = Colors.white70;
-    else extColor = Colors.orangeAccent;
+    String docType = 'DOCUMENT';
+    
+    if (widget.ext == 'pdf') {
+      extColor = Colors.redAccent;
+      docType = 'PDF DOCUMENT';
+    } else if (widget.ext == 'doc' || widget.ext == 'docx') {
+      extColor = Colors.blueAccent;
+      docType = 'WORD DOCUMENT';
+    } else if (widget.ext == 'xls' || widget.ext == 'xlsx') {
+      extColor = Colors.green;
+      docType = 'EXCEL SPREADSHEET';
+    } else if (widget.ext == 'ppt' || widget.ext == 'pptx') {
+      extColor = Colors.orangeAccent;
+      docType = 'POWERPOINT DOCUMENT';
+    } else if (widget.ext == 'md') {
+      extColor = Colors.orange;
+      docType = 'MARKDOWN DOCUMENT';
+    } else if (widget.ext == 'txt') {
+      extColor = Colors.white70;
+      docType = 'TEXT DOCUMENT';
+    } else if (widget.ext == 'csv') {
+      extColor = Colors.greenAccent;
+      docType = 'CSV DOCUMENT';
+    } else {
+      extColor = Colors.orangeAccent;
+    }
 
-    return Container(
-      margin: const EdgeInsets.only(right: 8, bottom: 8),
-      constraints: const BoxConstraints(maxWidth: 240),
-      width: type == 'image' ? 120 : null,
-      height: type == 'image' ? 120 : null,
+    Widget content = Container(
+      margin: widget.type == 'image' ? EdgeInsets.zero : const EdgeInsets.only(bottom: 6),
+      width: widget.type == 'image' ? 120 : 240,
+      height: widget.type == 'image' ? 120 : null,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-        color: type == 'image' ? null : const Color(0xFF2C2C2C),
-        image: type == 'image' && base64Data != null
-            ? DecorationImage(
-                image: MemoryImage(base64Decode(base64Data!)),
-                fit: BoxFit.cover,
-              )
-            : null,
+        color: widget.type == 'image' ? null : const Color(0xFF2C2C2C),
       ),
-      child: type != 'image'
-          ? Padding(
+      child: widget.type == 'image'
+          ? (_decodedImage != null
+              ? HoverZoomImage(
+                  borderRadius: BorderRadius.circular(16),
+                  scale: 1.05,
+                  duration: const Duration(seconds: 10),
+                  child: Image.memory(
+                    _decodedImage!,
+                    fit: BoxFit.cover,
+                  ),
+                )
+              : null)
+          : Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 10.0),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -2748,7 +2867,7 @@ class _SentAttachmentPill extends StatelessWidget {
                       border: Border.all(color: extColor.withValues(alpha: 0.5)),
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: Text(ext.toUpperCase(), style: TextStyle(color: extColor, fontSize: 8, fontWeight: FontWeight.bold)),
+                    child: Text(widget.ext.toUpperCase(), style: TextStyle(color: extColor, fontSize: 8, fontWeight: FontWeight.bold)),
                   ),
                   const SizedBox(width: 8),
                   Flexible(
@@ -2756,21 +2875,34 @@ class _SentAttachmentPill extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(name,
+                        Text(widget.name,
                             style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis),
                         const SizedBox(height: 2),
-                        Text("DOCUMENT",
+                        Text(docType,
                             style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 10, fontWeight: FontWeight.w500)),
                       ],
                     ),
                   ),
                 ],
               ),
-            )
-          : null,
+            ),
     );
+
+    if (widget.type == 'image') {
+      return MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: () => _showImagePreview(context),
+          child: content,
+        ),
+      );
+    }
+
+    return content;
   }
 }
 

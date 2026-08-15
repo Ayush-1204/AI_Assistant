@@ -324,7 +324,7 @@ class _CalendarViewState extends ConsumerState<CalendarView>
 
   // ── Events for a given date ──────────────────────────────────────────────
   List<dynamic> _eventsForDate(DateTime date) {
-    return _events.values.where((e) {
+    final list = _events.values.where((e) {
       // All-day events: use _eventSpansDay which handles date-only strings
       if (_isAllDay(e)) return _eventSpansDay(e, date);
 
@@ -352,6 +352,43 @@ class _CalendarViewState extends ConsumerState<CalendarView>
         return false;
       }
     }).toList();
+
+    list.sort((a, b) {
+      final aAllDay = _isAllDay(a);
+      final bAllDay = _isAllDay(b);
+      
+      if (aAllDay && !bAllDay) return -1;
+      if (!aAllDay && bAllDay) return 1;
+
+      DateTime? aStartDt;
+      DateTime? aEndDt;
+      try {
+         aStartDt = a['start'] != null ? DateTime.parse(a['start']).toLocal() : null;
+         aEndDt = a['end'] != null ? DateTime.parse(a['end']).toLocal() : aStartDt;
+      } catch (_) {}
+      
+      DateTime? bStartDt;
+      DateTime? bEndDt;
+      try {
+         bStartDt = b['start'] != null ? DateTime.parse(b['start']).toLocal() : null;
+         bEndDt = b['end'] != null ? DateTime.parse(b['end']).toLocal() : bStartDt;
+      } catch (_) {}
+
+      final aDuration = (aStartDt != null && aEndDt != null) ? aEndDt.difference(aStartDt).inMinutes : 0;
+      final bDuration = (bStartDt != null && bEndDt != null) ? bEndDt.difference(bStartDt).inMinutes : 0;
+      
+      if (aDuration != bDuration) {
+         return bDuration.compareTo(aDuration);
+      }
+      
+      if (aStartDt != null && bStartDt != null) {
+         return aStartDt.compareTo(bStartDt);
+      }
+      
+      return 0;
+    });
+
+    return list;
   }
 
   // ── Add event dialog ─────────────────────────────────────────────────────
