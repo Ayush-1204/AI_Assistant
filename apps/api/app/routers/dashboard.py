@@ -5,12 +5,41 @@ import logging
 from typing import Any
 
 import httpx
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies import get_current_user, get_db, get_provider_router
+from app.dependencies import get_current_user, get_db, get_provider_router, decode_access_token
+from fastapi import Query
+from app.config import settings
 
 logger = logging.getLogger(__name__)
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: dict[int, list[WebSocket]] = {}
+
+    async def connect(self, websocket: WebSocket, user_id: int):
+        await websocket.accept()
+        if user_id not in self.active_connections:
+            self.active_connections[user_id] = []
+        self.active_connections[user_id].append(websocket)
+
+    def disconnect(self, websocket: WebSocket, user_id: int):
+        if user_id in self.active_connections:
+            if websocket in self.active_connections[user_id]:
+                self.active_connections[user_id].remove(websocket)
+            if not self.active_connections[user_id]:
+                del self.active_connections[user_id]
+
+    async def send_personal_message(self, message: dict, user_id: int):
+        if user_id in self.active_connections:
+            for connection in self.active_connections[user_id]:
+                try:
+                    await connection.send_json(message)
+                except Exception:
+                    pass
+
+calendar_ws_manager = ConnectionManager()
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
@@ -327,3 +356,52 @@ async def get_dashboard_widgets(
         ]
     }
 
+
+
+@router.websocket("/calendar/ws")
+async def calendar_websocket(websocket: WebSocket, token: str = Query(default=None)):
+    if not token:
+        await websocket.close(code=1008)
+        return
+    try:
+        payload = decode_access_token(token)
+        sub = payload.get("sub")
+        if sub is None:
+            await websocket.close(code=1008)
+            return
+        user_id = int(sub)
+    except Exception:
+        await websocket.close(code=1008)
+        return
+        
+    await calendar_ws_manager.connect(websocket, user_id)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        calendar_ws_manager.disconnect(websocket, user_id)
+
+
+@router.post("/calendar/watch")
+async def register_calendar_watch(
+    user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    from app.integrations.google.auth import GoogleAuthService
+    from app.integrations.google.calendar import GoogleCalendarService
+    from app.repositories.oauth_repository import OAuthRepository
+    
+    cal = GoogleCalendarService(GoogleAuthService(OAuthRepository(db)))
+    
+    # Needs a public URL. Fallback to localhost if not set (which will fail for Google, but good for testing logic)
+    public_url = settings.WEBHOOK_PUBLIC_URL
+    if not public_url:
+        return {"error": "WEBHOOK_PUBLIC_URL not configured. Cannot register watch."}
+        
+    webhook_url = f"{public_url.rstrip('/')}/webhooks/calendar"
+    
+    watch = await cal.register_watch(user.id, db, webhook_url)
+    if not watch:
+        return {"error": "Failed to register watch channel"}
+        
+    return {"status": "Watch registered", "channel_id": watch.channel_id, "expiration": watch.expiration.isoformat()}
