@@ -33,11 +33,18 @@ class GoogleCalendarService:
             calendars_result = service.calendarList().list().execute()
             calendars = calendars_result.get('items', [])
             
+            with open('calendars_debug.txt', 'w', encoding='utf-8') as f:
+                import json
+                f.write(json.dumps(calendars, indent=2))
+                
             target_calendars = ['primary']
             for c in calendars:
-                if 'holiday' in c.get('id', '').lower():
+                cal_id = c.get('id', '').lower()
+                is_holiday = 'holiday' in cal_id or 'holiday' in c.get('summary', '').lower()
+                if is_holiday and cal_id != 'en-gb.hinduism#holiday@group.v.calendar.google.com':
                     if c['id'] not in target_calendars:
                         target_calendars.append(c['id'])
+            logger.warning(f"Target calendars: {target_calendars}")
             return target_calendars
         except Exception:
             return ['primary']
