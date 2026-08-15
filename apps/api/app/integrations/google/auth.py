@@ -93,7 +93,7 @@ class GoogleAuthService:
             client_id=settings.GOOGLE_CLIENT_ID,
             client_secret=settings.GOOGLE_CLIENT_SECRET,
             scopes=record.scopes.split(",") if record.scopes else self.scopes,
-            expiry=record.expires_at
+            expiry=record.expires_at.replace(tzinfo=None) if record.expires_at else None
         )
         
         if creds.expired and creds.refresh_token:
