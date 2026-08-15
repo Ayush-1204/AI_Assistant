@@ -114,7 +114,7 @@ class _CalendarViewState extends ConsumerState<CalendarView>
     _dayPageCtrl = PageController(initialPage: _calcDayIdx(_focusDate));
         
     _fetchEvents();
-    _autoRefreshTimer = Timer.periodic(const Duration(minutes: 5), (_) {
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       if (mounted) _fetchEvents(isBackground: true);
     });
   }
