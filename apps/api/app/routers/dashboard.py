@@ -227,7 +227,7 @@ async def _generate_ai_dashboard_payload(weather_data: dict, today_events_titles
     1. "weather_summary": A professional summary (roughly 2-3 lines, max 25 words).
     2. "calendar_summary": An insight about the schedule today (roughly 2-3 lines, max 25 words).
     3. "news_articles": An array of objects matching EXACTLY this structure:
-       [ {{"domain": "tech", "title": "Headline", "summary": "• First bullet roughly 2 lines max 25 words\\n• Second bullet roughly 2 lines max 25 words"}}, ... ]
+       [ {{"domain": "tech", "title": "Headline", "summary": " • First bullet roughly 2 lines max 25 words\\n• Second bullet roughly 2 lines max 25 words"}}, ... ]
        MUST include EXACTLY these domains: "top", "tech", "local", "foreign", "business", "sports". EXACTLY 2 bullet points for the summary string.
        Format the news based on the search context provided or real-time insights/plausible generation for India/Global if context is missing or vague.
        
@@ -242,7 +242,7 @@ async def _generate_ai_dashboard_payload(weather_data: dict, today_events_titles
         if hasattr(response, "text"):
             content = response.text or ""
         else:
-            content = str(response)
+            content = response
             
         content = content.strip()
         if content.startswith("```json"):
