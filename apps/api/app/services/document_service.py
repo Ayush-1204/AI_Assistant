@@ -140,10 +140,12 @@ class DocumentService:
         self,
         *,
         user_id: int,
+        is_deleted: bool = False,
     ) -> list[Document]:
 
         return await self.repository.list_by_user(
             user_id,
+            is_deleted=is_deleted,
         )
 
     async def delete(
@@ -151,12 +153,17 @@ class DocumentService:
         *,
         document_id: int,
         user_id: int,
+        hard: bool = False,
     ) -> None:
 
         document = await self.get(
             document_id=document_id,
             user_id=user_id,
         )
+
+        if not hard:
+            await self.repository.soft_delete(document)
+            return
 
         count = await self.repository.count_by_storage_path(
             document.storage_path,

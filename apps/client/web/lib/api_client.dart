@@ -127,12 +127,31 @@ class ApiClient {
     }
   }
 
-  Future<List<dynamic>> fetchDocuments() async {
+  Future<List<dynamic>> fetchDocuments({bool isDeleted = false}) async {
     try {
-      final response = await _dio.get('/documents');
-      return response.data['data'] ?? [];
+      final response = await _dio.get('/documents', queryParameters: {'is_deleted': isDeleted});
+      return response.data as List<dynamic>;
     } catch (_) {
       return [];
+    }
+  }
+
+  Future<void> deleteDocument(int documentId, {bool hard = false}) async {
+    try {
+      await _dio.delete('/documents/$documentId', queryParameters: {'hard': hard});
+    } on DioException catch (e) {
+      throw Exception(e.response?.data?['detail'] ?? 'Document delete failed');
+    }
+  }
+
+  Future<void> bulkDeleteDocuments(List<int> documentIds, {bool hard = false}) async {
+    try {
+      await _dio.post('/documents/bulk-delete', data: {
+        'document_ids': documentIds,
+        'hard': hard,
+      });
+    } on DioException catch (e) {
+      throw Exception(e.response?.data?['detail'] ?? 'Bulk delete failed');
     }
   }
 

@@ -35,5 +35,5 @@ class DocxExtractor(BaseExtractor):
                 "filename": file_path.name,
                 "file_size": file_path.stat().st_size if file_path.exists() else 0,
             },
-            title=file_path.stem
+            title=None
         )

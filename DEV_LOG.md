@@ -450,3 +450,22 @@ The `AiMessageRenderer` (which renders `HeadingWidget`/`ParagraphWidget` text) a
   - Revamped global color palette (_kEventColors) replacing dull colors with vibrant, high-contrast Material/Google standard variants.
   - Overhauled styling across all calendar modes: replaced invisible black time prefixes with properly scaled white text, introduced Google-style vibrant event blocks, and increased date/label sizing constraints for legibility.
   - Fixed horizontal _CurrentTimeLine bounding anomalies injecting floating red-pill time tracking.
+
+## Phase 39 Update: UI Polish & Chat Layout Refactoring
+**Status**: Completed
+- **Plan**: Refactor the document and image rendering layout in the chat view to cleanly separate attachments from text bubbles, and implement a universal hover zoom effect for images.
+- **Implementation**:
+  - Refactored `chat_view.dart` layout to place `_SentAttachmentPill` items entirely outside the `_UserMessageEditor` chat bubble.
+  - Repositioned the attachment pill layout order (placing them horizontally grouped above the main text bubble).
+  - Fixed a `404` backend bug in `ai_service.py` stream teardown, and updated `document_search.py` routing intent description.
+  - Created a universal `HoverZoomImage` widget (`hover_zoom_image.dart`) to cache decoded base64 strings (eliminating flicker/blink artifacts on rebuilds).
+  - Implemented an elegant 10-second `1.05x` inner-image zoom animation and deployed it across general AI image outputs in `ai_message_renderer.dart` and `chat_view.dart`.
+
+## Phase 44: Library PDF & Chat Input UX Refinements
+**Status**: Completed
+- **Plan**: Fix library file previews forcing downloads instead of rendering inline. Resolve visual layout and splash radius inconsistencies inside the universal `ChatInputPill`. Wire up "Recently deleted" soft/hard delete functionality.
+- **Implementation**:
+  - **Inline PDF Previews**: Refactored `routers/document.py` download endpoints to actively guess MIME types via Python's native `mimetypes` library when flutter web clients supply generic `application/octet-stream` headers, successfully forcing browser-native inline PDF preview rendering via `launchUrl`.
+  - **Chat Input Alignment**: Hand-calibrated the `ChatInputPill` input field and icon positioning. Shrunk the `splashRadius` across all 36x36 `IconButton` constraints from default 48px to 18px to prevent bleeding and ugly horizontal pushing. Balanced input `contentPadding` and layout constraints.
+  - **Library Deletion Workflow**: Wired the `_showDeleted` boolean flag through the `LibraryView` sidebar into `LibraryProvider` passing it downstream to the FastAPI `/documents` parameter. Bound the `delete` context buttons dynamically to trigger soft or hard destruction depending on current filter state.
+  - **Library Hover FX**: Resolved a bug clipping the active selected boundary ring during `HoverZoomImage` interaction by inverting the stack and drawing the boundary border directly on the non-scaled outer container.

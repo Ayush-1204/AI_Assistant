@@ -40,7 +40,7 @@ class SecondBrainApp extends StatelessWidget {
           error: Color(0xFFFFB4AB),
         ),
         textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
-        scaffoldBackgroundColor: const Color(0xFF0A0A0A),
+        scaffoldBackgroundColor: Colors.black,
       ),
       home: const LoginView(),
       onGenerateRoute: (settings) {

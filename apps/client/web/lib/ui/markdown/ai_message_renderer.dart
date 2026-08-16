@@ -109,20 +109,22 @@ class AiMessageRenderer extends StatelessWidget {
       imageBuilder: imageBuilder ?? (uri, title, alt) {
         if (uri.scheme == 'data') {
           try {
-            final base64Str = uri.data?.contentAsString() ?? '';
-            return Container(
-              margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-              constraints: const BoxConstraints(maxHeight: 250),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: HoverZoomImage(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.memory(base64Decode(base64Str), fit: BoxFit.cover),
-              ),
-            );
+            final bytes = uri.data?.contentAsBytes();
+            if (bytes != null) {
+              return Container(
+                margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                constraints: const BoxConstraints(maxHeight: 250),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: HoverZoomImage(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.memory(bytes, fit: BoxFit.cover),
+                ),
+              );
+            }
           } catch (_) {}
         }
         return Container(

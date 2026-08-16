@@ -770,6 +770,11 @@ class ChatNotifier extends StateNotifier<ChatState> {
       for (final file in filesToSend) {
         if (file.type == 'image') {
           imageBase64s.add(file.base64Data);
+          try {
+            await _apiClient.uploadDocument(file.name, file.bytes, file.name);
+          } catch (e) {
+            debugPrint("Image upload to library failed: $e");
+          }
           messageContent += "![attachment](data:image/jpeg;base64,${file.base64Data})\n";
         } else {
           try {

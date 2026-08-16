@@ -121,7 +121,7 @@ class _WorkspaceViewState extends ConsumerState<WorkspaceView> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: const Color(0xFF0F0F0F),
+      color: Colors.black,
       child: Column(
         children: [
           Expanded(

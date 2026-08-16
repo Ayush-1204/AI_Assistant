@@ -4,7 +4,7 @@ import 'providers/chat_provider.dart';
 import 'chat_view.dart';
 import 'notes_view.dart';
 import 'settings_view.dart';
-import 'token_usage_view.dart';
+import 'library_view.dart';
 import 'calendar_view.dart';
 import 'tasks_view.dart';
 import 'scheduled_jobs_view.dart';
@@ -68,22 +68,22 @@ class _MainLayoutState extends ConsumerState<MainLayout> with SingleTickerProvid
   final List<Widget> _views = [
     const WorkspaceView(),
     const ChatView(),
+    const LibraryView(),
     const NotesView(),
     const TasksView(),
     const CalendarView(),
     const ScheduledJobsView(),
-    const TokenUsageView(),
     const SettingsView(),
   ];
 
   static const List<_NavItem> _navItems = [
     _NavItem(icon: Icons.dashboard_outlined, activeIcon: Icons.dashboard, label: 'Workspace'),
     _NavItem(icon: Icons.chat_bubble_outline, activeIcon: Icons.chat_bubble, label: 'Chat'),
+    _NavItem(icon: Icons.photo_library_outlined, activeIcon: Icons.photo_library, label: 'Library'),
     _NavItem(icon: Icons.note_outlined, activeIcon: Icons.note, label: 'Notes'),
     _NavItem(icon: Icons.check_circle_outline, activeIcon: Icons.check_circle, label: 'Tasks'),
     _NavItem(icon: Icons.calendar_month_outlined, activeIcon: Icons.calendar_month, label: 'Calendar'),
     _NavItem(icon: Icons.schedule_outlined, activeIcon: Icons.schedule, label: 'Scheduled Jobs'),
-    _NavItem(icon: Icons.speed_outlined, activeIcon: Icons.speed, label: 'Token Limits'),
   ];
 
   @override

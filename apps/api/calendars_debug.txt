@@ -1,0 +1,215 @@
+[
+  {
+    "kind": "calendar#calendarListEntry",
+    "etag": "\"1702554061716000\"",
+    "id": "classroom108975683942923783084@group.calendar.google.com",
+    "summary": "XI A",
+    "timeZone": "UTC",
+    "colorId": "8",
+    "backgroundColor": "#202124",
+    "foregroundColor": "#ffffff",
+    "selected": true,
+    "accessRole": "reader",
+    "defaultReminders": [],
+    "conferenceProperties": {
+      "allowedConferenceSolutionTypes": [
+        "hangoutsMeet"
+      ]
+    }
+  },
+  {
+    "kind": "calendar#calendarListEntry",
+    "etag": "\"1702554061716000\"",
+    "id": "family11221853763700732711@group.calendar.google.com",
+    "summary": "Family",
+    "timeZone": "UTC",
+    "dataOwner": "ayush.verma.co.in@gmail.com",
+    "colorId": "15",
+    "backgroundColor": "#9fc6e7",
+    "foregroundColor": "#000000",
+    "selected": true,
+    "accessRole": "owner",
+    "defaultReminders": [
+      {
+        "method": "popup",
+        "minutes": 30
+      }
+    ],
+    "conferenceProperties": {
+      "allowedConferenceSolutionTypes": [
+        "hangoutsMeet"
+      ]
+    }
+  },
+  {
+    "kind": "calendar#calendarListEntry",
+    "etag": "\"1702554061716000\"",
+    "id": "classroom107124562816946659134@group.calendar.google.com",
+    "summary": "XI A",
+    "timeZone": "UTC",
+    "colorId": "3",
+    "backgroundColor": "#c26401",
+    "foregroundColor": "#ffffff",
+    "selected": true,
+    "accessRole": "reader",
+    "defaultReminders": [],
+    "conferenceProperties": {
+      "allowedConferenceSolutionTypes": [
+        "hangoutsMeet"
+      ]
+    }
+  },
+  {
+    "kind": "calendar#calendarListEntry",
+    "etag": "\"1702554061716000\"",
+    "id": "classroom116809083095073650702@group.calendar.google.com",
+    "summary": "Xi A",
+    "timeZone": "UTC",
+    "colorId": "16",
+    "backgroundColor": "#1967d2",
+    "foregroundColor": "#ffffff",
+    "selected": true,
+    "accessRole": "reader",
+    "defaultReminders": [],
+    "conferenceProperties": {
+      "allowedConferenceSolutionTypes": [
+        "hangoutsMeet"
+      ]
+    }
+  },
+  {
+    "kind": "calendar#calendarListEntry",
+    "etag": "\"1702554061716000\"",
+    "id": "classroom102835278316229246936@group.calendar.google.com",
+    "summary": "11-A Chemistry Class( 2021-22) XI-A",
+    "timeZone": "UTC",
+    "colorId": "16",
+    "backgroundColor": "#7627bb",
+    "foregroundColor": "#ffffff",
+    "selected": true,
+    "accessRole": "reader",
+    "defaultReminders": [],
+    "conferenceProperties": {
+      "allowedConferenceSolutionTypes": [
+        "hangoutsMeet"
+      ]
+    }
+  },
+  {
+    "kind": "calendar#calendarListEntry",
+    "etag": "\"1702554061716000\"",
+    "id": "classroom112974357430400663270@group.calendar.google.com",
+    "summary": "Class XI ABCDEFG",
+    "timeZone": "UTC",
+    "colorId": "16",
+    "backgroundColor": "#1967d2",
+    "foregroundColor": "#ffffff",
+    "selected": true,
+    "accessRole": "reader",
+    "defaultReminders": [],
+    "conferenceProperties": {
+      "allowedConferenceSolutionTypes": [
+        "hangoutsMeet"
+      ]
+    }
+  },
+  {
+    "kind": "calendar#calendarListEntry",
+    "etag": "\"1702554061716000\"",
+    "id": "classroom113368895224856239897@group.calendar.google.com",
+    "summary": "XI A",
+    "timeZone": "UTC",
+    "colorId": "8",
+    "backgroundColor": "#202124",
+    "foregroundColor": "#ffffff",
+    "selected": true,
+    "accessRole": "reader",
+    "defaultReminders": [],
+    "conferenceProperties": {
+      "allowedConferenceSolutionTypes": [
+        "hangoutsMeet"
+      ]
+    }
+  },
+  {
+    "kind": "calendar#calendarListEntry",
+    "etag": "\"1748087700543407\"",
+    "id": "ayush.verma.co.in@gmail.com",
+    "summary": "ayush.verma.co.in@gmail.com",
+    "timeZone": "Asia/Kolkata",
+    "colorId": "14",
+    "backgroundColor": "#9fe1e7",
+    "foregroundColor": "#000000",
+    "selected": true,
+    "accessRole": "owner",
+    "defaultReminders": [
+      {
+        "method": "popup",
+        "minutes": 30
+      }
+    ],
+    "notificationSettings": {
+      "notifications": [
+        {
+          "type": "eventCreation",
+          "method": "email"
+        },
+        {
+          "type": "eventChange",
+          "method": "email"
+        },
+        {
+          "type": "eventCancellation",
+          "method": "email"
+        },
+        {
+          "type": "eventResponse",
+          "method": "email"
+        }
+      ]
+    },
+    "primary": true,
+    "conferenceProperties": {
+      "allowedConferenceSolutionTypes": [
+        "hangoutsMeet"
+      ]
+    }
+  },
+  {
+    "kind": "calendar#calendarListEntry",
+    "etag": "\"1786777627505599\"",
+    "id": "en-gb.indian#holiday@group.v.calendar.google.com",
+    "summary": "Holidays in India",
+    "description": "Holidays and Observances in India",
+    "timeZone": "Asia/Kolkata",
+    "colorId": "9",
+    "backgroundColor": "#7bd148",
+    "foregroundColor": "#000000",
+    "selected": true,
+    "accessRole": "reader",
+    "defaultReminders": [],
+    "conferenceProperties": {
+      "allowedConferenceSolutionTypes": [
+        "hangoutsMeet"
+      ]
+    }
+  },
+  {
+    "kind": "calendar#calendarListEntry",
+    "etag": "\"1786856544823071\"",
+    "id": "en-gb.hinduism#holiday@group.v.calendar.google.com",
+    "summary": "Hindu holidays",
+    "description": "Hindu holidays",
+    "timeZone": "Asia/Kolkata",
+    "colorId": "12",
+    "backgroundColor": "#fad165",
+    "foregroundColor": "#000000",
+    "accessRole": "reader",
+    "defaultReminders": [],
+    "conferenceProperties": {
+      "allowedConferenceSolutionTypes": [
+        "hangoutsMeet"
+      ]
+    }
+  }
+]

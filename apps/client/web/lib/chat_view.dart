@@ -186,7 +186,7 @@ class _GalleryViewState extends State<_GalleryView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black87,
+      backgroundColor: Colors.black,
       body: Stack(
         children: [
           PageView.builder(
@@ -677,26 +677,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Container(
-                                  margin: const EdgeInsets.only(right: 16),
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .primary
-                                        .withValues(alpha: 0.15),
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .primary
-                                            .withValues(alpha: 0.3)),
-                                  ),
-                                  child: Icon(Icons.auto_awesome,
-                                      color:
-                                          Theme.of(context).colorScheme.primary,
-                                      size: 20),
-                                ),
+                                // Assistant icon removed as per user request
                                 Container(
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 20, vertical: 16),
@@ -885,28 +866,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
                                   ? MainAxisAlignment.start
                                   : MainAxisAlignment.end,
                               children: [
-                                if (isAssistant)
-                                  Container(
-                                    margin: const EdgeInsets.only(right: 16),
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .primary
-                                          .withValues(alpha: 0.15),
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .primary
-                                              .withValues(alpha: 0.3)),
-                                    ),
-                                    child: Icon(Icons.auto_awesome,
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .primary,
-                                        size: 20),
-                                  ),
+                                // Assistant icon removed as per user request
                                 Flexible(
                                   child: Builder(
                                     builder: (context) {
@@ -1200,23 +1160,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
                                       }
                                     ),
                                   ),
-                                if (!isAssistant)
-                                  Container(
-                                    margin: const EdgeInsets.only(left: 16),
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color:
-                                          Colors.white.withValues(alpha: 0.1),
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                          color: Colors.white
-                                              .withValues(alpha: 0.1)),
-                                    ),
-                                    child: Icon(Icons.person,
-                                        color:
-                                            Colors.white.withValues(alpha: 0.8),
-                                        size: 20),
-                                  ),
+                                // User icon removed as per user request
                               ],
                             ),
                           ),
@@ -2612,12 +2556,12 @@ class _UserMessageEditorState extends State<_UserMessageEditor> {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.only(left: 16, right: 16, top: 12, bottom: 0),
               decoration: BoxDecoration(
                 color: const Color(0xFF2A2A2A),
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(24),
-                  topRight: Radius.circular(4),
+                  topRight: Radius.circular(12),
                   bottomLeft: Radius.circular(24),
                   bottomRight: Radius.circular(24),
                 ),
@@ -2692,7 +2636,7 @@ class _UserMessageEditorState extends State<_UserMessageEditor> {
           topLeft: Radius.circular(24),
           topRight: Radius.circular(24),
           bottomLeft: Radius.circular(24),
-          bottomRight: Radius.circular(4),
+          bottomRight: Radius.circular(12),
         ),
         border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),

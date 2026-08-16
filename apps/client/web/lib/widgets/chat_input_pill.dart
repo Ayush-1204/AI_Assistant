@@ -50,7 +50,7 @@ class _ChatInputPillState extends ConsumerState<ChatInputPill> {
     
     return Container(
       constraints: const BoxConstraints(maxWidth: 800),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      padding: const EdgeInsets.only(left: 12, right: 12, top: 8, bottom: 8),
       decoration: BoxDecoration(
         color: const Color(0xFF131313),
         borderRadius: BorderRadius.circular(32),
@@ -83,11 +83,17 @@ class _ChatInputPillState extends ConsumerState<ChatInputPill> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              IconButton(
-                icon: const Icon(Icons.attach_file, size: 22, color: Colors.white60),
-                onPressed: _pickUnifiedFile,
+              Container(
+                margin: const EdgeInsets.only(bottom: 2), // Align visually with text field
+                child: IconButton(
+                  constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                  padding: EdgeInsets.zero,
+                  splashRadius: 20,
+                  icon: const Icon(Icons.attach_file, size: 24, color: Colors.white60),
+                  onPressed: _pickUnifiedFile,
+                ),
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 8),
               Expanded(
                 child: (!ref.watch(chatProvider).isContinuousVoiceMode &&
                         (isListening || ref.watch(chatProvider).isVoiceTyping))
@@ -112,12 +118,12 @@ class _ChatInputPillState extends ConsumerState<ChatInputPill> {
                           maxLines: 5,
                           style: const TextStyle(fontSize: 15, color: Colors.white),
                           decoration: InputDecoration(
-                            hintText: 'Message Aura AI or type "/" for commands...',
+                            hintText: 'Ask Anything...',
                             hintStyle: TextStyle(
                                 color: Colors.white.withValues(alpha: 0.4)),
                             border: InputBorder.none,
                             isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                            contentPadding: const EdgeInsets.only(left: 4, right: 4, top: 8, bottom: 12),
                           ),
                         ),
                       ),
@@ -125,7 +131,7 @@ class _ChatInputPillState extends ConsumerState<ChatInputPill> {
               const SizedBox(width: 4),
               // Action buttons pill
               Container(
-                padding: const EdgeInsets.all(4),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(24),
@@ -138,6 +144,7 @@ class _ChatInputPillState extends ConsumerState<ChatInputPill> {
                       tooltip: 'Voice Typing',
                       constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                       padding: EdgeInsets.zero,
+                      splashRadius: 18,
                       icon: Icon(
                           ref.watch(chatProvider).isVoiceTyping
                               ? Icons.stop_circle
@@ -150,6 +157,7 @@ class _ChatInputPillState extends ConsumerState<ChatInputPill> {
                         ref.read(chatProvider.notifier).toggleVoiceTyping();
                       },
                     ),
+                    const SizedBox(width: 4),
                     ValueListenableBuilder<TextEditingValue>(
                       valueListenable: widget.controller,
                       builder: (context, value, child) {
@@ -159,6 +167,7 @@ class _ChatInputPillState extends ConsumerState<ChatInputPill> {
                             tooltip: 'End Voice Mode',
                             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                             padding: EdgeInsets.zero,
+                            splashRadius: 18,
                             icon: const Icon(Icons.close, color: Colors.white54, size: 28),
                             onPressed: () {
                               final notifier = ref.read(chatProvider.notifier);
@@ -185,6 +194,7 @@ class _ChatInputPillState extends ConsumerState<ChatInputPill> {
                             ),
                             child: IconButton(
                               padding: EdgeInsets.zero,
+                              splashRadius: 18,
                               tooltip: 'Stop Generating',
                               icon: const Icon(Icons.stop, size: 22, color: Colors.black),
                               onPressed: () => ref.read(chatProvider.notifier).stopGenerating(),
@@ -195,6 +205,7 @@ class _ChatInputPillState extends ConsumerState<ChatInputPill> {
                             tooltip: 'Live Voice Mode',
                             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                             padding: EdgeInsets.zero,
+                            splashRadius: 18,
                             icon: const WaveformCircleIcon(),
                             onPressed: () {
                               ref.read(chatProvider.notifier).setContinuousVoiceMode(true);
@@ -215,6 +226,7 @@ class _ChatInputPillState extends ConsumerState<ChatInputPill> {
                             ),
                             child: IconButton(
                               padding: EdgeInsets.zero,
+                              splashRadius: 18,
                               tooltip: 'Send Message',
                               icon: const Icon(Icons.arrow_upward,
                                   size: 20, color: Colors.black),

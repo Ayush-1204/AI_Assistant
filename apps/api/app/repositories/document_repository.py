@@ -64,11 +64,15 @@ class DocumentRepository:
     async def list_by_user(
         self,
         user_id: int,
+        is_deleted: bool = False,
     ) -> list[Document]:
 
         result = await self.db.execute(
             select(Document)
-            .where(Document.user_id == user_id)
+            .where(
+                Document.user_id == user_id,
+                Document.is_deleted == is_deleted
+            )
             .order_by(Document.created_at.desc())
         )
 
@@ -103,6 +107,14 @@ class DocumentRepository:
 
         await self.db.delete(document)
 
+        await self.db.commit()
+
+    async def soft_delete(
+        self,
+        document: Document,
+    ) -> None:
+
+        document.is_deleted = True
         await self.db.commit()
 
     async def update_status(
