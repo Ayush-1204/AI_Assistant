@@ -302,6 +302,7 @@ async def get_dashboard_widgets(
     user = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ) -> dict[str, Any]:
+    """
     lat = request.headers.get("X-User-Lat")
     lon = request.headers.get("X-User-Lon")
 
@@ -355,6 +356,10 @@ async def get_dashboard_widgets(
             }
         ]
     }
+    """
+    
+    # Temporarily disabled - fallback to empty widgets to trigger frontend skeletons
+    return {"widgets": []}
 
 
 

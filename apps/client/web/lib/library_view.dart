@@ -335,9 +335,11 @@ class _LibraryViewState extends ConsumerState<LibraryView> {
                             return false;
                           }
 
-                          // Source filter (all our files are uploaded for now)
-                          if (!_selectedSources.contains('Uploaded') && _selectedSources.isNotEmpty) {
-                            return false;
+                          // Source filter
+                          bool isGenerated = title.startsWith('generated:') || (doc['original_filename'] ?? '').toString().startsWith('generated_');
+                          if (_selectedSources.isNotEmpty) {
+                            if (isGenerated && !_selectedSources.contains('Generated')) return false;
+                            if (!isGenerated && !_selectedSources.contains('Uploaded')) return false;
                           }
 
                           // Type filter
@@ -566,8 +568,12 @@ class _LibraryViewState extends ConsumerState<LibraryView> {
                     style: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
                   ),
                 ),
-                if (showOverlay)
-                  Row(
+                Visibility(
+                  visible: showOverlay,
+                  maintainSize: true,
+                  maintainAnimation: true,
+                  maintainState: true,
+                  child: Row(
                     children: [
                       PopupMenuButton<String>(
                         icon: const Icon(Icons.more_horiz, color: Colors.white, size: 20),
@@ -624,9 +630,8 @@ class _LibraryViewState extends ConsumerState<LibraryView> {
                         ),
                       ),
                     ],
-                  )
-                else
-                  const SizedBox(width: 76), // placeholder to prevent layout shifting
+                  ),
+                ),
               ],
             ),
           ),

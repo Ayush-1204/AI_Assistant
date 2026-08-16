@@ -120,8 +120,18 @@ async def download_document(
         if guessed_type:
             media_type = guessed_type
             
+    import os
+    from app.config import settings
+
+    path = document.storage_path
+    # Normalization fallback to handle both relative and absolute paths
+    if not os.path.isabs(path) and not os.path.exists(path):
+        candidate = os.path.join(settings.UPLOAD_DIR, path)
+        if os.path.exists(candidate):
+            path = candidate
+
     return FileResponse(
-        path=document.storage_path,
+        path=path,
         filename=document.original_filename,
         media_type=media_type,
         content_disposition_type="inline"

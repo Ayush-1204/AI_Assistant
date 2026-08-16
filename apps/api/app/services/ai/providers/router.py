@@ -93,8 +93,8 @@ class ProviderRouter(BaseLLMProvider):
             "coding": ["groq-qwen3.6-27b", "groq-qwen3-32b", "ollama-coder", "gemini-3.5-flash"],
             "reasoning": ["groq-compound", "groq-compound-mini", "openrouter-gpt-oss-safeguard-20b", "gemini-3.5-flash"],
             "vision": ["openrouter-orpheus-vl-english", "gemini-3.5-flash"],
-            "structured": ["gemini-3.1-flash-lite", "gemini-2.5-flash", "groq-llama-3.3-70b-versatile"],
-            "general": ["groq-llama-3.1-8b-instant", "groq-llama-3.3-70b-versatile", "gemini-flash", "groq-qwen3-32b", "ollama-default"]
+            "structured": ["gemini-3.1-flash-lite", "gemini-2.5-flash", "groq-qwen3.6-27b"],
+            "general": ["groq-llama-3.1-8b-instant", "groq-qwen3.6-27b", "gemini-flash", "groq-qwen3-32b", "ollama-default"]
         })
             
         self.lb_type = self.settings.load_balancing_strategy

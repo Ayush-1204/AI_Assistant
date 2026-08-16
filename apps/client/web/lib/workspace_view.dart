@@ -70,6 +70,20 @@ class _WorkspaceViewState extends ConsumerState<WorkspaceView> {
     final screenWidth = MediaQuery.of(context).size.width;
     int crossAxisCount = screenWidth > 1200 ? 3 : (screenWidth > 800 ? 2 : 1);
 
+    // Dashboard disabled temporarily - falling back to skeleton placeholders
+    return GridView.count(
+      crossAxisCount: crossAxisCount,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisSpacing: 16,
+      mainAxisSpacing: 16,
+      childAspectRatio: screenWidth > 800 ? 1.45 : 1.75,
+      children: List.generate(3, (index) {
+        return const _SkeletonDashboardCard();
+      }),
+    );
+    
+    /*
     return FutureBuilder<List<dynamic>>(
       future: _dashboardFuture,
       builder: (context, snapshot) {
@@ -102,6 +116,7 @@ class _WorkspaceViewState extends ConsumerState<WorkspaceView> {
         );
       },
     );
+    */
   }
 
   @override

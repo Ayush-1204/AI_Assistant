@@ -22,6 +22,7 @@ Categorize the user's input into EXACTLY ONE of the following tags:
 - [CALENDAR] (e.g. schedule a meeting, what is my next event)
 - [SEARCH] (e.g. who won the game, what is the weather, recent news)
 - [GENERAL] (e.g. what is the meaning of life, hello)
+- [IMAGE_GENERATION] (e.g. generate a picture of a cat, draw a landscape, edit the attached image)
 - [ANTIGRAVITY] (e.g. clone this repo and run tests, read hacker news, write python in sandbox)
 - [SWARM] (e.g. spawn multi-agent loop, let agents debug this, code and review this)
 
@@ -46,13 +47,14 @@ Return ONLY a valid JSON object in this format, and absolutely nothing else:
             if start != -1 and end != -1:
                 parsed = json.loads(result[start:end])
                 intent = parsed.get("intent", "GENERAL").strip().upper()
-                if intent in ["TASK", "MEMORY", "CALENDAR", "SEARCH", "GENERAL", "ANTIGRAVITY", "SWARM"]:
+                if intent in ["TASK", "MEMORY", "CALENDAR", "SEARCH", "GENERAL", "ANTIGRAVITY", "SWARM", "IMAGE_GENERATION"]:
                     return intent
         except Exception:
             pass
             
-        # Fallback to regex if LLM route fails/rejects
+        # Fallback to regex if LLM route fails/rejects, or deterministic shortcuts
         prompt_lower = prompt.lower()
+        if any(w in prompt_lower for w in ["generate an image", "create a picture", "draw", "draw me a", "picture of", "edit the attached image", "edit this image"]): return "IMAGE_GENERATION"
         if any(w in prompt_lower for w in ["swarm", "multi-agent", "agents debug"]): return "SWARM"
         if any(w in prompt_lower for w in ["sandbox", "clone repo", "execute python", "hacker news", "linux command"]): return "ANTIGRAVITY"
         if any(w in prompt_lower for w in ["remind", "todo", "alarm", "add to list"]): return "TASK"

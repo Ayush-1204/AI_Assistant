@@ -234,7 +234,7 @@ def get_provider_router() -> ProviderRouter:
         # 3. Groq Fast OpenAI-Compatible Pipeline
         if settings.GROQ_API_KEY:
             groq_models = [
-                "llama-3.3-70b-versatile",
+                "qwen3.6-27b",
                 "llama-3.1-8b-instant",
                 "llama-guard-3-8b",
                 "qwen-2.5-32b",

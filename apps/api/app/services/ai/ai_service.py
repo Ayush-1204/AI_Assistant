@@ -120,6 +120,20 @@ class AIService:
             from app.services.ai.planner.agents.antigravity import AntigravityAgent
             ag_agent = AntigravityAgent()
             final_response = await ag_agent.run(prompt, images=images, context_messages=messages)
+        elif intent == "IMAGE_GENERATION":
+            from app.services.ai.tools.image_generation import handle_image_generation
+            from app.services.storage_service import StorageService
+            
+            clean_prompt = prompt.lower()
+            for prefix in ["generate an image of", "create a picture of", "draw me a", "picture of", "draw", "edit the attached image", "edit this image"]:
+                if prefix in clean_prompt:
+                    clean_prompt = clean_prompt.split(prefix, 1)[-1].strip()
+                    break
+            if clean_prompt.startswith("a "): clean_prompt = clean_prompt[2:]
+            
+            storage_service = StorageService()
+            result = await handle_image_generation(clean_prompt or prompt, user_id, storage_service)
+            final_response = json.dumps([result], indent=2)
         else:
             planner = Planner(self.provider, strategy, intent=intent)
             executor = AgentExecutor(planner, self.tool_orchestrator, strategy, intent=intent)
@@ -248,6 +262,27 @@ class AIService:
                         except:
                             pass
                     yield chunk
+            elif intent == "IMAGE_GENERATION":
+                from app.services.ai.tools.image_generation import handle_image_generation
+                from app.services.storage_service import StorageService
+                
+                clean_prompt = prompt.lower()
+                for prefix in ["generate an image of", "create a picture of", "draw me a", "picture of", "draw", "edit the attached image", "edit this image"]:
+                    if prefix in clean_prompt:
+                        clean_prompt = clean_prompt.split(prefix, 1)[-1].strip()
+                        break
+                if clean_prompt.startswith("a "): clean_prompt = clean_prompt[2:]
+                
+                yield f"data: {json.dumps({'type': 'tool', 'name': 'Generating image with Pollinations.ai...'})}\n\n"
+                storage_service = StorageService()
+                result = await handle_image_generation(clean_prompt or prompt, user_id, storage_service)
+                final_response = json.dumps(result)
+                payload = {
+                    "type": "presentation_node",
+                    "node": result
+                }
+                yield f"data: {json.dumps(payload)}\n\n"
+                yield f"data: {json.dumps({'type': 'tool', 'name': 'Image generated successfully.'})}\n\n"
             else:
                 planner = Planner(self.provider, strategy, intent=intent)
                 executor = AgentExecutor(planner, self.tool_orchestrator, strategy, intent=intent)

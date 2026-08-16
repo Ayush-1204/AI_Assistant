@@ -42,6 +42,8 @@ abstract class PresentationNode {
         return CardNode.fromJson(json);
       case 'section':
         return SectionNode.fromJson(json);
+      case 'generated_image':
+        return GeneratedImageNode.fromJson(json);
       default:
         return UnknownNode(id: id, rawJson: json);
     }
@@ -364,6 +366,25 @@ class EventCardNode extends PresentationNode {
       endTime: json['end_time'] ?? json['endTime'] ?? '',
       link: json['link'] ?? json['url'],
       eventId: json['event_id'] ?? json['eventId'],
+    );
+  }
+}
+
+class GeneratedImageNode extends PresentationNode {
+  final String url;
+  final String prompt;
+
+  GeneratedImageNode({
+    required super.id,
+    required this.url,
+    required this.prompt,
+  }) : super(type: 'generated_image');
+
+  factory GeneratedImageNode.fromJson(Map<String, dynamic> json) {
+    return GeneratedImageNode(
+      id: json['id'] as String? ?? 'generated_image',
+      url: json['url'] as String? ?? '',
+      prompt: json['prompt'] as String? ?? '',
     );
   }
 }

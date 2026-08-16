@@ -43,7 +43,7 @@ class StorageService:
         user_dir = self.root / f"user_{user_id}"
         user_dir.mkdir(parents=True, exist_ok=True)
 
-        extension = Path(file.filename).suffix
+        extension = Path(file.filename).suffix if file.filename else ""
 
         stored_filename = f"{uuid.uuid4().hex}{extension}"
 
@@ -63,6 +63,30 @@ class StorageService:
             stored_filename,
             str(storage_path),
             sha256.hexdigest(),
+        )
+
+    def save_bytes(
+        self,
+        user_id: int,
+        file_bytes: bytes,
+        extension: str = ".png",
+    ) -> tuple[str, str]:
+        """
+        Saves raw bytes directly to disk.
+        Returns (stored_filename, storage_path)
+        """
+        user_dir = self.root / f"user_{user_id}"
+        user_dir.mkdir(parents=True, exist_ok=True)
+
+        stored_filename = f"{uuid.uuid4().hex}{extension}"
+        storage_path = user_dir / stored_filename
+
+        with storage_path.open("wb") as buffer:
+            buffer.write(file_bytes)
+
+        return (
+            stored_filename,
+            str(storage_path),
         )
 
     def delete(

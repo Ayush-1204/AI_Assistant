@@ -23,6 +23,7 @@ class PresentationRegistry {
     'card': (context, node) => CardWidget(node: node as CardNode),
     'section': (context, node) => SectionWidget(node: node as SectionNode),
     'EventCard': (context, node) => EventCardWidget(node: node as EventCardNode),
+    'generated_image': (context, node) => GeneratedImageCardWidget(node: node as GeneratedImageNode),
     // Additional widgets can be registered here
   };
 

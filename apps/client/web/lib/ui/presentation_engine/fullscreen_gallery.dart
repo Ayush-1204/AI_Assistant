@@ -43,6 +43,11 @@ class _FullScreenGalleryState extends State<FullScreenGallery> {
   String? _proxiedImage(String? url) {
     if (url == null || url.isEmpty) return null;
     
+    // Do not proxy local backend URLs!
+    if (url.contains('localhost') || url.contains('127.0.0.1')) {
+      return url;
+    }
+    
     // Clean Wikipedia/Wikimedia URLs to avoid wsrv.nl cache corruption or encoding bugs
     String cleanUrl = url;
     if (cleanUrl.contains('?utm_') || cleanUrl.contains('&utm_')) {
@@ -172,6 +177,16 @@ class _FullScreenGalleryState extends State<FullScreenGallery> {
                     ),
                   ),
                   const SizedBox(width: 16),
+                  TextButton.icon(
+                    icon: const Icon(Icons.download, color: Colors.white, size: 16),
+                    label: const Text('Download', style: TextStyle(color: Colors.white)),
+                    style: TextButton.styleFrom(
+                      backgroundColor: Colors.white24,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    onPressed: () => _openOriginalUrl(widget.images[_currentIndex]['url']),
+                  ),
+                  const SizedBox(width: 8),
                   TextButton.icon(
                     icon: const Icon(Icons.open_in_new, color: Colors.white, size: 16),
                     label: const Text('Open Original', style: TextStyle(color: Colors.white)),

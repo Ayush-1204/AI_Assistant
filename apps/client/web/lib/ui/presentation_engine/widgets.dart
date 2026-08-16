@@ -1376,3 +1376,107 @@ class EventCardWidget extends ConsumerWidget {
     );
   }
 }
+
+class GeneratedImageCardWidget extends StatelessWidget {
+  final GeneratedImageNode node;
+  const GeneratedImageCardWidget({super.key, required this.node});
+
+  @override
+  Widget build(BuildContext context) {
+    if (node.url.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    // Convert relative backend URL to full absolute URL
+    // e.g., /api/v1/media/generated/... -> http://localhost:8000/...
+    final String baseUrl = const String.fromEnvironment('API_URL', defaultValue: 'http://localhost:8000');
+    final String fullUrl = node.url.startsWith('/') ? '$baseUrl${node.url}' : node.url;
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: FractionallySizedBox(
+        widthFactor: 0.5,
+        child: Container(
+          margin: const EdgeInsets.only(top: 16, bottom: 24),
+          decoration: BoxDecoration(
+            color: const Color(0xFF141414), // Matches bento aesthetic
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withOpacity(0.05)),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AspectRatio(
+                aspectRatio: 1.0,
+                child: GestureDetector(
+                  onTap: () {
+                    _openFullScreenGallery(context, [{'url': fullUrl, 'caption': node.prompt}], 0);
+                  },
+                  child: HoverZoomWrapper(
+                    child: Image.network(
+                      fullUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      color: const Color(0xFF1C1C1C),
+                      child: const Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.broken_image, color: Colors.white54, size: 48),
+                            SizedBox(height: 12),
+                            Text('Failed to load image', style: TextStyle(color: Colors.white54)),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Container(
+                      color: const Color(0xFF1C1C1C),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          value: loadingProgress.expectedTotalBytes != null
+                              ? loadingProgress.cumulativeBytesLoaded / (loadingProgress.expectedTotalBytes ?? 1)
+                              : null,
+                          color: Colors.white54,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+              if (node.prompt.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  color: const Color(0xFF141414),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.auto_awesome, color: Colors.white54, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          node.prompt,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 13,
+                            fontStyle: FontStyle.italic,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

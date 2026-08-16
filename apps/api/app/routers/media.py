@@ -45,3 +45,15 @@ async def proxy_image(url: str = Query(..., description="URL of the image to pro
         raise HTTPException(status_code=400, detail=f"Request error: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/generated/{user_id}/{filename}")
+async def get_generated_image(user_id: int, filename: str):
+    import os
+    from app.config import settings
+    from fastapi.responses import FileResponse
+    
+    storage_path = os.path.join(settings.UPLOAD_DIR, f"user_{user_id}", filename)
+    if not os.path.exists(storage_path):
+        raise HTTPException(status_code=404, detail="Image not found")
+        
+    return FileResponse(path=storage_path, media_type="image/png")

@@ -469,3 +469,13 @@ The `AiMessageRenderer` (which renders `HeadingWidget`/`ParagraphWidget` text) a
   - **Chat Input Alignment**: Hand-calibrated the `ChatInputPill` input field and icon positioning. Shrunk the `splashRadius` across all 36x36 `IconButton` constraints from default 48px to 18px to prevent bleeding and ugly horizontal pushing. Balanced input `contentPadding` and layout constraints.
   - **Library Deletion Workflow**: Wired the `_showDeleted` boolean flag through the `LibraryView` sidebar into `LibraryProvider` passing it downstream to the FastAPI `/documents` parameter. Bound the `delete` context buttons dynamically to trigger soft or hard destruction depending on current filter state.
   - **Library Hover FX**: Resolved a bug clipping the active selected boundary ring during `HoverZoomImage` interaction by inverting the stack and drawing the boundary border directly on the non-scaled outer container.
+
+
+## Phase 45: Image Generation & Dashboard UX Fixes
+**Status**: Completed
+- **Plan**: Add free image generation via Pollinations.ai, handle layout jitter in library list view, and fix image load failures in chat history and library views. Temporarily disable active dashboard widgets while planning backend concurrency overhaul.
+- **Implementation**:
+  - **Image Generation Pipeline**: Integrated Pollinations.ai via IMAGE_GENERATION intent in i_service.py. Images are persisted to physical storage and DB, emitting a GeneratedImageNode to Flutter for rendering.
+  - **UI Jitter Fix**: Replaced conditional rendering if (showOverlay) Row(...) with a Visibility(maintainSize: true) wrapper inside library_view.dart, eliminating structural width changes and completely resolving the severe hover-jitter issue in list-view mode.
+  - **Dashboard Disable**: Commented out the FutureBuilder component in workspace_view.dart and forced the backend /dashboard/widgets endpoint to return an empty array, gracefully downgrading the dashboard to static _SkeletonDashboardCard placeholders.
+  - **Image Preview/History Bugs**: Fixed chat history breaking on image loads by dumping single-line JSON nodes instead of pretty-printed multi-line arrays (which crashed the streaming parser). Fixed library thumbnail broken image links by normalizing document.storage_path against absolute/relative edge cases in document.py. Bypassed wsrv.nl external proxy in ullscreen_gallery.dart for local development endpoints to prevent network blocks.
