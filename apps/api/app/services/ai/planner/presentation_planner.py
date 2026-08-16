@@ -208,7 +208,7 @@ class PresentationPlanner:
     def __init__(self, provider: BaseLLMProvider):
         self.provider = provider
 
-    async def plan_layout(self, query: str, context: CuratedContext, context_messages: list[dict] | None = None) -> list[dict[str, Any]]:
+    async def plan_layout(self, query: str, context: CuratedContext, context_messages: list[dict] | None = None, structure: str | None = None) -> list[dict[str, Any]]:
         """
         Step 1: Decide the UI structure first based on the query and curated context.
         Returns a list of node schemas with just 'id', 'type', and 'purpose', NO CONTENT.
@@ -263,7 +263,7 @@ CRITICAL INSTRUCTION FOR WEATHER: If the context contains current weather or for
 CRITICAL INSTRUCTION FOR IMAGES: If "Available Images" is empty, you are STRICTLY FORBIDDEN from generating an 'ImageGallery' node! If it is not empty, you MUST include an 'ImageGallery' node.
 CRITICAL INSTRUCTION FOR COMPARISON: If the user asks to compare entities or options, you MUST include a 'ComparisonTable' node.
 ImageGallery Layout Heuristics:
-- Use 'bento' layout for: Single famous person/place/product, Introduction to one topic (acts as a visual cover page). Requires at least 4 images.
+- Use 'bento' layout for: Single famous person/place/product, Introduction to one topic (acts as a visual cover page). Requires at least 3 images.
 - Use 'carousel' layout for: User browsing options, Comparing multiple entities, Explaining a process, Visual inspiration.
 
 Example:

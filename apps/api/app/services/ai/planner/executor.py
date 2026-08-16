@@ -155,8 +155,10 @@ class AgentExecutor:
         # Step 4: Editor Layer
         curated_context = await self.editor.curate(query, valid_results)
         
+        structure = plan.get("output_structure") if plan else None
+        
         # Step 5: Presentation Planning (Decide UI First)
-        layout = await self.presentation_planner.plan_layout(query, curated_context, context_messages=messages)
+        layout = await self.presentation_planner.plan_layout(query, curated_context, context_messages=messages, structure=structure)
         
         # Step 6: Content Generation (Fill in the UI)
         presentation_nodes = await self.presentation_planner.generate_content(query, layout, curated_context, context_messages=messages)
@@ -190,7 +192,16 @@ class AgentExecutor:
             from app.services.ai.providers.router import ProviderRouter
             router_inst = typing.cast(ProviderRouter, self.planner.provider)
             
-            async for chunk in router_inst.stream_chat(messages, tools=None, intent=self.intent):
+            modified_messages = list(messages)
+            structure = plan.get("output_structure") if plan else None
+            if structure == "comparison" and modified_messages and modified_messages[-1]["role"] == "user":
+                modified_messages[-1] = modified_messages[-1].copy()
+                modified_messages[-1]["content"] = str(modified_messages[-1].get("content", "")) + "\n\n(Please format your comparison using a detailed Markdown Table.)"
+            elif structure == "step_by_step_guide" and modified_messages and modified_messages[-1]["role"] == "user":
+                modified_messages[-1] = modified_messages[-1].copy()
+                modified_messages[-1]["content"] = str(modified_messages[-1].get("content", "")) + "\n\n(Please format your response as a clear, numbered step-by-step guide.)"
+            
+            async for chunk in router_inst.stream_chat(modified_messages, tools=None, intent=self.intent):
                 if fastapi_request and await fastapi_request.is_disconnected():
                     raise asyncio.CancelledError("Client disconnected")
                 if isinstance(chunk, str):
@@ -261,8 +272,10 @@ class AgentExecutor:
                 raise
         
         assert curated_context is not None
+        structure = plan.get("output_structure") if plan else None
+        
         # Stream Mode: Decide UI, then Generate Content progressively
-        layout = await self.presentation_planner.plan_layout(query, curated_context, context_messages=messages)
+        layout = await self.presentation_planner.plan_layout(query, curated_context, context_messages=messages, structure=structure)
         
         # Stream out the Presentation Nodes as they are completed
         # Accumulate the final JSON to evaluate for quality

@@ -138,26 +138,111 @@ class ComparisonTableWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16.0),
-        child: DataTable(
-          headingRowColor:
-              WidgetStateProperty.all(Colors.grey.withValues(alpha: 0.1)),
-          border: TableBorder.all(color: Colors.grey.withValues(alpha: 0.3)),
-          columns: node.headers
-              .map((h) => DataColumn(
-                  label: Text(h,
-                      style: const TextStyle(fontWeight: FontWeight.bold))))
-              .toList(),
-          rows: node.rows.map((row) {
-            return DataRow(
-              cells: row.map((cell) => DataCell(Text(cell))).toList(),
-            );
-          }).toList(),
+    if (node.headers.isEmpty && node.rows.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16.0),
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF151515), // Deep sleek background
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.4),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
         ),
+        clipBehavior: Clip.antiAlias,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minWidth: constraints.maxWidth,
+                ),
+                child: Table(
+              defaultColumnWidth: const IntrinsicColumnWidth(),
+              border: TableBorder(
+                borderRadius: BorderRadius.circular(16),
+                horizontalInside: BorderSide(
+                    color: Colors.white.withValues(alpha: 0.05), width: 1),
+                verticalInside: BorderSide(
+                    color: Colors.white.withValues(alpha: 0.02), width: 1),
+              ),
+              defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+              children: [
+                TableRow(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
+                        Theme.of(context).colorScheme.primary.withValues(alpha: 0.03),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                  children: node.headers
+                      .map((h) => Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 24.0, vertical: 16.0),
+                            child: Text(
+                              h,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).colorScheme.primary,
+                                fontSize: 15,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ))
+                      .toList(),
+                ),
+                ...node.rows.asMap().entries.map((entry) {
+                  final idx = entry.key;
+                  final row = entry.value;
+                  return TableRow(
+                    decoration: BoxDecoration(
+                      color: idx % 2 == 0
+                          ? Colors.transparent
+                          : Colors.white.withValues(alpha: 0.02),
+                    ),
+                    children: row.asMap().entries.map((cellEntry) {
+                      final cIdx = cellEntry.key;
+                      final cell = cellEntry.value;
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24.0, vertical: 16.0),
+                        child: Text(
+                          cell.toString(),
+                          style: TextStyle(
+                            color: cIdx == 0
+                                ? Colors.white.withValues(alpha: 0.95)
+                                : Colors.white.withValues(alpha: 0.75),
+                            fontWeight: cIdx == 0
+                                ? FontWeight.w600
+                                : FontWeight.normal,
+                            fontSize: 14,
+                            height: 1.5,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  );
+                }),
+              ],
+            ),
+          ),
+        );
+       },
       ),
+     ),
     );
   }
 }
@@ -672,7 +757,7 @@ class ImageGalleryWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (node.images.isEmpty) return const SizedBox.shrink();
-    if (node.layout == 'bento' && node.images.length >= 4) {
+    if (node.layout == 'bento' && node.images.length >= 3) {
       return _BentoGalleryWidget(images: node.images);
     }
     if (node.images.length == 1) {

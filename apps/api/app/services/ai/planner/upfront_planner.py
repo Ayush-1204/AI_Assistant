@@ -54,7 +54,9 @@ CRITICAL INSTRUCTION: If the request requires multiple independent facts or news
 - Do NOT schedule 'Knowledge Search' or 'Image Retrieval' for conversational chatter, user names, or self-introductions (e.g., "my name is X").
 - When a document is attached, do NOT assume its semantic or visual content from the filename alone. Do NOT schedule 'Image Retrieval' or external knowledge searches based solely on a filename. 
 - ONLY schedule 'Image Retrieval' if the user explicitly asks for pictures, or if the core informational intent heavily relies on visual context (e.g. famous landmarks, artwork, or specific products).
-- When generating `tool_arguments` for search capabilities, you MUST use exact, concise entity names or keywords in a `query` parameter (e.g. `{{"query": "Narendra Modi"}}`). If the user explicitly excludes a topic, use a minus sign (e.g. `{{"query": "India news -business"}}`). NEVER use conversational questions.
+- For consumer products, tech specs, reviews, and recent developments, you MUST use the 'Web Search' capability, NOT 'Knowledge Search'. Wikipedia is often outdated or lacks specific product pages.
+- For general facts about famous people, historical events, places, and established concepts, you MUST use the 'Knowledge Search' capability.
+- When generating `tool_arguments` for search capabilities, you MUST use exact, concise entity names or keywords in a `query` parameter (e.g. `{{"query": "Narendra Modi"}}`). Do NOT append generic words like "overview", "summary", "history", or "features" to the entity name, as this breaks Wikipedia's exact-match search. If the user explicitly excludes a topic, use a minus sign (e.g. `{{"query": "India news -business"}}`). NEVER use conversational questions.
 
 Return EXACTLY and ONLY a valid JSON object matching the above keys.
 """

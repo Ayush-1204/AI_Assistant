@@ -230,7 +230,18 @@ class ChatNotifier extends StateNotifier<ChatState> {
          return "$role: ${m['content']}";
       }).toList();
       
-      state = state.copyWith(messages: parsed);
+      if (_streamIsActives[id] == true) {
+          final inFlightBuffer = _networkMessageBuffers[id] ?? "";
+          final visibleLen = _visibleMessageLens[id] ?? 0;
+          parsed.add("Assistant: " + inFlightBuffer.substring(0, visibleLen));
+          state = state.copyWith(
+             messages: parsed,
+             isProcessing: true,
+             loadingText: "Thinking...",
+          );
+      } else {
+          state = state.copyWith(messages: parsed);
+      }
     } else {
       state = state.copyWith(messages: []);
     }
@@ -592,6 +603,12 @@ class ChatNotifier extends StateNotifier<ChatState> {
     if (lastUserIndex == -1 || state.isSending) return;
     
     String userMsg = state.messages[lastUserIndex];
+    if (userMsg.startsWith("User: ")) {
+      userMsg = userMsg.substring(6);
+    } else if (userMsg.startsWith("User:")) {
+      userMsg = userMsg.substring(5);
+    }
+    
     final newMessages = state.messages.sublist(0, lastUserIndex);
     state = state.copyWith(messages: newMessages);
     await sendMessage(userMsg, isRegenerate: true);
@@ -829,6 +846,8 @@ class ChatNotifier extends StateNotifier<ChatState> {
         images: imageBase64s,
       );
       
+      final expectedAssistantIndex = state.messages.length;
+      
       await for (final payload in stream) {
          final isCurrentChat = state.conversationId == streamConvId;
          if (payload == "[DONE]") {
@@ -846,7 +865,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
               if (!firstChunkReceived) {
                   firstChunkReceived = true;
                   if (isCurrentChat) state = state.copyWith(messages: [...state.messages, "Assistant: "]);
-                  _currentMsgIndices[streamConvId] = state.messages.length - 1;
+                  _currentMsgIndices[streamConvId] = expectedAssistantIndex;
               }
               _networkMessageBuffers[streamConvId] = (_networkMessageBuffers[streamConvId] ?? "") + data['delta'];
               _startTypewriterIfNeeded();
@@ -861,7 +880,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
               if (!firstChunkReceived) {
                   firstChunkReceived = true;
                   if (isCurrentChat) state = state.copyWith(messages: [...state.messages, "Assistant: "]);
-                  _currentMsgIndices[streamConvId] = state.messages.length - 1;
+                  _currentMsgIndices[streamConvId] = expectedAssistantIndex;
               }
               final nodeId = data['id'] as String;
               final nodeType = data['node_type'] as String;
@@ -896,7 +915,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
                if (!firstChunkReceived) {
                    firstChunkReceived = true;
                    if (isCurrentChat) state = state.copyWith(messages: [...state.messages, "Assistant: "]);
-                   _currentMsgIndices[streamConvId] = state.messages.length - 1;
+                   _currentMsgIndices[streamConvId] = expectedAssistantIndex;
                }
                final nodeMap = Map<String, dynamic>.from(data['node'] as Map);
                _networkMessageBuffers[streamConvId] = (_networkMessageBuffers[streamConvId] ?? "") + jsonEncode(nodeMap) + "\n";

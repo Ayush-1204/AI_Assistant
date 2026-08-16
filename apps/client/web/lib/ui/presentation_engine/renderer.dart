@@ -7,11 +7,13 @@ import 'registry.dart';
 class PresentationRenderer extends StatelessWidget {
   final List<PresentationNode> nodes;
   final String? fallbackMarkdown; // If legacy chat message
+  final bool isStreaming;
 
   const PresentationRenderer({
     super.key,
     required this.nodes,
     this.fallbackMarkdown,
+    this.isStreaming = false,
   });
 
   @override
@@ -21,34 +23,39 @@ class PresentationRenderer extends StatelessWidget {
       return MarkdownBody(data: fallbackMarkdown!);
     }
 
-    return SelectionArea(
-      child: ListView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: nodes.length,
-        itemBuilder: (context, index) {
-          final node = nodes[index];
-          return TweenAnimationBuilder<double>(
-            key: ValueKey(node.id),
-            tween: Tween<double>(begin: 0.0, end: 1.0),
-            duration: const Duration(milliseconds: 280),
-            curve: Curves.easeOutCubic,
-            builder: (context, val, child) {
-              return Transform.translate(
-                offset: Offset(0, 12 * (1 - val)),
-                child: Opacity(
-                  opacity: val,
-                  child: child,
-                ),
-              );
-            },
-            child: PresentationRegistry.buildWidget(context, node),
-          );
-        },
-      ),
+    final listView = ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: nodes.length,
+      itemBuilder: (context, index) {
+        final node = nodes[index];
+        return TweenAnimationBuilder<double>(
+          key: ValueKey(node.id),
+          tween: Tween<double>(begin: 0.0, end: 1.0),
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeOutCubic,
+          builder: (context, val, child) {
+            return Transform.translate(
+              offset: Offset(0, 12 * (1 - val)),
+              child: Opacity(
+                opacity: val,
+                child: child,
+              ),
+            );
+          },
+          child: PresentationRegistry.buildWidget(context, node),
+        );
+      },
     );
+
+    if (isStreaming) {
+      return listView;
+    }
+    
+    return SelectionArea(child: listView);
   }
 }
+
 
 class StreamingParser {
   /// Parses JSON-lines strings progressively into PresentationNodes

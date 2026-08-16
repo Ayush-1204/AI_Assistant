@@ -16,7 +16,7 @@ from app.services.ai.providers.base import BaseLLMProvider
 from app.services.ai.tools.orchestrator import ToolOrchestrator
 from app.services.conversation_service import ConversationService
 from app.services.message_service import MessageService
-
+from app.db.session import AsyncSessionLocal
 
 class AIService:
 
@@ -274,7 +274,13 @@ class AIService:
         finally:
             if final_response:
                 try:
-                    await self.message_service.create(conversation_id, MessageCreate(role=MessageRole.ASSISTANT, content=final_response))
+                    async with AsyncSessionLocal() as fresh_db:
+                        from app.repositories import MessageRepository, ConversationRepository
+                        fresh_msg_svc = MessageService(
+                            message_repository=MessageRepository(fresh_db),
+                            conversation_repository=ConversationRepository(fresh_db)
+                        )
+                        await fresh_msg_svc.create(conversation_id, MessageCreate(role=MessageRole.ASSISTANT, content=final_response))
                 except Exception as e:
                     logger.error(f"[AIService] Failed to save assistant message during teardown: {e}")
             

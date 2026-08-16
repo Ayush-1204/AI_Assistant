@@ -569,8 +569,8 @@ class _ChatViewState extends ConsumerState<ChatView> {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (_scrollController.hasClients) {
             final pos = _scrollController.position;
-            // Only force scroll if the user is near the bottom (allows scrolling up while generating)
-            if (pos.maxScrollExtent - pos.pixels < 300) {
+            // Only force scroll if the user is exactly at the bottom (allows scrolling up while generating)
+            if (pos.maxScrollExtent - pos.pixels < 20) {
               _scrollController.jumpTo(pos.maxScrollExtent);
             }
           }
@@ -582,7 +582,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_scrollController.hasClients) {
           final pos = _scrollController.position;
-          if (pos.maxScrollExtent - pos.pixels < 300) {
+          if (pos.maxScrollExtent - pos.pixels < 20) {
             _scrollController.jumpTo(pos.maxScrollExtent);
           }
         }
@@ -896,7 +896,10 @@ class _ChatViewState extends ConsumerState<ChatView> {
                                         }
 
                                         if (parsedNodes.isNotEmpty) {
-                                            mdBody = PresentationRenderer(nodes: parsedNodes);
+                                            mdBody = PresentationRenderer(
+                                              nodes: parsedNodes,
+                                              isStreaming: isThisMessageStreaming,
+                                            );
                                         } else {
                                             mdBody = AiMessageRenderer(
                                               text: processedMsg,
@@ -1049,7 +1052,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
                                                   finalMsg += '\n${img.trim()}';
                                                 }
                                               }
-                                              ref.read(chatProvider.notifier).editMessageAndSend(index - 1, finalMsg);
+                                              ref.read(chatProvider.notifier).editMessageAndSend(index, finalMsg);
                                             },
                                             onCopy: () {
                                               Clipboard.setData(ClipboardData(text: cleanEditText));

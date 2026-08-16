@@ -215,12 +215,15 @@ def get_provider_router() -> ProviderRouter:
         _router_instance = ProviderRouter()
         
         # 1. Google Gemini Native Providers (only real, available models)
+        _router_instance.register_provider(GeminiProvider(model_name="gemini-3.7-flash", provider_name="gemini-3.7-flash"))
+        _router_instance.register_provider(GeminiProvider(model_name="gemini-3.6-flash", provider_name="gemini-3.6-flash"))
+        _router_instance.register_provider(GeminiProvider(model_name="gemini-3.5-flash-lite", provider_name="gemini-3.5-flash-lite"))
         _router_instance.register_provider(GeminiProvider(model_name="gemini-3.5-flash", provider_name="gemini-3.5-flash"))
         _router_instance.register_provider(GeminiProvider(model_name="gemini-3.1-flash-lite", provider_name="gemini-3.1-flash-lite"))
         _router_instance.register_provider(GeminiProvider(model_name="gemini-2.5-flash", provider_name="gemini-2.5-flash"))
         _router_instance.register_provider(GeminiProvider(model_name="gemini-2.5-flash-lite", provider_name="gemini-2.5-flash-lite"))
         # gemini-flash is the canonical alias used by intent routing strategies
-        _router_instance.register_provider(GeminiProvider(model_name="gemini-3.5-flash", provider_name="gemini-flash"))
+        _router_instance.register_provider(GeminiProvider(model_name="gemini-3.7-flash", provider_name="gemini-flash"))
         
         # 2. Local Ollama Native Providers — DISABLED (laptop resource constraints)
         # Uncomment to re-enable when running on a capable machine

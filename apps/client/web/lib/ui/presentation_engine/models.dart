@@ -21,6 +21,7 @@ abstract class PresentationNode {
         return NewsCardNode.fromJson(json);
       case 'weathercard':
         return WeatherCardNode.fromJson(json);
+      case 'table':
       case 'comparisontable':
         return ComparisonTableNode.fromJson(json);
       case 'codeblock':
