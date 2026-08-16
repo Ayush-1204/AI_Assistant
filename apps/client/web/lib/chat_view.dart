@@ -18,6 +18,7 @@ import 'package:url_launcher/url_launcher_string.dart';
 import 'api_client.dart';
 import 'providers/auth_provider.dart';
 import 'providers/chat_provider.dart';
+import 'providers/greeting_provider.dart';
 import 'voice_view.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'ui/presentation_engine/renderer.dart';
@@ -1184,6 +1185,7 @@ class _ChatViewState extends ConsumerState<ChatView> {
               final isProcessing = ref.watch(chatProvider).isProcessing;
               final isEmpty = ref.watch(chatProvider).messages.isEmpty;
               final isContinuousVoiceMode = ref.watch(chatProvider).isContinuousVoiceMode;
+              final greetingState = ref.watch(greetingProvider);
 
               return Positioned.fill(
                 child: Container(
@@ -1209,14 +1211,14 @@ class _ChatViewState extends ConsumerState<ChatView> {
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                          const Text("Greetings, Ayush",
-                              style: TextStyle(
+                          Text(greetingState.greeting,
+                              style: const TextStyle(
                                   fontSize: 32,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
                                   letterSpacing: -0.5)),
                           const SizedBox(height: 12),
-                          Text("What's on your mind today?",
+                          Text(greetingState.prompt,
                               style: TextStyle(
                                   fontSize: 18,
                                   color: Colors.white.withValues(alpha: 0.6))),

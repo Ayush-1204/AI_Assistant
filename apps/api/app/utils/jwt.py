@@ -7,7 +7,7 @@ from app.config import get_settings
 settings = get_settings()
 
 
-def create_access_token(subject: int) -> str:
+def create_access_token(subject: int, name: str | None = None) -> str:
     expire = datetime.now(timezone.utc) + timedelta(
         minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
     )
@@ -16,6 +16,8 @@ def create_access_token(subject: int) -> str:
         "sub": str(subject),
         "exp": expire,
     }
+    if name:
+        payload["name"] = name
 
     return jwt.encode(
         payload,

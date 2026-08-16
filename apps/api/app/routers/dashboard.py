@@ -102,6 +102,8 @@ async def fetch_weather(lat: str = "28.6139", lon: str = "77.2090") -> dict[str,
             "condition": current.get("condition", "--"),
             "location": data.get("location", "Unknown Location"),
             "is_day": 1,
+            "wind_speed": current.get("wind_speed", "0 km/h"),
+            "humidity": current.get("humidity", "0%"),
             "forecast": forecast
         }
     except Exception as e:
@@ -219,90 +221,17 @@ async def _generate_calendar_grid(user_id: int, db: AsyncSession):
         grid.append({"day": day, "hasEvent": day in events_set})
     return grid, today, today_events_titles
 
-async def fetch_real_time_news() -> str:
-    try:
-        from app.services.ai.tools.news_search import NewsSearchTool
-        import json
-        tool = NewsSearchTool()
-        res = await tool.execute(
-            execution_context={},
-            query="top breaking news headlines today tech business sports",
-            max_results=6,
-            days=2,
-            skip_images=True
-        )
-        data = json.loads(res)
-        if "error" in data:
-            raise Exception(data["error"])
-        return json.dumps(data.get("articles", []))
-    except Exception as e:
-        logger.warning(f"[Dashboard] News tool fetch failed: {repr(e)}")
-        return "Tavily search unavailable. Generate broadly plausible breaking news based on implicit parametric knowledge."
+from app.routers.dashboard_rules import (
+    _generate_rule_based_weather_summary,
+    _generate_rule_based_calendar_summary,
+    _fetch_curated_news_domains
+)
 
-async def _generate_ai_dashboard_payload(weather_data: dict, today_events_titles: list, lat: str, lon: str, news_context: str):
-    router = get_provider_router()
-    today_dt = datetime.datetime.now().strftime("%A, %b %d")
-    
-    prompt = f"""
-    You are an expert AI dashboard curator. Based on this live context, generate exactly one JSON object.
-    
-    Current Date: {today_dt}
-    User Coordinates (Lat, Lon): {lat}, {lon}
-    Weather: {weather_data.get('title')} {weather_data.get('condition', '')} in {weather_data.get('location', 'Unknown Location')}
-    Calendar Events Today: {today_events_titles if today_events_titles else 'None explicitly defined'}
-    Raw News Search Context: {news_context}
-    
-    The JSON MUST have:
-    1. "weather_summary": A professional summary (roughly 2-3 lines, max 25 words).
-    2. "calendar_summary": An insight about the schedule today (roughly 2-3 lines, max 25 words).
-    3. "news_articles": An array of objects matching EXACTLY this structure:
-       [ {{"domain": "tech", "title": "Headline", "summary": "• First key point.\\n• Second key point."}}, ... ]
-       MUST include EXACTLY these domains: "top", "tech", "local", "foreign", "business", "sports".
-       Keep summaries concise (max 2 bullet points). STRICTLY use the provided Raw News Search Context. If context is missing for a domain, state 'No recent updates available.' DO NOT hallucinate fake news.
-    CRITICAL JSON FORMATTING RULES:
-    - ALL double quotes inside strings MUST be properly escaped (e.g., "He said \\"hello\\"").
-    - NEVER use literal newlines inside string values. Use strictly \\n.
-    - Output strictly valid, parsable JSON starting with {{ and ending with }}. Do NOT wrap in markdown ``` codeblocks. Do not include any conversational text.
-    """
-    
-    try:
-        import asyncio
-        response = await asyncio.wait_for(router._execute_with_router("chat", [{"role": "user", "content": prompt}], intent="dashboard"), timeout=20.0)
-        
-        # Accommodate object response from Gemini native providers lacking a raw strip()
-        if hasattr(response, "text"):
-            content = response.text or ""
-        else:
-            content = response
-            
-        content = content.strip()
-        if content.startswith("```json"):
-            content = content[7:-3]
-        elif content.startswith("```"):
-            content = content[3:-3]
-        return json.loads(content)
-    except (Exception, asyncio.CancelledError) as e:
-        print(f"Fallback generation activated due to error: {e}")
-        return {
-            "weather_summary": f"Sensors offline. {weather_data.get('title', 'Local climate')} stabilized.",
-            "calendar_summary": f"Your internal scheduler indicates minimal critical events for {today_dt.split(',')[0]}.",
-            "news_articles": [
-                {"domain": "top", "title": "System Operating in Autonomous Mode", "summary": "• Cloud synchronicity severed natively.\n• Re-establishing fallback handshakes locally."},
-                {"domain": "tech", "title": "DNS Telemetry Subsystem Failure", "summary": "• Local host disconnected from resolving global LLM edge nodes.\n• Retrying quantum endpoints."},
-                {"domain": "local", "title": "Local Network Intact", "summary": "• Internal data bus operating at 100% capacity.\n• No physical disruption detected."},
-                {"domain": "business", "title": "Resource Allocation Offline", "summary": "• Live ticker streams paused.\n• Preserving local battery and compute reserves."},
-                {"domain": "foreign", "title": "International Nodes Unreachable", "summary": "• Global ping requests timing out.\n• Awaiting packet restoration."},
-                {"domain": "sports", "title": "Local Runtimes Operational", "summary": "• While cloud inferences fail, the core UI remains highly performant.\n• No critical runtime loss detected."}
-            ]
-        }
-
-@router.get("/widgets")
-async def get_dashboard_widgets(
+@router.get("/widgets/weather")
+async def get_weather_widget(
     request: Request,
-    user = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    user = Depends(get_current_user)
 ) -> dict[str, Any]:
-    """
     lat = request.headers.get("X-User-Lat")
     lon = request.headers.get("X-User-Lon")
 
@@ -312,54 +241,66 @@ async def get_dashboard_widgets(
         else:
             lat, lon = "28.6139", "77.2090"
 
-    weather_task = asyncio.create_task(fetch_weather(lat, lon))
-    news_task = asyncio.create_task(fetch_real_time_news())
-    calendar_task = asyncio.create_task(_generate_calendar_grid(user.id, db))
+    weather = await fetch_weather(lat, lon)
+    weather_summary = _generate_rule_based_weather_summary(weather)
     
-    weather, news_context, (calendar_grid, today, today_events) = await asyncio.gather(
-        weather_task, news_task, calendar_task
-    )
+    return {
+        "id": "weather",
+        "title": weather.get("title", ""),
+        "subtitle": weather.get("subtitle", ""),
+        "condition": weather.get("condition", ""),
+        "location": weather.get("location", "Unknown Location"),
+        "ai_summary": weather_summary,
+        "is_day": weather.get("is_day", 1),
+        "forecast": weather.get("forecast", [])
+    }
+
+@router.get("/widgets/calendar")
+async def get_calendar_widget(
+    user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+) -> dict[str, Any]:
+    calendar_grid, today, today_events = await _generate_calendar_grid(user.id, db)
+    calendar_summary = _generate_rule_based_calendar_summary(today_events)
     
     today_dt = datetime.datetime.now()
     calendar_title = today_dt.strftime("%A, %b %d")
-    
-    # Fully AI Generated structure mapping!
-    ai_data = await _generate_ai_dashboard_payload(weather, today_events, lat, lon, news_context)
-    
-    # Build dynamic next_up string
-    next_up_str = today_events[0] if today_events else "No immediate events • Schedule Clear"
+    next_up_str = today_events[0].split(" at ")[0] if today_events else "No immediate events • Schedule Clear"
     
     return {
-        "widgets": [
-            {
-                "id": "weather",
-                "title": weather.get("title", ""),
-                "subtitle": weather.get("subtitle", ""),
-                "condition": weather.get("condition", ""),
-                "location": weather.get("location", ""),
-                "ai_summary": ai_data.get("weather_summary", "Stable weather optimal."),
-                "is_day": weather.get("is_day", 1),
-                "forecast": weather.get("forecast", [])
-            },
-            {
-                "id": "calendar",
-                "badge": "Next Up",
-                "title": calendar_title,
-                "subtitle": next_up_str,
-                "ai_summary": ai_data.get("calendar_summary", "Routine schedule loaded."),
-                "current_day": today,
-                "month_grid": calendar_grid
-            },
-            {
-                "id": "news",
-                "articles": ai_data.get("news_articles", [])
-            }
-        ]
+        "id": "calendar",
+        "badge": "Next Up",
+        "title": calendar_title,
+        "subtitle": next_up_str,
+        "ai_summary": calendar_summary,
+        "current_day": today,
+        "month_grid": calendar_grid
     }
-    """
+
+@router.get("/widgets/news")
+async def get_news_widget(
+    request: Request,
+    user = Depends(get_current_user)
+) -> dict[str, Any]:
+    lat = request.headers.get("X-User-Lat")
+    lon = request.headers.get("X-User-Lon")
+
+    if not lat or not lon:
+        if user.last_known_lat and user.last_known_lon:
+            lat, lon = str(user.last_known_lat), str(user.last_known_lon)
+        else:
+            lat, lon = "28.6139", "77.2090"
+
+    # Quick fetch just to resolve city name for news domain queries
+    weather = await fetch_weather(lat, lon)
+    location_name = weather.get("location", "Unknown Location")
     
-    # Temporarily disabled - fallback to empty widgets to trigger frontend skeletons
-    return {"widgets": []}
+    news_articles = await _fetch_curated_news_domains(location_name)
+    
+    return {
+        "id": "news",
+        "articles": news_articles
+    }
 
 
 

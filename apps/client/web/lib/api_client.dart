@@ -220,12 +220,30 @@ class ApiClient {
 
 
 
-  Future<List<dynamic>> fetchDashboardWidgets() async {
+  Future<Map<String, dynamic>> fetchWeatherWidget() async {
     try {
-      final response = await _dio.get('/dashboard/widgets');
-      return response.data['widgets'] ?? [];
+      final response = await _dio.get('/dashboard/widgets/weather');
+      return response.data as Map<String, dynamic>;
     } catch (_) {
-      return [];
+      return {'id': 'weather', 'title': 'Error loading weather'};
+    }
+  }
+
+  Future<Map<String, dynamic>> fetchCalendarWidget() async {
+    try {
+      final response = await _dio.get('/dashboard/widgets/calendar');
+      return response.data as Map<String, dynamic>;
+    } catch (_) {
+      return {'id': 'calendar', 'title': 'Error loading calendar'};
+    }
+  }
+
+  Future<Map<String, dynamic>> fetchNewsWidget() async {
+    try {
+      final response = await _dio.get('/dashboard/widgets/news');
+      return response.data as Map<String, dynamic>;
+    } catch (_) {
+      return {'id': 'news', 'title': 'Error loading news'};
     }
   }
 

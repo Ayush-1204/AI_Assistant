@@ -226,7 +226,7 @@ async def google_auth_callback(
             provider="google",
         )
 
-        token = create_access_token(user.id)
+        token = create_access_token(user.id, name=user.full_name)
         
         # Retrieve frontend origin from memory and clear it
         frontend_url = OAUTH_METADATA.pop(state, "http://localhost:8080")

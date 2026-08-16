@@ -44,4 +44,4 @@ class AuthService:
                 "Invalid email or password"
             )
 
-        return create_access_token(user.id)
+        return create_access_token(user.id, name=user.full_name)

@@ -142,6 +142,9 @@ class ChatNotifier extends StateNotifier<ChatState> {
   final Map<int, Map<String, int>> _visibleNodeCodeLens = {};
   final Map<int, int> _currentMsgIndices = {};
   final Map<int, bool> _streamIsActives = {};
+  
+  // Cache to prevent race conditions where fetching from API misses messages during active streams
+  final Map<int, List<String>> _localMessagesCache = {};
 
   ChatNotifier(this._apiClient) : super(ChatState()) {
     _audioPlayer.onPlayerComplete.listen((_) {
@@ -222,6 +225,17 @@ class ChatNotifier extends StateNotifier<ChatState> {
        loadingText: null,
     );
     
+    // Prevent fetching from API if a stream is actively running and we have the local cache
+    // The API might miss the user's message due to race conditions.
+    if (_streamIsActives[id] == true && _localMessagesCache.containsKey(id)) {
+        state = state.copyWith(
+           messages: _localMessagesCache[id]!,
+           isProcessing: true,
+           loadingText: "Thinking...",
+        );
+        return;
+    }
+    
     final detail = await _apiClient.fetchConversation(id);
     if (detail.isNotEmpty && detail.containsKey('messages')) {
       final List<dynamic> msgData = detail['messages'];
@@ -230,20 +244,11 @@ class ChatNotifier extends StateNotifier<ChatState> {
          return "$role: ${m['content']}";
       }).toList();
       
-      if (_streamIsActives[id] == true) {
-          final inFlightBuffer = _networkMessageBuffers[id] ?? "";
-          final visibleLen = _visibleMessageLens[id] ?? 0;
-          parsed.add("Assistant: " + inFlightBuffer.substring(0, visibleLen));
-          state = state.copyWith(
-             messages: parsed,
-             isProcessing: true,
-             loadingText: "Thinking...",
-          );
-      } else {
-          state = state.copyWith(messages: parsed);
-      }
+      state = state.copyWith(messages: parsed);
+      _localMessagesCache[id] = parsed;
     } else {
       state = state.copyWith(messages: []);
+      _localMessagesCache[id] = [];
     }
     
     if (state.isContinuousVoiceMode) {
@@ -755,8 +760,12 @@ class ChatNotifier extends StateNotifier<ChatState> {
     }
   }
 
-  void addMessage(String text) {
-    state = state.copyWith(messages: [...state.messages, text]);
+  void addMessage(String msg) {
+    final newMsgs = [...state.messages, msg];
+    if (state.conversationId != null) {
+      _localMessagesCache[state.conversationId!] = newMsgs;
+    }
+    state = state.copyWith(messages: newMsgs);
   }
 
   Future<void> editMessageAndSend(int index, String newText) async {
@@ -819,6 +828,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
       if (state.conversationId == null) {
          final newId = await _apiClient.createConversation("New Chat");
          state = state.copyWith(conversationId: newId);
+         _localMessagesCache[newId] = List.from(state.messages);
          refreshSessions(); // Ensure sidebar updates immediately
          if (state.isContinuousVoiceMode) {
            _initWebSocket();
@@ -864,6 +874,9 @@ class ChatNotifier extends StateNotifier<ChatState> {
               }
               if (!firstChunkReceived) {
                   firstChunkReceived = true;
+                  if (_localMessagesCache.containsKey(streamConvId)) {
+                      _localMessagesCache[streamConvId]!.add("Assistant: ");
+                  }
                   if (isCurrentChat) state = state.copyWith(messages: [...state.messages, "Assistant: "]);
                   _currentMsgIndices[streamConvId] = expectedAssistantIndex;
               }
@@ -879,6 +892,9 @@ class ChatNotifier extends StateNotifier<ChatState> {
               if (state.isProcessing) if (isCurrentChat) state = state.copyWith(isProcessing: false);
               if (!firstChunkReceived) {
                   firstChunkReceived = true;
+                  if (_localMessagesCache.containsKey(streamConvId)) {
+                      _localMessagesCache[streamConvId]!.add("Assistant: ");
+                  }
                   if (isCurrentChat) state = state.copyWith(messages: [...state.messages, "Assistant: "]);
                   _currentMsgIndices[streamConvId] = expectedAssistantIndex;
               }
@@ -914,6 +930,9 @@ class ChatNotifier extends StateNotifier<ChatState> {
               }
                if (!firstChunkReceived) {
                    firstChunkReceived = true;
+                  if (_localMessagesCache.containsKey(streamConvId)) {
+                      _localMessagesCache[streamConvId]!.add("Assistant: ");
+                  }
                    if (isCurrentChat) state = state.copyWith(messages: [...state.messages, "Assistant: "]);
                    _currentMsgIndices[streamConvId] = expectedAssistantIndex;
                }
@@ -922,8 +941,15 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
               // Update message string for persistence
               final newMsgs = List<String>.from(state.messages);
-              if (_currentMsgIndices[streamConvId]! >= 0 && _currentMsgIndices[streamConvId]! < newMsgs.length) {
-                  newMsgs[_currentMsgIndices[streamConvId]!] = "Assistant: " + _networkMessageBuffers[streamConvId]!;
+              if (_currentMsgIndices[streamConvId]! >= 0) {
+                  final idx = _currentMsgIndices[streamConvId]!;
+                  final msgVal = "Assistant: " + _networkMessageBuffers[streamConvId]!;
+                  if (idx < newMsgs.length) {
+                      newMsgs[idx] = msgVal;
+                  }
+                  if (_localMessagesCache.containsKey(streamConvId) && idx < _localMessagesCache[streamConvId]!.length) {
+                      _localMessagesCache[streamConvId]![idx] = msgVal;
+                  }
               }
               
               // Update live node list: replace skeleton or append

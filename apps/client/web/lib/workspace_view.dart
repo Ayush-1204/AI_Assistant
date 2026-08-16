@@ -7,7 +7,8 @@ import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 import 'providers/chat_provider.dart';
 import 'providers/nav_provider.dart';
-import 'providers/auth_provider.dart'; // Added this
+import 'providers/auth_provider.dart';
+import 'providers/greeting_provider.dart';
 import 'widgets/chat_input_pill.dart';
 
 class WorkspaceView extends ConsumerStatefulWidget {
@@ -17,25 +18,30 @@ class WorkspaceView extends ConsumerStatefulWidget {
 }
 
 class _WorkspaceViewState extends ConsumerState<WorkspaceView> {
-  late Future<List<dynamic>> _dashboardFuture;
+  late Future<Map<String, dynamic>> _weatherFuture;
+  late Future<Map<String, dynamic>> _calendarFuture;
+  late Future<Map<String, dynamic>> _newsFuture;
+  
   final TextEditingController _queryController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    // Default to an empty future immediately so the UI knows we are loading
-    _dashboardFuture = Future.value([]);
+    _weatherFuture = Future.value({});
+    _calendarFuture = Future.value({});
+    _newsFuture = Future.value({});
     _initDashboard();
   }
 
   Future<void> _initDashboard() async {
     if (mounted) {
       setState(() {
-        _dashboardFuture = ref.read(apiClientProvider).fetchDashboardWidgets();
+        _weatherFuture = ref.read(apiClientProvider).fetchWeatherWidget();
+        _calendarFuture = ref.read(apiClientProvider).fetchCalendarWidget();
+        _newsFuture = ref.read(apiClientProvider).fetchNewsWidget();
       });
     }
 
-    // Fetch location in background if already permitted, without aggressively requesting
     _fetchLocationQuietly();
   }
 
@@ -49,10 +55,10 @@ class _WorkspaceViewState extends ConsumerState<WorkspaceView> {
         if (perm == LocationPermission.whileInUse || perm == LocationPermission.always) {
           final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.low);
           ref.read(apiClientProvider).setLocation(pos.latitude, pos.longitude);
-          // Optionally refresh dashboard to update weather with exact location
           if (mounted) {
             setState(() {
-              _dashboardFuture = ref.read(apiClientProvider).fetchDashboardWidgets();
+              _weatherFuture = ref.read(apiClientProvider).fetchWeatherWidget();
+              _newsFuture = ref.read(apiClientProvider).fetchNewsWidget();
             });
           }
         }
@@ -61,7 +67,8 @@ class _WorkspaceViewState extends ConsumerState<WorkspaceView> {
     
     if (mounted) {
       setState(() {
-        _dashboardFuture = ref.read(apiClientProvider).fetchDashboardWidgets();
+        _weatherFuture = ref.read(apiClientProvider).fetchWeatherWidget();
+        _newsFuture = ref.read(apiClientProvider).fetchNewsWidget();
       });
     }
   }
@@ -70,7 +77,6 @@ class _WorkspaceViewState extends ConsumerState<WorkspaceView> {
     final screenWidth = MediaQuery.of(context).size.width;
     int crossAxisCount = screenWidth > 1200 ? 3 : (screenWidth > 800 ? 2 : 1);
 
-    // Dashboard disabled temporarily - falling back to skeleton placeholders
     return GridView.count(
       crossAxisCount: crossAxisCount,
       shrinkWrap: true,
@@ -78,45 +84,30 @@ class _WorkspaceViewState extends ConsumerState<WorkspaceView> {
       crossAxisSpacing: 16,
       mainAxisSpacing: 16,
       childAspectRatio: screenWidth > 800 ? 1.45 : 1.75,
-      children: List.generate(3, (index) {
-        return const _SkeletonDashboardCard();
-      }),
+      children: [
+        FutureBuilder<Map<String, dynamic>>(
+          future: _weatherFuture,
+          builder: (context, snapshot) {
+            if (!snapshot.hasData || snapshot.data!.isEmpty) return const _SkeletonDashboardCard();
+            return _DashboardWidgetCard(data: snapshot.data!, index: 0);
+          },
+        ),
+        FutureBuilder<Map<String, dynamic>>(
+          future: _calendarFuture,
+          builder: (context, snapshot) {
+            if (!snapshot.hasData || snapshot.data!.isEmpty) return const _SkeletonDashboardCard();
+            return _DashboardWidgetCard(data: snapshot.data!, index: 1);
+          },
+        ),
+        FutureBuilder<Map<String, dynamic>>(
+          future: _newsFuture,
+          builder: (context, snapshot) {
+            if (!snapshot.hasData || snapshot.data!.isEmpty) return const _SkeletonDashboardCard();
+            return _DashboardWidgetCard(data: snapshot.data!, index: 2);
+          },
+        ),
+      ],
     );
-    
-    /*
-    return FutureBuilder<List<dynamic>>(
-      future: _dashboardFuture,
-      builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return GridView.count(
-            crossAxisCount: crossAxisCount,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio: screenWidth > 800 ? 1.45 : 1.75,
-            children: List.generate(3, (index) {
-              return const _SkeletonDashboardCard();
-            }),
-          );
-        }
-
-        final widgets = snapshot.data!;
-        return GridView.count(
-          crossAxisCount: crossAxisCount,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-          childAspectRatio: screenWidth > 800 ? 1.45 : 1.75,
-          children: List.generate(widgets.length, (index) {
-            return _DashboardWidgetCard(
-                data: widgets[index] as Map<String, dynamic>, index: index);
-          }),
-        );
-      },
-    );
-    */
   }
 
   @override
@@ -135,6 +126,8 @@ class _WorkspaceViewState extends ConsumerState<WorkspaceView> {
 
   @override
   Widget build(BuildContext context) {
+    final greetingState = ref.watch(greetingProvider);
+
     return Container(
       color: Colors.black,
       child: Column(
@@ -158,14 +151,14 @@ class _WorkspaceViewState extends ConsumerState<WorkspaceView> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text("Greetings, Ayush",
-                      style: TextStyle(
+                  Text(greetingState.greeting,
+                      style: const TextStyle(
                           fontSize: 32,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
                           letterSpacing: -0.5)),
                   const SizedBox(height: 12),
-                  Text("What's on your mind today?",
+                  Text(greetingState.prompt,
                       style: TextStyle(
                           fontSize: 18,
                           color: Colors.white.withValues(alpha: 0.6))),
@@ -680,20 +673,27 @@ class _DashboardWidgetCardState extends State<_DashboardWidgetCard>
           child: LayoutBuilder(builder: (context, constraints) {
             int rows = (grid.length / 7).ceil();
             if (rows == 0) rows = 1;
-            double itemWidth = constraints.maxWidth / 7;
-            double itemHeight = constraints.maxHeight / rows;
-            double safeRatio = (itemWidth > 0 && itemHeight > 0)
-                ? (itemWidth / itemHeight)
-                : 1.0;
+            // Subtract the spacing (4px) to get the true available width/height for the items
+            double itemWidth = (constraints.maxWidth - (6 * 4)) / 7;
+            double itemHeight = (constraints.maxHeight - ((rows - 1) * 4)) / rows;
+            
+            // Ensure values don't go negative during extreme resizing
+            itemWidth = itemWidth > 0 ? itemWidth : 1;
+            itemHeight = itemHeight > 0 ? itemHeight : 1;
+            
+            double safeRatio = itemWidth / itemHeight;
 
-            return GridView.builder(
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 7,
-                  childAspectRatio: safeRatio,
-                  mainAxisSpacing: 4,
-                  crossAxisSpacing: 4),
-              itemCount: grid.length,
+            return ScrollConfiguration(
+              behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+              child: GridView.builder(
+                padding: EdgeInsets.zero,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 7,
+                    childAspectRatio: safeRatio,
+                    mainAxisSpacing: 4,
+                    crossAxisSpacing: 4),
+                itemCount: grid.length,
               itemBuilder: (context, idx) {
                 final d = grid[idx];
                 if (d['day'] == 0) return const SizedBox();
@@ -732,7 +732,8 @@ class _DashboardWidgetCardState extends State<_DashboardWidgetCard>
                   ),
                 );
               },
-            );
+            ),
+          );
           }),
         ),
       ],
@@ -785,19 +786,21 @@ class _DashboardWidgetCardState extends State<_DashboardWidgetCard>
                       const SizedBox(height: 12),
                       Text(article['title'] ?? '',
                           style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
                               color: Colors.white,
+                              letterSpacing: -0.5,
                               height: 1.2),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
                       Expanded(
                         child: Text(article['summary'] ?? '',
                             style: TextStyle(
-                                fontSize: 13,
-                                height: 1.6,
-                                color: Colors.white.withValues(alpha: 0.6)),
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                                height: 1.8,
+                                color: Colors.white.withValues(alpha: 0.85)),
                             overflow: TextOverflow.fade),
                       ),
                       const SizedBox(
