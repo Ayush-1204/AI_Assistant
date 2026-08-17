@@ -471,11 +471,27 @@ The `AiMessageRenderer` (which renders `HeadingWidget`/`ParagraphWidget` text) a
   - **Library Hover FX**: Resolved a bug clipping the active selected boundary ring during `HoverZoomImage` interaction by inverting the stack and drawing the boundary border directly on the non-scaled outer container.
 
 
+
+
 ## Phase 45: Image Generation & Dashboard UX Fixes
 **Status**: Completed
 - **Plan**: Add free image generation via Pollinations.ai, handle layout jitter in library list view, and fix image load failures in chat history and library views. Temporarily disable active dashboard widgets while planning backend concurrency overhaul.
 - **Implementation**:
-  - **Image Generation Pipeline**: Integrated Pollinations.ai via IMAGE_GENERATION intent in i_service.py. Images are persisted to physical storage and DB, emitting a GeneratedImageNode to Flutter for rendering.
+  - **Image Generation Pipeline**: Integrated Pollinations.ai via IMAGE_GENERATION intent in  i_service.py. Images are persisted to physical storage and DB, emitting a GeneratedImageNode to Flutter for rendering.
   - **UI Jitter Fix**: Replaced conditional rendering if (showOverlay) Row(...) with a Visibility(maintainSize: true) wrapper inside library_view.dart, eliminating structural width changes and completely resolving the severe hover-jitter issue in list-view mode.
   - **Dashboard Disable**: Commented out the FutureBuilder component in workspace_view.dart and forced the backend /dashboard/widgets endpoint to return an empty array, gracefully downgrading the dashboard to static _SkeletonDashboardCard placeholders.
   - **Image Preview/History Bugs**: Fixed chat history breaking on image loads by dumping single-line JSON nodes instead of pretty-printed multi-line arrays (which crashed the streaming parser). Fixed library thumbnail broken image links by normalizing document.storage_path against absolute/relative edge cases in document.py. Bypassed wsrv.nl external proxy in ullscreen_gallery.dart for local development endpoints to prevent network blocks.
+
+
+## Phase 46: News Dashboard Optimization & Responsive UI Polish
+**Status**: Completed
+- **Plan**: Optimize the News Dashboard backend scraper to reduce LLM calls, implement a robust responsive grid system for the workspace layout, and polish the News widget UI with glassmorphism and gesture controls.
+- **Implementation**:
+  - **Backend Scraper Optimization**: Rewrote `_fetch_curated_news_domains` in `dashboard_rules.py` to make a single targeted Tavily API call (`include_raw_content=True`) instead of 6 separate searches. Replaced LLM parsing with intelligent regex and string-matching to instantly extract and categorize bullets under domain headers.
+  - **Dashboard Responsiveness**: Upgraded the `_buildDashboardWidgets` layout in `workspace_view.dart` from static `MediaQuery` constraints to a fully dynamic `LayoutBuilder`. It now gracefully adapts `crossAxisCount` (1, 2, or 3 columns) and `childAspectRatio` based precisely on the available width.
+  - **News UI Refinements**: 
+    - Replaced raw text blobs with beautifully spaced, custom bullet rows.
+    - Implemented a `SingleChildScrollView` to prevent text cut-offs.
+    - Introduced a sleek frosted glass pill (`BackdropFilter`) at the bottom right to house navigation arrows cleanly.
+    - Added an animated dot indicator bound directly to the `_pageController` to display the active swipe state.
+    - Applied `PageScrollPhysics(parent: ClampingScrollPhysics())` to the `PageView` to enable horizontal gesture swiping while explicitly removing native trackpad bouncing effects.

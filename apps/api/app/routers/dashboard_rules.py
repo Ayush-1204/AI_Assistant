@@ -360,100 +360,143 @@ _news_cache: dict[str, tuple[datetime.datetime, list[dict]]] = {}
 _CACHE_TTL = datetime.timedelta(hours=4)
 
 async def _fetch_curated_news_domains(location_name: str) -> list[dict]:
-    from app.services.ai.tools.news_search import _tavily_search, TRUSTED_SOURCES_INDIA, TRUSTED_SOURCES_GLOBAL
+    # Custom dashboard news fetching (optimized single-query parsing)
+    today_str = datetime.datetime.now().strftime("%B %d, %Y")
     
-    in_india = any(city in location_name.lower() for city in ["delhi", "mumbai", "bangalore", "chennai", "kolkata", "india", "pune", "hyderabad", "noida", "gurugram", "jaipur", "lucknow"])
+    # We construct a query targeted at a high-density "daily headlines" style article 
+    # (very common in Indian/Asian news media like Jagran Josh)
+    query = f"School Assembly News Headlines Today ({today_str}): Top National, International, Sports, Economy, Science & Technology, and Education News"
     
-    local_sources = TRUSTED_SOURCES_INDIA if in_india else TRUSTED_SOURCES_GLOBAL
-    global_sources = TRUSTED_SOURCES_GLOBAL
-    
-    city = location_name.split(",")[0] if "," in location_name else location_name
-    country = "India" if in_india else "Global"
-    
-    cache_key = f"{city}_{country}"
-    now = datetime.datetime.now()
+    cache_key = f"dashboard_news_{today_str}"
     if cache_key in _news_cache:
         cached_time, cached_articles = _news_cache[cache_key]
-        if now - cached_time < _CACHE_TTL:
-            logger.info(f"[Dashboard] Serving news from cache for {cache_key}")
+        if datetime.datetime.now() - cached_time < _CACHE_TTL:
+            logger.info("[Dashboard] Serving news from cache")
             return cached_articles
+
+    from app.config import get_settings
+    import httpx
+    import re
     
-    queries = [
-        {"domain": "top", "q": f"Top breaking news {country}", "sources": local_sources},
-        {"domain": "tech", "q": "Latest technology news", "sources": global_sources},
-        {"domain": "local", "q": f"Top local news {city}", "sources": local_sources},
-        {"domain": "business", "q": f"Top business and finance news {country}", "sources": local_sources},
-        {"domain": "foreign", "q": "Top breaking global world news", "sources": global_sources},
-        {"domain": "sports", "q": f"Top sports news {country}", "sources": local_sources},
-    ]
+    settings = get_settings()
+    api_key = settings.TAVILY_API_KEY
+    if not api_key:
+        return []
+        
+    payload = {
+        "api_key": api_key,
+        "query": query,
+        "search_depth": "advanced",
+        "include_raw_content": True,
+        "time_range": "day",
+        "max_results": 3,
+    }
     
-    seen_headlines = []
+    # Check if we should add country constraint based on location
+    in_india = any(city in location_name.lower() for city in ["delhi", "mumbai", "bangalore", "chennai", "kolkata", "india", "pune", "hyderabad", "noida", "gurugram", "jaipur", "lucknow"])
     
-    async def fetch_domain(q_info):
-        try:
-            results, _ = await _tavily_search(
-                query=q_info["q"],
-                include_domains=q_info["sources"],
-                max_results=10, # Fetch extra to account for deduplication
-                days=2
-            )
+    results_to_display = []
+    
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post("https://api.tavily.com/search", json=payload)
+            resp.raise_for_status()
+            data = resp.json()
             
-            headlines = []
-            for r in results:
-                raw_title = r.get("title", "")
-                raw_content = r.get("content", "")
-                extracted = _extract_headline(raw_title, raw_content)
+            domains = ["National", "International", "Economy", "Sports", "Education", "Science and Tech", "Business"]
+            extracted = {d: [] for d in domains}
+            
+            for r in data.get('results', []):
+                content = r.get('raw_content', '') or r.get('content', '')
+                lines = content.split('\n')
+                current_domain = None
                 
-                if not extracted:
-                    continue
+                for line in lines:
+                    line = line.strip()
+                    if not line: continue
                     
-                # Semantic deduplication
-                is_duplicate = False
-                for seen in seen_headlines:
-                    ratio = difflib.SequenceMatcher(None, extracted.lower(), seen.lower()).ratio()
-                    if ratio > 0.65:
-                        is_duplicate = True
-                        break
+                    lower_line = line.lower()
+                    # Stop parsing for current domain if we hit non-news sections or promo headers
+                    if any(x in lower_line for x in ["thought of the day", "meaning of thought", "related stories", "read more"]):
+                        current_domain = None
+                        continue
                         
-                if not is_duplicate:
-                    headlines.append(f"• {extracted}")
-                    seen_headlines.append(extracted)
+                    # Check if line is a domain header
+                    header_match = False
+                    for d in domains:
+                        if d.lower() in lower_line and "news" in lower_line and ("assembly" in lower_line or "headlines" in lower_line):
+                            current_domain = d
+                            header_match = True
+                            break
                     
-                if len(headlines) == 3:
-                    break
+                    if header_match:
+                        continue
                     
-            domain_titles = {
-                "top": "Top Headlines",
-                "tech": "Technology Updates",
-                "local": "Local News",
-                "business": "Business & Finance",
-                "foreign": "Global News",
-                "sports": "Sports Highlights"
+                    if current_domain:
+                        # Extract sentences that look like news items
+                        clean_line = re.sub(r'^[-*•\d.]+\s*', '', line) # Strip leading bullets
+                        clean_line = re.sub(r'\[.*?\]\(.*?\)', '', clean_line) # Strip markdown links
+                        clean_line = clean_line.strip()
+                        
+                        # Filter out obvious promo/boilerplate sentences
+                        is_promo = any(x in clean_line.lower() for x in [
+                            "stay informed with", "discover and compare", "click here", 
+                            "read full article", "subscribe to", "whatsapp group", "telegram channel"
+                        ])
+                        
+                        if 40 < len(clean_line) < 300 and not clean_line.startswith("http") and not is_promo:
+                            extracted[current_domain].append(clean_line)
+                            
+            # Convert to display format
+            domain_mapping = {
+                "National": "top",
+                "International": "foreign",
+                "Economy": "business",
+                "Business": "business",
+                "Sports": "sports",
+                "Education": "local", # Repurpose local for education
+                "Science and Tech": "tech"
             }
             
-            display_title = domain_titles.get(q_info["domain"], "News Updates")
-            summary_text = "\n\n".join(headlines) if headlines else "No recent updates available."
+            display_titles = {
+                "top": "National Headlines",
+                "foreign": "Global News",
+                "business": "Economy & Business",
+                "sports": "Sports Highlights",
+                "local": "Education Updates",
+                "tech": "Science & Technology"
+            }
             
-            return [{
-                "domain": q_info["domain"],
-                "title": display_title,
-                "summary": summary_text
-            }]
-        except Exception as e:
-            logger.warning(f"[Dashboard] Failed to fetch {q_info['domain']} news: {e}")
-            return []
-            
-    # Fetch sequentially or concurrently?
-    # Because we rely on a shared seen_headlines list, and async boundaries don't interrupt synchronous loops,
-    # running them with gather is actually thread-safe in Python's asyncio since there's no await during the deduplication loop.
-    tasks = [fetch_domain(q) for q in queries]
-    results_lists = await asyncio.gather(*tasks)
-    
-    all_articles = []
-    for rlist in results_lists:
-        all_articles.extend(rlist)
+            # Merge Economy and Business
+            if extracted.get("Business"):
+                extracted["Economy"].extend(extracted["Business"])
+                
+            for domain_key in ["National", "International", "Economy", "Sports", "Education", "Science and Tech"]:
+                items = extracted.get(domain_key, [])
+                
+                # Maintain order while deduplicating
+                unique_items = []
+                seen = set()
+                for item in items:
+                    if item not in seen and "If an individual learns" not in item:
+                        seen.add(item)
+                        unique_items.append(item)
+                
+                if unique_items:
+                    # Show all unique bullets, no random sampling to 3
+                    formatted = "\n\n".join([f"• {item}" for item in unique_items])
+                    
+                    mapped_domain = domain_mapping.get(domain_key, "top")
+                    results_to_display.append({
+                        "domain": mapped_domain,
+                        "title": display_titles.get(mapped_domain, "News Updates"),
+                        "summary": formatted
+                    })
+                    
+            if results_to_display:
+                _news_cache[cache_key] = (datetime.datetime.now(), results_to_display)
+                
+    except Exception as e:
+        logger.warning(f"[Dashboard] Failed to fetch curated news: {e}")
         
-    # Store in cache
-    _news_cache[cache_key] = (now, all_articles)
-        
-    return all_articles
+    return results_to_display

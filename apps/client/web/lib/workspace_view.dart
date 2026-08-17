@@ -74,17 +74,32 @@ class _WorkspaceViewState extends ConsumerState<WorkspaceView> {
   }
 
   Widget _buildDashboardWidgets() {
-    final screenWidth = MediaQuery.of(context).size.width;
-    int crossAxisCount = screenWidth > 1200 ? 3 : (screenWidth > 800 ? 2 : 1);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableWidth = constraints.maxWidth;
+        
+        int crossAxisCount;
+        double childAspectRatio;
 
-    return GridView.count(
-      crossAxisCount: crossAxisCount,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 16,
-      mainAxisSpacing: 16,
-      childAspectRatio: screenWidth > 800 ? 1.45 : 1.75,
-      children: [
+        if (availableWidth > 1100) {
+          crossAxisCount = 3;
+          childAspectRatio = 1.45;
+        } else if (availableWidth > 750) {
+          crossAxisCount = 2;
+          childAspectRatio = 1.35;
+        } else {
+          crossAxisCount = 1;
+          childAspectRatio = 1.6;
+        }
+
+        return GridView.count(
+          crossAxisCount: crossAxisCount,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
+          childAspectRatio: childAspectRatio,
+          children: [
         FutureBuilder<Map<String, dynamic>>(
           future: _weatherFuture,
           builder: (context, snapshot) {
@@ -106,8 +121,9 @@ class _WorkspaceViewState extends ConsumerState<WorkspaceView> {
             return _DashboardWidgetCard(data: snapshot.data!, index: 2);
           },
         ),
-      ],
-    );
+        ],
+      );
+    });
   }
 
   @override
@@ -748,11 +764,10 @@ class _DashboardWidgetCardState extends State<_DashboardWidgetCard>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
-            child: Stack(
-          children: [
-            PageView.builder(
-              controller: _pageController,
-              itemBuilder: (context, idx) {
+          child: PageView.builder(
+            physics: const PageScrollPhysics(parent: ClampingScrollPhysics()),
+            controller: _pageController,
+            itemBuilder: (context, idx) {
                 final actIdx = idx % articles.length;
                 final article = articles[actIdx];
                 return Padding(
@@ -795,46 +810,128 @@ class _DashboardWidgetCardState extends State<_DashboardWidgetCard>
                           overflow: TextOverflow.ellipsis),
                       const SizedBox(height: 16),
                       Expanded(
-                        child: Text(article['summary'] ?? '',
-                            style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w500,
-                                height: 1.8,
-                                color: Colors.white.withValues(alpha: 0.85)),
-                            overflow: TextOverflow.fade),
+                        child: SingleChildScrollView(
+                          physics: const BouncingScrollPhysics(),
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 8.0, top: 8.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: (article['summary']?.toString() ?? '')
+                                  .split('\n\n')
+                                  .where((s) => s.trim().isNotEmpty)
+                                  .map((s) {
+                                final text = s.trim().replaceFirst(RegExp(r'^•\s*'), '');
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 12.0),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Container(
+                                        margin: const EdgeInsets.only(top: 8, right: 14),
+                                        width: 5,
+                                        height: 5,
+                                        decoration: const BoxDecoration(
+                                          color: Colors.greenAccent,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: Text(text,
+                                            style: TextStyle(
+                                                fontSize: 15.5,
+                                                fontWeight: FontWeight.w500,
+                                                height: 1.6,
+                                                color: Colors.white.withValues(alpha: 0.85))),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                        ),
                       ),
-                      const SizedBox(
-                          height: 24), // Avoid crossing over the arrow bounds
                     ],
                   ),
                 );
               },
             ),
-            Positioned(
-                bottom: 0,
-                right: 0,
-                child: Row(
-                  children: [
-                    IconButton(
-                        icon: Icon(Icons.chevron_left,
-                            color: Colors.white.withValues(alpha: 0.5)),
-                        onPressed: () {
-                          _pageController.previousPage(
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.ease);
-                        }),
-                    IconButton(
-                        icon: Icon(Icons.chevron_right,
-                            color: Colors.white.withValues(alpha: 0.5)),
-                        onPressed: () {
-                          _pageController.nextPage(
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.ease);
-                        }),
-                  ],
-                ))
-          ],
-        ))
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 12.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              // Page Indicators
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8.0, left: 4.0),
+                child: AnimatedBuilder(
+                  animation: _pageController,
+                  builder: (context, child) {
+                    int page = 0;
+                    if (_pageController.hasClients) {
+                      page = _pageController.page?.round() ?? 0;
+                    }
+                    return Row(
+                      children: List.generate(articles.length, (index) {
+                        final isSelected = (page % articles.length) == index;
+                        return AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          margin: const EdgeInsets.only(right: 6),
+                          height: 6,
+                          width: isSelected ? 20 : 6,
+                          decoration: BoxDecoration(
+                            color: isSelected ? Colors.greenAccent : Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                        );
+                      }),
+                    );
+                  }
+                ),
+              ),
+              
+              // Frosted glass navigation pill
+              ClipRRect(
+                borderRadius: BorderRadius.circular(30),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(30),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          icon: Icon(Icons.chevron_left, color: Colors.white.withValues(alpha: 0.9)),
+                          onPressed: () {
+                            _pageController.previousPage(
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.ease);
+                          }
+                        ),
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          icon: Icon(Icons.chevron_right, color: Colors.white.withValues(alpha: 0.9)),
+                          onPressed: () {
+                            _pageController.nextPage(
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.ease);
+                          }
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
