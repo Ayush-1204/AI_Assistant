@@ -91,11 +91,17 @@ Return EXACTLY and ONLY a valid JSON object matching the above keys.
         """
         Dynamically generate an alternate task to fulfill a capability that failed.
         """
+        import datetime
+        current_time = datetime.datetime.now().astimezone().isoformat()
+        
         prompt = f"""You are a replanning agent. A task in the execution graph has failed.
 User Query: {query}
 Failed Task ID: {failed_task.get("id")}
 Failed Capability: {failed_task.get("capability")}
 Reason for failure: {failure_reason}
+
+The current local date and time is: {current_time}
+IMPORTANT: When outputting timestamps for arguments, you MUST preserve the timezone offset exactly as provided in the local time. DO NOT convert to UTC ('Z') unless requested.
 
 You must generate an alternate ExecutionTask (in JSON format) to recover this branch.
 Maybe try a different capability, or change the tool arguments.

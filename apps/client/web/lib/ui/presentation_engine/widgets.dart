@@ -1308,14 +1308,10 @@ class EventCardWidget extends ConsumerWidget {
               if (node.eventId != null && node.eventId!.isNotEmpty) ...[
                 IconButton(
                   onPressed: () {
-                    // TODO: Implement Edit logic (e.g. open rich edit dialog)
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content:
-                                Text('Edit event not fully hooked up yet.')),
-                      );
-                    }
+                    showDialog(
+                      context: context,
+                      builder: (ctx) => _EditEventDialog(node: node),
+                    );
                   },
                   icon: const Icon(Icons.edit_outlined,
                       color: Colors.blueAccent, size: 20),
@@ -1477,6 +1473,172 @@ class GeneratedImageCardWidget extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _EditEventDialog extends ConsumerStatefulWidget {
+  final EventCardNode node;
+  const _EditEventDialog({required this.node});
+
+  @override
+  ConsumerState<_EditEventDialog> createState() => _EditEventDialogState();
+}
+
+class _EditEventDialogState extends ConsumerState<_EditEventDialog> {
+  late TextEditingController _titleController;
+  late TextEditingController _descController;
+  late DateTime _start;
+  late DateTime _end;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleController = TextEditingController(text: widget.node.title);
+    _descController = TextEditingController();
+    try {
+      _start = DateTime.parse(widget.node.startTime).toLocal();
+    } catch (_) {
+      _start = DateTime.now();
+    }
+    try {
+      _end = DateTime.parse(widget.node.endTime).toLocal();
+    } catch (_) {
+      _end = DateTime.now().add(const Duration(hours: 1));
+    }
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDateTime(bool isStart) async {
+    final current = isStart ? _start : _end;
+    final date = await showDatePicker(
+      context: context,
+      initialDate: current,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (date == null) return;
+
+    if (!mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(current),
+    );
+    if (time == null) return;
+
+    setState(() {
+      final newDt = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+      if (isStart) {
+        _start = newDt;
+        if (_end.isBefore(_start)) {
+          _end = _start.add(const Duration(hours: 1));
+        }
+      } else {
+        _end = newDt;
+      }
+    });
+  }
+
+  Future<void> _save() async {
+    setState(() => _isLoading = true);
+    try {
+      final updates = <String, dynamic>{
+        'summary': _titleController.text.trim(),
+        'start_time': _start.toUtc().toIso8601String(),
+        'end_time': _end.toUtc().toIso8601String(),
+      };
+      if (_descController.text.trim().isNotEmpty) {
+        updates['description'] = _descController.text.trim();
+      }
+      
+      await ref.read(apiClientProvider).updateCalendarEvent(widget.node.eventId!, updates);
+      if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: const Color(0xFF1E1E1E),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.white.withOpacity(0.1)),
+      ),
+      title: const Text('Edit Event', style: TextStyle(color: Colors.white)),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: _titleController,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                labelText: 'Event Title',
+                labelStyle: TextStyle(color: Colors.white70),
+                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.blueAccent)),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _descController,
+              style: const TextStyle(color: Colors.white),
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Description (Optional)',
+                labelStyle: TextStyle(color: Colors.white70),
+                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.blueAccent)),
+              ),
+            ),
+            const SizedBox(height: 24),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Start Time', style: TextStyle(color: Colors.white70, fontSize: 13)),
+              subtitle: Text(DateFormat('MMM d, yyyy • h:mm a').format(_start), style: const TextStyle(color: Colors.white)),
+              trailing: const Icon(Icons.calendar_today, color: Colors.blueAccent, size: 20),
+              onTap: () => _pickDateTime(true),
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('End Time', style: TextStyle(color: Colors.white70, fontSize: 13)),
+              subtitle: Text(DateFormat('MMM d, yyyy • h:mm a').format(_end), style: const TextStyle(color: Colors.white)),
+              trailing: const Icon(Icons.calendar_today, color: Colors.blueAccent, size: 20),
+              onTap: () => _pickDateTime(false),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+        ),
+        ElevatedButton(
+          onPressed: _isLoading ? null : _save,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.blueAccent,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          child: _isLoading 
+            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) 
+            : const Text('Save'),
+        ),
+      ],
     );
   }
 }

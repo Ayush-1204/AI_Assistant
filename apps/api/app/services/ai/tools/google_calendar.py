@@ -123,10 +123,28 @@ class CalendarTool(BaseTool):
                     kwargs.get('reminders')
                 )
                 
+                try:
+                    from app.routers.dashboard import calendar_ws_manager
+                    import asyncio
+                    async def _delayed_broadcast():
+                        await asyncio.sleep(1.0)
+                        await calendar_ws_manager.send_personal_message({"type": "CALENDAR_SYNC_UPDATE"}, user_id)
+                    asyncio.create_task(_delayed_broadcast())
+                except Exception:
+                    pass
+                
                 reminder_text = "with reminders" if kwargs.get('reminders') or "reminder_minutes" in kwargs else "without reminders"
                 return f"Event '{kwargs['summary']}' successfully scheduled for {start_time} to {end_time} {reminder_text}. Link: {rv.get('htmlLink')} Event ID: {rv.get('id')}"
             elif action == "delete_event":
                 await self.service.delete_event(user_id, kwargs['event_id'])
+                
+                try:
+                    from app.routers.dashboard import calendar_ws_manager
+                    import asyncio
+                    asyncio.create_task(calendar_ws_manager.send_personal_message({"type": "CALENDAR_SYNC_UPDATE"}, user_id))
+                except Exception:
+                    pass
+                    
                 return "Event deleted successfully."
             elif action == "find_free_time":
                 rv = await self.service.find_free_time(user_id, kwargs['date'])

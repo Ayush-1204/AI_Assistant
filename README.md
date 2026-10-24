@@ -1,13 +1,13 @@
 <div align="center">
-  <img alt="Project Zenith" src="https://via.placeholder.com/400x150/000000/FFFFFF?text=ZENITH+AI" width="400">
+  <img alt="Project Aiden" src="https://via.placeholder.com/400x150/000000/FFFFFF?text=AIDEN+AI" width="400">
 
   <p><i>The Omnipresent Local-First Assistant.</i></p>
 
   <p>
-    <img src="https://img.shields.io/badge/project-Zenith-blue" alt="Project">
+    <img src="https://img.shields.io/badge/project-Aiden-blue" alt="Project">
     <img src="https://img.shields.io/badge/python-%3E%3D3.12-blue" alt="Python">
     <img src="https://img.shields.io/badge/flutter-Web%20%7C%20iOS%20%7C%20Android-cyan" alt="Flutter">
-    <img src="https://img.shields.io/badge/database-PostgreSQL%20%7C%20Qdrant-orange" alt="Tech">
+    <img src="https://img.shields.io/badge/database-PostgreSQL%20%7C%20pgvector-orange" alt="Tech">
     <a href="#"><img src="https://img.shields.io/badge/license-Apache%202.0-green" alt="License"></a>
   </p>
 </div>
@@ -15,14 +15,14 @@
 ---
 
 > **Personal AI, unified across endpoints.**
-> Zenith bridges the gap between cloud-reliant wrappers and inflexible local LLMs by dynamically orchestrating compute where it belongs. Featuring real-time Voice Streaming with **Fast Brain zero-latency Audio presence**, automated Daily Schedulers, and RAG contextual execution engines.
+> Aiden bridges the gap between cloud-reliant wrappers and inflexible local LLMs by dynamically orchestrating compute where it belongs. Featuring real-time Voice Streaming with **Fast Brain zero-latency Audio presence**, automated Daily Schedulers, and RAG contextual execution engines.
 
 ## Why This Architecture?
 
 Existing consumer AI assistants force users entirely onto the cloud. We built this ecosystem utilizing **Domain-Driven Design (DDD)** on FastAPI alongside a fully modular Flutter multi-platform toolkit to ensure that tools, documents, context, and integrations run natively local-first. We actively implement optimized routing heuristics:
 
 - **Fast Brain / Slow Brain Presence:** While deep Vector-DB searches block thread execution, ultra-low-latency `EdgeTTS` injections run asynchronously to drop `Time-To-First-Audio (TTFA)` drastically for realistic human-like voice conversations.
-- **Unified Proactive Engine:** Native integration with Celery Daemon Schedulers. The system doesn't just wait for questions—it autonomously executes timed behaviors and emits push/email notifications.
+- **Unified Proactive Engine:** Native integration with asynchronous PostgreSQL-backed Daemon Schedulers. The system doesn't just wait for questions—it autonomously executes timed behaviors and emits push/email notifications without needing external message brokers.
 - **Provider Agnostic Tool Calling:** Dynamic API binding over standard and non-standard native models (`gemini-2.5-flash-native`, `OllamaLlama3`, `Groq`).
 
 ## Tech Stack Overview
@@ -31,9 +31,9 @@ Existing consumer AI assistants force users entirely onto the cloud. We built th
 |---|---|---|
 | **Frontend Runtime** | **Flutter (Web/Mobile)** | Cross-platform glassmorphism UI, WebSockets Audio Processing, 16kHz DSP noise-suppressed capturing |
 | **Backend API** | **FastAPI (Python 3.12)** | Asynchronous endpoints, WebSockets controllers, Auth routing |
-| **Memory / Graph** | **PostgreSQL & Qdrant** | Full-text relational state tracking combined with Dense Semantic vectors |
-| **Generative Brain** | **LangChain & ProviderRouter** | Fallback-capable Exponential Backoffs for Gemini, OpenAI, Groq, local Ollama |
-| **Task Queue** | **Celery & Redis** | Persistent cron-job schedulers for proactive behavior routines |
+| **Memory / Graph** | **PostgreSQL & pgvector** | Full-text relational state tracking combined with Dense Semantic vectors |
+| **Generative Brain** | **Native Async Orchestrator** | Custom routing pipeline with Fallback-capable Exponential Backoffs for Gemini, OpenAI, Groq, local Ollama |
+| **Task Queue** | **Native Asyncio Poller** | Persistent cron-job schedulers and background tasks utilizing `FOR UPDATE SKIP LOCKED` and `croniter` |
 
 ## Quick Start
 *Boot the ecosystem locally:*
@@ -56,7 +56,7 @@ If you wish to arm the background task loop (Cron capabilities):
 ```bash
 # In a secondary terminal
 cd apps/api && source venv/bin/activate
-celery -A app.services.scheduler.worker worker --loglevel=info
+python -m app.services.scheduler.worker
 ```
 
 ### Dashboard GUI

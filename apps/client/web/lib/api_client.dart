@@ -281,6 +281,14 @@ class ApiClient {
     }
   }
 
+  Future<void> updateCalendarEvent(String eventId, Map<String, dynamic> updates) async {
+    try {
+      await _dio.patch('/dashboard/calendar/events/$eventId', data: updates);
+    } on DioException catch (e) {
+      throw Exception(e.response?.data?['detail'] ?? 'Failed to update event');
+    }
+  }
+
   Future<int> createConversation(String title) async {
     try {
       final response = await _dio.post('/conversations', data: {'title': title});

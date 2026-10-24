@@ -183,6 +183,60 @@ async def delete_calendar_event(
         from app.repositories.oauth_repository import OAuthRepository
         cal = GoogleCalendarService(GoogleAuthService(OAuthRepository(db)))
         await cal.delete_event(user.id, event_id)
+        
+        try:
+            import asyncio
+            async def _delayed_broadcast():
+                await asyncio.sleep(1.0)
+                await calendar_ws_manager.send_personal_message({"type": "CALENDAR_SYNC_UPDATE"}, user.id)
+            asyncio.create_task(_delayed_broadcast())
+        except Exception:
+            pass
+            
+        return {"status": "ok"}
+    except Exception as e:
+        return {"error": str(e)}
+
+class UpdateEventRequest(BaseModel):
+    summary: str | None = None
+    description: str | None = None
+    start_time: str | None = None
+    end_time: str | None = None
+
+@router.patch("/calendar/events/{event_id}")
+async def update_calendar_event(
+    event_id: str,
+    req: UpdateEventRequest,
+    user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    try:
+        from app.integrations.google.auth import GoogleAuthService
+        from app.integrations.google.calendar import GoogleCalendarService
+        from app.repositories.oauth_repository import OAuthRepository
+        cal = GoogleCalendarService(GoogleAuthService(OAuthRepository(db)))
+        
+        updates = {}
+        if req.summary is not None:
+            updates['summary'] = req.summary
+        if req.description is not None:
+            updates['description'] = req.description
+        if req.start_time is not None:
+            updates['start'] = req.start_time
+        if req.end_time is not None:
+            updates['end'] = req.end_time
+            
+        await cal.update_event(user.id, event_id, updates)
+        
+        try:
+            import asyncio
+            async def _delayed_broadcast():
+                await asyncio.sleep(1.0)
+                await calendar_ws_manager.send_personal_message({"type": "CALENDAR_SYNC_UPDATE"}, user.id)
+            asyncio.create_task(_delayed_broadcast())
+        except Exception:
+            pass
+            
         return {"status": "ok"}
     except Exception as e:
         return {"error": str(e)}

@@ -9,6 +9,7 @@ import 'providers/chat_provider.dart';
 import 'providers/nav_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/greeting_provider.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 import 'widgets/chat_input_pill.dart';
 
 class WorkspaceView extends ConsumerStatefulWidget {
@@ -31,6 +32,31 @@ class _WorkspaceViewState extends ConsumerState<WorkspaceView> {
     _calendarFuture = Future.value({});
     _newsFuture = Future.value({});
     _initDashboard();
+    _initWebSocket();
+  }
+
+  WebSocketChannel? _wsChannel;
+
+  void _initWebSocket() {
+    final token = ref.read(authProvider).token;
+    if (token == null) return;
+    
+    final wsUrl = 'ws://localhost:8000/dashboard/calendar/ws?token=$token';
+    try {
+      _wsChannel = WebSocketChannel.connect(Uri.parse(wsUrl));
+      _wsChannel?.stream.listen((message) {
+        try {
+          final data = jsonDecode(message);
+          if (data['type'] == 'CALENDAR_SYNC_UPDATE') {
+            if (mounted) {
+              setState(() {
+                _calendarFuture = ref.read(apiClientProvider).fetchCalendarWidget();
+              });
+            }
+          }
+        } catch (e) {}
+      });
+    } catch (e) {}
   }
 
   Future<void> _initDashboard() async {
@@ -128,6 +154,7 @@ class _WorkspaceViewState extends ConsumerState<WorkspaceView> {
 
   @override
   void dispose() {
+    _wsChannel?.sink.close();
     _queryController.dispose();
     super.dispose();
   }
